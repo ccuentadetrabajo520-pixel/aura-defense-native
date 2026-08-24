@@ -159,7 +159,7 @@ fun AuraIdDialog(currentId: String, onSave: (String) -> Unit, onDismiss: () -> U
 
 @Composable
 fun TelemetryDialog(
-    telemetry: com.aura.defense.data.DeviceTelemetry,
+    telemetry: com.aura.defense.data.DeviceTelemetrySnapshot,
     onSettingsAction: (com.aura.defense.security.SettingsAction) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -168,16 +168,16 @@ fun TelemetryDialog(
         title = { Text("Telemetría del dispositivo") },
         text = {
             Column(modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                TelemetryLine("Fabricante", telemetry.fabricante)
-                TelemetryLine("Modelo", telemetry.modelo)
-                TelemetryLine("Android", "${telemetry.versionAndroid} (API ${telemetry.api})")
-                TelemetryLine("Parche de seguridad", telemetry.parcheSeguridad)
-                TelemetryLine("Batería", telemetry.bateriaPorcentaje?.let { "$it%" } ?: "No disponible")
-                TelemetryLine("RAM disponible / total", "${formatBytes(telemetry.ramDisponibleBytes ?: 0L)} / ${formatBytes(telemetry.ramTotalBytes ?: 0L)}")
-                TelemetryLine("Almacenamiento disponible / total", "${formatBytes(telemetry.almacenamientoDisponibleBytes ?: 0L)} / ${formatBytes(telemetry.almacenamientoTotalBytes ?: 0L)}")
-                TelemetryLine("Red activa", if (telemetry.redActiva) "Sí" else "No")
-                TelemetryLine("VPN", if (telemetry.vpnActiva) "Activa" else "Inactiva")
-                TelemetryLine("DNS privado", telemetry.dnsPrivado)
+                TelemetryLine("Fabricante", telemetry.manufacturer)
+                TelemetryLine("Modelo", telemetry.model)
+                TelemetryLine("Android", "${telemetry.androidVersion} (API ${telemetry.apiLevel})")
+                TelemetryLine("Parche de seguridad", telemetry.securityPatch)
+                TelemetryLine("Batería", telemetry.batteryLevel)
+                TelemetryLine("RAM disponible / total", "${formatBytes(telemetry.ramAvailableBytes)} / ${formatBytes(telemetry.ramTotalBytes)}")
+                TelemetryLine("Almacenamiento disponible / total", "${formatBytes(telemetry.storageAvailableBytes)} / ${formatBytes(telemetry.storageTotalBytes)}")
+                TelemetryLine("Red activa", telemetry.networkActive)
+                TelemetryLine("VPN", if (telemetry.vpnActive) "Activa" else "Inactiva")
+                TelemetryLine("DNS privado", telemetry.privateDnsStatus)
                 Spacer(Modifier.height(4.dp))
                 Text("Accesos de Android", color = AuraCyan, fontSize = 11.sp)
                 TextButton(onClick = { onSettingsAction(com.aura.defense.security.SettingsAction.VPN) }) { Text("Abrir ajustes de VPN") }

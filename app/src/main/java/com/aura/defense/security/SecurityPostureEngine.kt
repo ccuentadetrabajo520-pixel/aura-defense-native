@@ -1,6 +1,6 @@
 package com.aura.defense.security
 
-import com.aura.defense.data.DeviceTelemetry
+import com.aura.defense.data.DeviceTelemetrySnapshot
 import java.time.LocalDate
 import java.time.Period
 import java.time.format.DateTimeFormatter
@@ -23,7 +23,7 @@ data class PostureResult(
     val score: Int,
     val status: String,
     val findings: List<SecurityFinding>,
-    val telemetry: DeviceTelemetry,
+    val telemetry: DeviceTelemetrySnapshot,
     val timestamp: String
 ) {
     companion object {
@@ -31,32 +31,36 @@ data class PostureResult(
             score = -1,
             status = "Diagnóstico pendiente",
             findings = emptyList(),
-            telemetry = DeviceTelemetry.unavailable(),
+            telemetry = DeviceTelemetrySnapshot(
+                manufacturer = "No disponible",
+                model = "No disponible",
+                androidVersion = "No disponible",
+                apiLevel = 0,
+                securityPatch = "No disponible",
+                batteryLevel = "No disponible",
+                ramAvailableBytes = 0L,
+                ramTotalBytes = 0L,
+                storageAvailableBytes = 0L,
+                storageTotalBytes = 0L,
+                networkActive = "No disponible",
+                vpnActive = false,
+                privateDnsStatus = "No disponible"
+            ),
             timestamp = "No disponible"
         )
     }
 }
 
 class SecurityPostureEngine {
-    fun evaluate(telemetry: DeviceTelemetry): PostureResult {
+    fun evaluate(telemetry: DeviceTelemetrySnapshot): PostureResult {
         val findings = buildList {
-            if (!telemetry.bloqueoSeguro) add(SecurityFinding("Bloqueo de pantalla", FindingSeverity.HIGH, "No hay un bloqueo seguro configurado.", "Un bloqueo seguro reduce el acceso físico no autorizado al dispositivo.", "Configura PIN, contraseña o patrón seguro en Ajustes de Android.", SettingsAction.SEGURIDAD))
-            if (telemetry.adbActivo == true) add(SecurityFinding("Depuración ADB", FindingSeverity.HIGH, "La depuración ADB está activada.", "ADB permite conexiones de desarrollo que aumentan la superficie de acceso del dispositivo.", "Desactiva la depuración ADB cuando no la necesites en Ajustes de desarrollador.", SettingsAction.DESARROLLADOR))
-            if (telemetry.opcionesDesarrollador == true) add(SecurityFinding("Opciones de desarrollador", FindingSeverity.MEDIUM, "Las opciones de desarrollador están activadas.", "Estas opciones son útiles para desarrollo, pero amplían los controles expuestos del sistema.", "Revísalas y desactívalas si no las utilizas.", SettingsAction.DESARROLLADOR))
-            if (!telemetry.vpnActiva) add(SecurityFinding("VPN", FindingSeverity.LOW, "No se detecta una VPN activa.", "El motor no activa ni simula una VPN; solo informa del estado observado.", "Activa una VPN de confianza si necesitas proteger el tráfico en redes no confiables.", SettingsAction.VPN))
-            if (telemetry.dnsPrivado == "Inactivo" || telemetry.dnsPrivado == "No disponible") add(SecurityFinding("DNS privado", FindingSeverity.LOW, "Estado observado: ${telemetry.dnsPrivado}.", "El DNS privado puede proteger las consultas cuando el proveedor lo admite.", "Revisa DNS privado en los ajustes de red de Android.", SettingsAction.RED))
-            if (!telemetry.redActiva) add(SecurityFinding("Conectividad", FindingSeverity.MEDIUM, "No se detecta una red activa.", "Sin red activa no es posible confirmar el estado de conectividad validada.", "Comprueba los ajustes de red cuando necesites conectividad.", SettingsAction.RED))
-            if (telemetry.redValidada == false) add(SecurityFinding("Red no validada", FindingSeverity.LOW, "Android no ha validado la red activa.", "La validación de red es una señal del sistema y puede variar según la red o el fabricante.", "Revisa la conexión y la red utilizada."))
-            telemetry.bateriaPorcentaje?.let { if (it < 20) add(SecurityFinding("Batería baja", FindingSeverity.MEDIUM, "Batería al $it%.", "Una batería muy baja puede limitar servicios de protección y conectividad.", "Carga el dispositivo cuando sea posible.")) }
-            telemetry.almacenamientoDisponibleBytes?.let { available ->
-                telemetry.almacenamientoTotalBytes?.let { total -> if (available.toDouble() / total < 0.10) add(SecurityFinding("Almacenamiento limitado", FindingSeverity.MEDIUM, "Queda menos del 10% del almacenamiento interno.", "El espacio insuficiente puede afectar a actualizaciones y al funcionamiento del sistema.", "Libera espacio desde los ajustes de almacenamiento.")) }
-            }
-            telemetry.ramDisponibleBytes?.let { available ->
-                telemetry.ramTotalBytes?.let { total -> if (available.toDouble() / total < 0.10) add(SecurityFinding("RAM disponible limitada", FindingSeverity.LOW, "Queda menos del 10% de RAM disponible.", "La presión de memoria puede afectar a la estabilidad de procesos activos.", "Cierra procesos que no necesites y revisa las apps activas.")) }
-            }
-            val patchAge = patchAgeInDays(telemetry.parcheSeguridad)
+            if (!telemetry.batteryLevel.contains("%")) add(SecurityFinding("Batería no disponible", FindingSeverity.LOW, "No se pudo leer el nivel de batería.", "Esta señal no está disponible en este dispositivo.", "Vuelve a ejecutar el diagnóstico más tarde."))
+            if (!telemetry.vpnActive) add(SecurityFinding("VPN", FindingSeverity.LOW, "No se detecta una VPN activa.", "El motor solo informa del estado observado.", "Activa una VPN de confianza si necesitas proteger el tráfico.", SettingsAction.VPN))
+            if (telemetry.privateDnsStatus == "Inactivo" || telemetry.privateDnsStatus == "No disponible") add(SecurityFinding("DNS privado", FindingSeverity.LOW, "Estado observado: ${telemetry.privateDnsStatus}.", "El DNS privado puede proteger las consultas cuando el sistema lo admite.", "Revisa DNS privado en los ajustes de red de Android.", SettingsAction.RED))
+            if (telemetry.networkActive == "No disponible") add(SecurityFinding("Conectividad", FindingSeverity.MEDIUM, "No se detecta una red activa.", "No es posible confirmar la conectividad actual.", "Comprueba los ajustes de red.", SettingsAction.RED))
+            val patchAge = patchAgeInDays(telemetry.securityPatch)
             if (patchAge != null && patchAge > 180) add(SecurityFinding("Parche de seguridad antiguo", FindingSeverity.MEDIUM, "El parche tiene aproximadamente $patchAge días.", "Los parches del sistema corrigen problemas conocidos de seguridad y estabilidad.", "Busca actualizaciones del sistema en Ajustes de Android.", SettingsAction.SEGURIDAD))
-            if (telemetry.api < 29) add(SecurityFinding("Versión de Android antigua", FindingSeverity.MEDIUM, "API ${telemetry.api} (${telemetry.versionAndroid}).", "Las versiones antiguas pueden no incluir controles modernos del sistema.", "Comprueba si hay una actualización disponible.", SettingsAction.SEGURIDAD))
+            if (telemetry.apiLevel in 1..28) add(SecurityFinding("Versión de Android antigua", FindingSeverity.MEDIUM, "API ${telemetry.apiLevel} (${telemetry.androidVersion}).", "Las versiones antiguas pueden no incluir controles modernos del sistema.", "Comprueba si hay una actualización disponible.", SettingsAction.SEGURIDAD))
         }
         val score = (100 - findings.sumOf { severityPenalty(it.severity) }).coerceIn(0, 100)
         return PostureResult(score, statusFor(score), findings, telemetry, java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(java.util.Date()))

@@ -8,115 +8,122 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.StatFs
 import android.provider.Settings
-import android.app.KeyguardManager
 import android.util.Log
-import java.util.Locale
 
- data class DeviceTelemetry(
-    val fabricante: String,
-    val modelo: String,
-    val versionAndroid: String,
-    val api: Int,
-    val parcheSeguridad: String,
-    val bateriaPorcentaje: Int?,
-    val ramDisponibleBytes: Long?,
-    val ramTotalBytes: Long?,
-    val almacenamientoDisponibleBytes: Long?,
-    val almacenamientoTotalBytes: Long?,
-    val redActiva: Boolean,
-    val redValidada: Boolean?,
-    val vpnActiva: Boolean,
-    val dnsPrivado: String,
-    val bloqueoSeguro: Boolean,
-    val adbActivo: Boolean?,
-    val opcionesDesarrollador: Boolean?
-) {
-    companion object {
-        fun unavailable() = DeviceTelemetry(
-            fabricante = "No disponible",
-            modelo = "No disponible",
-            versionAndroid = "No disponible",
-            api = 0,
-            parcheSeguridad = "No disponible",
-            bateriaPorcentaje = null,
-            ramDisponibleBytes = null,
-            ramTotalBytes = null,
-            almacenamientoDisponibleBytes = null,
-            almacenamientoTotalBytes = null,
-            redActiva = false,
-            redValidada = null,
-            vpnActiva = false,
-            dnsPrivado = "No disponible",
-            bloqueoSeguro = false,
-            adbActivo = null,
-            opcionesDesarrollador = null
-        )
-    }
+data class DeviceTelemetrySnapshot(
+    val manufacturer: String,
+    val model: String,
+    val androidVersion: String,
+    val apiLevel: Int,
+    val securityPatch: String,
+    val batteryLevel: String,
+    val ramAvailableBytes: Long,
+    val ramTotalBytes: Long,
+    val storageAvailableBytes: Long,
+    val storageTotalBytes: Long,
+    val networkActive: String,
+    val vpnActive: Boolean,
+    val privateDnsStatus: String
 )
 
 class DeviceTelemetryProvider(private val context: Context) {
-    fun read(): DeviceTelemetry {
-        return runCatching { readAvailableSignals() }.getOrElse { error ->
-            Log.e("AuraDefense", "No se pudo leer la telemetría del dispositivo", error)
-            DeviceTelemetry.unavailable()
-        }
+    fun read(): DeviceTelemetrySnapshot {
+        return runCatching { readSnapshot() }
+            .onFailure { Log.e("AuraDefense", "No se pudo leer la telemetría del dispositivo", it) }
+            .getOrElse { unavailableSnapshot() }
     }
 
-    private fun readAvailableSignals(): DeviceTelemetry {
-        val connectivity = runCatching { context.getSystemService(ConnectivityManager::class.java) }.getOrNull()
+    private fun readSnapshot(): DeviceTelemetrySnapshot {
+        val connectivity = runCatching {
+            context.getSystemService(ConnectivityManager::class.java)
+        }.getOrNull()
         val network = runCatching { connectivity?.activeNetwork }.getOrNull()
-        val capabilities = runCatching { network?.let { connectivity?.getNetworkCapabilities(it) } }.getOrNull()
-        val battery = runCatching { context.getSystemService(BatteryManager::class.java) }.getOrNull()
-        val batteryLevel = runCatching { battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) }
-            .getOrNull()?.takeIf { it in 0..100 }
+        val capabilities = runCatching {
+            network?.let { connectivity?.getNetworkCapabilities(it) }
+        }.getOrNull()
+        val battery = runCatching {
+            context.getSystemService(BatteryManager::class.java)
+        }.getOrNull()
+        val batteryText = runCatching {
+            battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+                ?.takeIf { it in 0..100 }
+                ?.let { "$it%" }
+        }.getOrNull() ?: "No disponible"
         val memory = runCatching {
             context.getSystemService(ActivityManager::class.java)?.let { manager ->
                 ActivityManager.MemoryInfo().also(manager::getMemoryInfo)
             }
         }.getOrNull()
         val storage = runCatching { StatFs(context.filesDir.absolutePath) }.getOrNull()
-        val security = runCatching { context.getSystemService(KeyguardManager::class.java)?.isKeyguardSecure }.getOrNull() ?: false
+        val networkText = runCatching {
+            when {
+                capabilities == null -> "No disponible"
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "Datos móviles"
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
+                else -> "Activa"
+            }
+        }.onFailure { Log.e("AuraDefense", "No se pudo identificar la red activa", it) }
+            .getOrDefault("No disponible")
+        val vpn = runCatching {
+            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+        }.onFailure { Log.e("AuraDefense", "No se pudo comprobar la VPN", it) }.getOrDefault(false)
 
-        return DeviceTelemetry(
-            fabricante = runCatching { Build.MANUFACTURER.orEmpty().ifBlank { "No disponible" }.replaceFirstChar { it.uppercase(Locale.getDefault()) } }.getOrDefault("No disponible"),
-            modelo = runCatching { Build.MODEL.orEmpty().ifBlank { "No disponible" } }.getOrDefault("No disponible"),
-            versionAndroid = runCatching { Build.VERSION.RELEASE.orEmpty().ifBlank { "No disponible" } }.getOrDefault("No disponible"),
-            api = runCatching { Build.VERSION.SDK_INT }.getOrDefault(0),
-            parcheSeguridad = runCatching { Build.VERSION.SECURITY_PATCH.orEmpty().ifBlank { "No disponible" } }.getOrDefault("No disponible"),
-            bateriaPorcentaje = batteryLevel,
-            ramDisponibleBytes = runCatching { memory?.availMem }.getOrNull(),
-            ramTotalBytes = runCatching { memory?.totalMem }.getOrNull(),
-            almacenamientoDisponibleBytes = runCatching { storage?.availableBytes }.getOrNull(),
-            almacenamientoTotalBytes = runCatching { storage?.totalBytes }.getOrNull(),
-            redActiva = capabilities != null,
-            redValidada = runCatching { capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) }.getOrNull(),
-            vpnActiva = runCatching { capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true }.getOrDefault(false),
-            dnsPrivado = readPrivateDns(),
-            bloqueoSeguro = security,
-            adbActivo = readGlobalInt(Settings.Global.ADB_ENABLED),
-            opcionesDesarrollador = readGlobalInt(Settings.Global.DEVELOPMENT_SETTINGS_ENABLED)
+        return DeviceTelemetrySnapshot(
+            manufacturer = readText("fabricante") { Build.MANUFACTURER },
+            model = readText("modelo") { Build.MODEL },
+            androidVersion = readText("versión de Android") { Build.VERSION.RELEASE },
+            apiLevel = runCatching { Build.VERSION.SDK_INT }
+                .onFailure { Log.e("AuraDefense", "No se pudo leer la API de Android", it) }
+                .getOrDefault(0),
+            securityPatch = readText("parche de seguridad") { Build.VERSION.SECURITY_PATCH },
+            batteryLevel = batteryText,
+            ramAvailableBytes = runCatching { memory?.availMem ?: 0L }.getOrDefault(0L),
+            ramTotalBytes = runCatching { memory?.totalMem ?: 0L }.getOrDefault(0L),
+            storageAvailableBytes = runCatching { storage?.availableBytes ?: 0L }.getOrDefault(0L),
+            storageTotalBytes = runCatching { storage?.totalBytes ?: 0L }.getOrDefault(0L),
+            networkActive = networkText,
+            vpnActive = vpn,
+            privateDnsStatus = readPrivateDns()
         )
     }
 
     private fun readPrivateDns(): String = runCatching {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return "No disponible"
-        val privateDnsMode = runCatching {
+        val mode = runCatching {
             Settings.Global.getString(context.contentResolver, "private_dns_mode")
         }.getOrNull()
-        val privateDnsSpecifier = runCatching {
+        runCatching {
             Settings.Global.getString(context.contentResolver, "private_dns_specifier")
-        }.getOrNull()
-
-        when (privateDnsMode?.takeIf { it.isNotBlank() }) {
+        }.onFailure { Log.e("AuraDefense", "No se pudo leer el servidor DNS privado", it) }
+        when (mode?.takeIf { it.isNotBlank() }) {
             "off" -> "Inactivo"
             "opportunistic" -> "Automático"
-            "hostname" -> privateDnsSpecifier?.takeIf { it.isNotBlank() }
-                ?.let { "DNS privado activo: $it" } ?: "DNS privado activo"
-            else -> "Activo"
+            "hostname" -> "Activo"
+            else -> if (mode.isNullOrBlank()) "No disponible" else "Activo"
         }
-    }.onFailure { Log.e("AuraDefense", "No se pudo leer el DNS privado", it) }.getOrDefault("No disponible")
+    }.onFailure { Log.e("AuraDefense", "No se pudo leer el DNS privado", it) }
+        .getOrDefault("No disponible")
 
-    private fun readGlobalInt(name: String): Boolean? = runCatching {
-        Settings.Global.getInt(context.contentResolver, name, 0) == 1
-    }.onFailure { Log.e("AuraDefense", "No se pudo leer un ajuste del sistema", it) }.getOrNull()
+    private fun readText(name: String, reader: () -> String?): String = runCatching {
+        reader()?.takeIf { it.isNotBlank() } ?: "No disponible"
+    }.onFailure { Log.e("AuraDefense", "No se pudo leer $name", it) }
+        .getOrDefault("No disponible")
+
 }
+
+private fun unavailableSnapshot() = DeviceTelemetrySnapshot(
+    manufacturer = "No disponible",
+    model = "No disponible",
+    androidVersion = "No disponible",
+    apiLevel = 0,
+    securityPatch = "No disponible",
+    batteryLevel = "No disponible",
+    ramAvailableBytes = 0L,
+    ramTotalBytes = 0L,
+    storageAvailableBytes = 0L,
+    storageTotalBytes = 0L,
+    networkActive = "No disponible",
+    vpnActive = false,
+    privateDnsStatus = "No disponible"
+)

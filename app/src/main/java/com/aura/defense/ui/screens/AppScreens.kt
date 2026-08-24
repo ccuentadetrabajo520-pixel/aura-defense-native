@@ -69,8 +69,8 @@ fun HomeScreen(
         }
         Panel(modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                Metric("VPN", if (result.telemetry.vpnActiva) "Activa" else "Inactiva", AuraAmber)
-                Metric("DNS", result.telemetry.dnsPrivado, AuraGreen)
+                Metric("VPN", if (result.telemetry.vpnActive) "Activa" else "Inactiva", AuraAmber)
+                Metric("DNS", result.telemetry.privateDnsStatus, AuraGreen)
                 Metric("RIESGOS", result.findings.count { it.severity >= com.aura.defense.security.FindingSeverity.MEDIUM }.toString(), AuraRed)
             }
         }
