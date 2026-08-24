@@ -1,6 +1,7 @@
 package com.aura.defense.ui.screens
 
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -76,7 +77,7 @@ fun HomeScreen(
                 Metric("RISKS", riskCount.toString(), AuraRed)
             }
         }
-        ActionButton("Start Scan") { onStartScan() }
+        ActionButton("Start Scan", onClick = { onStartScan() })
         ActionButton("Activate VPN Defense", onClick = { onModuleDialog("VPN Defense", "VPN Defense will be connected to VpnService in Phase 4/5.") }, outlined = true)
         ActionButton("Emergency Mode", onClick = { onModuleDialog("Emergency Mode", "Emergency Mode will enable the configured protective response when native defense modules are connected.") }, outlined = true)
     }
