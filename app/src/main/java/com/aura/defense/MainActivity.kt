@@ -31,6 +31,9 @@ import kotlinx.coroutines.withContext
 import com.aura.defense.apps.AppScanResult
 import com.aura.defense.apps.AppScanner
 import com.aura.defense.apps.InstalledAppInfo
+import com.aura.defense.tools.LinkAnalysis
+import com.aura.defense.tools.PasswordAudit
+import com.aura.defense.reports.AuraReportBuilder
 import com.aura.defense.data.AuraPreferences
 import com.aura.defense.data.DeviceTelemetryProvider
 import com.aura.defense.ui.AuraBackground
@@ -43,6 +46,9 @@ import com.aura.defense.ui.components.ModuleDialog
 import com.aura.defense.ui.components.PostureSummaryDialog
 import com.aura.defense.ui.components.TelemetryDialog
 import com.aura.defense.ui.components.AppRisksDialog
+import com.aura.defense.ui.components.LinkAnalyzerDialog
+import com.aura.defense.ui.components.PasswordAuditorDialog
+import com.aura.defense.ui.components.ReportDialog
 import com.aura.defense.security.SecurityPostureEngine
 import com.aura.defense.security.SettingsAction
 import com.aura.defense.ui.screens.AppsScreen
@@ -80,6 +86,11 @@ private fun AuraDefenseApp(preferences: AuraPreferences, telemetryProvider: Devi
     var appScanResult by remember { mutableStateOf<AppScanResult?>(null) }
     var scanningApps by remember { mutableStateOf(false) }
     var showAppRisks by remember { mutableStateOf(false) }
+    var showLinkAnalyzer by remember { mutableStateOf(false) }
+    var showPasswordAuditor by remember { mutableStateOf(false) }
+    var showReports by remember { mutableStateOf(false) }
+    var linkHistory by remember { mutableStateOf<List<LinkAnalysis>>(emptyList()) }
+    var passwordAudit by remember { mutableStateOf<PasswordAudit?>(null) }
 
     LaunchedEffect(Unit) {
         runCatching { engine.evaluate(telemetryProvider.read()) }
@@ -136,7 +147,7 @@ private fun AuraDefenseApp(preferences: AuraPreferences, telemetryProvider: Devi
                         }
                     },
                     onViewRisks = { showAppRisks = true },
-                    onExport = { moduleDialog = "Reporte de apps" to "La exportación se conectará en una fase posterior. Los datos del escaneo permanecen en este dispositivo." },
+                    onExport = { showReports = true },
                     onModuleDialog = { title, message -> moduleDialog = title to message }
                 )
             }
@@ -164,6 +175,15 @@ private fun AuraDefenseApp(preferences: AuraPreferences, telemetryProvider: Devi
                 if (item == "Escáner de apps") {
                     selectedTab = 3
                     showAuraCenter = false
+                } else if (item == "Analizador de enlaces") {
+                    showLinkAnalyzer = true
+                    showAuraCenter = false
+                } else if (item == "Auditor de contraseñas") {
+                    showPasswordAuditor = true
+                    showAuraCenter = false
+                } else if (item == "Reportes") {
+                    showReports = true
+                    showAuraCenter = false
                 } else {
                     moduleDialog = item to "Este módulo se conectará a la API real de Android en la siguiente fase. No se mostrará como activo hasta que funcione de verdad."
                 }
@@ -181,6 +201,29 @@ private fun AuraDefenseApp(preferences: AuraPreferences, telemetryProvider: Devi
             onPermissions = { openAppSettings(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, it, context) },
             onUninstall = { openAppSettings(Intent.ACTION_DELETE, it, context) },
             onDismiss = { showAppRisks = false }
+        )
+    }
+    if (showLinkAnalyzer) {
+        LinkAnalyzerDialog(
+            onAnalysis = { analysis -> linkHistory = (linkHistory + analysis).takeLast(20) },
+            onDismiss = { showLinkAnalyzer = false }
+        )
+    }
+    if (showPasswordAuditor) {
+        PasswordAuditorDialog(
+            onAudit = { passwordAudit = it },
+            onDismiss = { showPasswordAuditor = false }
+        )
+    }
+    if (showReports) {
+        ReportDialog(
+            onExport = { json ->
+                val content = if (json) AuraReportBuilder().json(auraId, result, appScanResult, linkHistory, passwordAudit)
+                else AuraReportBuilder().text(auraId, result, appScanResult, linkHistory, passwordAudit)
+                shareReport(content, json, context)
+                showReports = false
+            },
+            onDismiss = { showReports = false }
         )
     }
     if (showSummary) {
@@ -212,4 +255,15 @@ private fun openAppSettings(action: String, app: InstalledAppInfo, context: Cont
     runCatching {
         context.startActivity(Intent(action, Uri.parse("package:${app.packageName}")))
     }.onFailure { Log.e("AuraDefense", "No se pudo abrir el ajuste de la app", it) }
+}
+
+private fun shareReport(content: String, json: Boolean, context: Context) {
+    runCatching {
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = if (json) "application/json" else "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, if (json) "Informe Aura JSON" else "Informe Aura")
+            putExtra(Intent.EXTRA_TEXT, content)
+        }
+        context.startActivity(Intent.createChooser(intent, "Compartir informe"))
+    }.onFailure { Log.e("AuraDefense", "No se pudo compartir el informe", it) }
 }
