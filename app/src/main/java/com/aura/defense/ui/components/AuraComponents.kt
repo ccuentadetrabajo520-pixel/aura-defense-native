@@ -53,7 +53,7 @@ import com.aura.defense.util.formatBytes
 @Composable
 fun AuraTopBar(auraId: String, onAuraIdClick: () -> Unit, onSettingsClick: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -61,7 +61,7 @@ fun AuraTopBar(auraId: String, onAuraIdClick: () -> Unit, onSettingsClick: () ->
             Text("AURA / DEFENSA", color = AuraCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
             Text("Defensa móvil privada", color = AuraMuted, fontSize = 12.sp)
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Surface(
                 modifier = Modifier.clickable(onClick = onAuraIdClick),
                 shape = RoundedCornerShape(50),
@@ -70,8 +70,8 @@ fun AuraTopBar(auraId: String, onAuraIdClick: () -> Unit, onSettingsClick: () ->
             ) {
                 Text(auraId, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = AuraCyan, fontSize = 12.sp, maxLines = 1)
             }
-            IconButton(onClick = onSettingsClick, modifier = Modifier.width(64.dp)) {
-                Text("Ajustes", color = AuraMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            IconButton(onClick = onSettingsClick, modifier = Modifier.size(44.dp)) {
+                Text("⚙", color = AuraCyan, fontSize = 20.sp, maxLines = 1)
             }
         }
     }

@@ -13,11 +13,18 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.Canvas
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -27,10 +34,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.aura.defense.tools.LinkAnalysis
@@ -40,6 +58,8 @@ import com.aura.defense.ui.AuraAmber
 import com.aura.defense.ui.AuraGreen
 import com.aura.defense.ui.AuraMuted
 import com.aura.defense.ui.AuraRed
+import com.aura.defense.ui.AuraSurface
+import com.aura.defense.ui.AuraSurfaceRaised
 import java.net.URI
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -60,30 +80,36 @@ fun QrScannerDialog(onAnalysis: (LinkAnalysis) -> Unit, onDismiss: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("QR Anti-Phishing") },
+        title = {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("QR Anti-Phishing", color = AuraCyan)
+                Text("Escaneo local activo", color = AuraGreen, fontSize = 12.sp)
+                Text("Aura analiza el código en este dispositivo. No se sube contenido.", color = AuraMuted, fontSize = 11.sp)
+            }
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (!permissionGranted) {
                     Text("Permiso de cámara requerido")
                     Text("Aura necesita la cámara para leer códigos QR. El análisis se realiza localmente.", color = AuraMuted)
                 } else if (detectedValue == null) {
-                    Text("Escanear código QR")
+                    Text("Escanear código QR", color = AuraMuted, fontSize = 12.sp)
                     val previewView = remember { PreviewView(context).apply { scaleType = PreviewView.ScaleType.FILL_CENTER } }
-                    AndroidView(
-                        factory = { previewView },
-                        modifier = Modifier.fillMaxWidth().height(260.dp),
-                    )
-                    QrCameraPreview(previewView, onDetected = { value ->
-                        detectedValue = value
-                        scanError = false
-                    }, onFailure = { scanError = true })
+                    ScannerFrame {
+                        AndroidView(factory = { previewView }, modifier = Modifier.fillMaxWidth().height(218.dp).clip(RoundedCornerShape(10.dp)))
+                        QrCameraPreview(previewView, onDetected = { value ->
+                            detectedValue = value
+                            scanError = false
+                        }, onFailure = { scanError = true })
+                    }
                     if (scanError) Text("No se pudo leer el código QR.", color = AuraAmber)
                 } else {
                     val value = detectedValue.orEmpty()
                     val url = value.takeIf(::isUrl)
-                    Text("Código detectado")
-                    Text(if (url != null) "Enlace detectado" else "Texto detectado", color = AuraMuted)
-                    Text(value)
+                    Text("Código detectado", color = AuraCyan, fontSize = 12.sp)
+                    ResultCard(if (url != null) "Enlace detectado" else "Texto detectado", AuraCyan) {
+                        Text(value, maxLines = 3, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
+                    }
                     if (url != null) {
                         var analysis by remember(url) { mutableStateOf<LinkAnalysis?>(null) }
                         TextButton(onClick = {
@@ -91,8 +117,11 @@ fun QrScannerDialog(onAnalysis: (LinkAnalysis) -> Unit, onDismiss: () -> Unit) {
                             analysis?.let(onAnalysis)
                         }) { Text("Analizar enlace") }
                         analysis?.let { result ->
-                            Text("Resultado: ${result.risk.toSpanish()}", color = result.risk.color())
-                            result.reasons.forEach { Text("• $it", color = AuraMuted) }
+                            ResultCard("Resultado: ${result.risk.toSpanish()}", result.risk.color()) {
+                                Text("Razones", color = AuraMuted, fontSize = 11.sp)
+                                result.reasons.forEach { Text("• $it", color = AuraMuted, fontSize = 12.sp) }
+                                Text("No abrir automáticamente", color = AuraMuted, fontSize = 11.sp)
+                            }
                         }
                     }
                 }
@@ -115,6 +144,51 @@ fun QrScannerDialog(onAnalysis: (LinkAnalysis) -> Unit, onDismiss: () -> Unit) {
             }
         }
     )
+}
+
+@Composable
+private fun ScannerFrame(content: @Composable () -> Unit) {
+    val transition = rememberInfiniteTransition(label = "qr-line")
+    val linePosition by transition.animateFloat(
+        initialValue = 0.08f,
+        targetValue = 0.92f,
+        animationSpec = infiniteRepeatable(tween(1700, easing = LinearEasing), RepeatMode.Reverse),
+        label = "qr-line-position"
+    )
+    Box(
+        modifier = Modifier.fillMaxWidth().border(1.dp, AuraCyan.copy(alpha = 0.55f), RoundedCornerShape(12.dp)).padding(5.dp)
+    ) {
+        content()
+        Canvas(Modifier.matchParentSize()) {
+            val length = 22.dp.toPx()
+            val stroke = 2.dp.toPx()
+            val corner = AuraCyan
+            drawLine(corner, Offset(10.dp.toPx(), length), Offset(10.dp.toPx(), 10.dp.toPx()), stroke, StrokeCap.Round)
+            drawLine(corner, Offset(10.dp.toPx(), 10.dp.toPx()), Offset(length, 10.dp.toPx()), stroke, StrokeCap.Round)
+            drawLine(corner, Offset(size.width - length, 10.dp.toPx()), Offset(size.width - 10.dp.toPx(), 10.dp.toPx()), stroke, StrokeCap.Round)
+            drawLine(corner, Offset(size.width - 10.dp.toPx(), 10.dp.toPx()), Offset(size.width - 10.dp.toPx(), length), stroke, StrokeCap.Round)
+            drawLine(corner, Offset(10.dp.toPx(), size.height - length), Offset(10.dp.toPx(), size.height - 10.dp.toPx()), stroke, StrokeCap.Round)
+            drawLine(corner, Offset(10.dp.toPx(), size.height - 10.dp.toPx()), Offset(length, size.height - 10.dp.toPx()), stroke, StrokeCap.Round)
+            drawLine(corner, Offset(size.width - length, size.height - 10.dp.toPx()), Offset(size.width - 10.dp.toPx(), size.height - 10.dp.toPx()), stroke, StrokeCap.Round)
+            drawLine(corner, Offset(size.width - 10.dp.toPx(), size.height - length), Offset(size.width - 10.dp.toPx(), size.height - 10.dp.toPx()), stroke, StrokeCap.Round)
+            drawLine(AuraGreen.copy(alpha = 0.9f), Offset(18.dp.toPx(), size.height * linePosition), Offset(size.width - 18.dp.toPx(), size.height * linePosition), 1.5.dp.toPx(), StrokeCap.Round)
+        }
+    }
+}
+
+@Composable
+private fun ResultCard(title: String, accent: Color, content: @Composable () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = accent.copy(alpha = 0.10f),
+        shape = RoundedCornerShape(10.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, accent.copy(alpha = 0.55f))
+    ) {
+        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, color = accent, fontSize = 15.sp)
+            content()
+        }
+    }
 }
 
 @Composable
