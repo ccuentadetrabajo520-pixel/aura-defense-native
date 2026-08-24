@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -68,8 +69,8 @@ fun AuraTopBar(auraId: String, onAuraIdClick: () -> Unit, onSettingsClick: () ->
             ) {
                 Text(auraId, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = AuraCyan, fontSize = 12.sp, maxLines = 1)
             }
-            IconButton(onClick = onSettingsClick) {
-                Text("Ajustes", color = AuraMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            IconButton(onClick = onSettingsClick, modifier = Modifier.width(64.dp)) {
+                Text("Ajustes", color = AuraMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
             }
         }
     }
@@ -156,7 +157,72 @@ fun AuraIdDialog(currentId: String, onSave: (String) -> Unit, onDismiss: () -> U
 }
 
 @Composable
-fun RadarCanvas(modifier: Modifier = Modifier) {
+fun TelemetryDialog(
+    telemetry: com.aura.defense.data.DeviceTelemetry,
+    onSettingsAction: (com.aura.defense.security.SettingsAction) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Telemetría del dispositivo") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TelemetryLine("Fabricante", telemetry.fabricante)
+                TelemetryLine("Modelo", telemetry.modelo)
+                TelemetryLine("Android", "${telemetry.versionAndroid} (API ${telemetry.api})")
+                TelemetryLine("Parche de seguridad", telemetry.parcheSeguridad)
+                TelemetryLine("Batería", telemetry.bateriaPorcentaje?.let { "$it%" } ?: "No disponible")
+                TelemetryLine("RAM disponible / total", "${com.aura.defense.data.formatBytes(telemetry.ramDisponibleBytes)} / ${com.aura.defense.data.formatBytes(telemetry.ramTotalBytes)}")
+                TelemetryLine("Almacenamiento disponible / total", "${com.aura.defense.data.formatBytes(telemetry.almacenamientoDisponibleBytes)} / ${com.aura.defense.data.formatBytes(telemetry.almacenamientoTotalBytes)}")
+                TelemetryLine("Red activa", if (telemetry.redActiva) "Sí" else "No")
+                TelemetryLine("VPN", if (telemetry.vpnActiva) "Activa" else "Inactiva")
+                TelemetryLine("DNS privado", telemetry.dnsPrivado)
+                Spacer(Modifier.height(4.dp))
+                Text("Accesos de Android", color = AuraCyan, fontSize = 11.sp)
+                TextButton(onClick = { onSettingsAction(com.aura.defense.security.SettingsAction.VPN) }) { Text("Abrir ajustes de VPN") }
+                TextButton(onClick = { onSettingsAction(com.aura.defense.security.SettingsAction.RED) }) { Text("Abrir ajustes de red") }
+                TextButton(onClick = { onSettingsAction(com.aura.defense.security.SettingsAction.DESARROLLADOR) }) { Text("Abrir opciones de desarrollador") }
+                TextButton(onClick = { onSettingsAction(com.aura.defense.security.SettingsAction.SEGURIDAD) }) { Text("Abrir ajustes de seguridad") }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } }
+    )
+}
+
+@Composable
+private fun TelemetryLine(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = AuraMuted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+        Text(value, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
+    }
+}
+
+@Composable
+fun PostureSummaryDialog(result: com.aura.defense.security.PostureResult, onFindingAction: (com.aura.defense.security.SecurityFinding) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Diagnóstico real") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Puntuación Aura: ${result.score}/100", color = AuraCyan, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("Estado: ${result.status}", color = MaterialTheme.colorScheme.onSurface)
+                Text("Hora: ${result.timestamp}", color = AuraMuted, fontSize = 12.sp)
+                Text("Hallazgos principales", color = AuraCyan, fontSize = 12.sp)
+                result.findings.take(3).forEach { finding ->
+                    Column(modifier = Modifier.fillMaxWidth().clickable { onFindingAction(finding) }.padding(vertical = 5.dp)) {
+                        Text(finding.title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
+                        Text(finding.evidence, color = AuraMuted, fontSize = 12.sp)
+                    }
+                }
+                if (result.findings.isEmpty()) Text("No se han detectado señales de riesgo en las comprobaciones disponibles.", color = AuraMuted, fontSize = 12.sp)
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } }
+    )
+}
+
+@Composable
+fun RadarCanvas(modifier: Modifier = Modifier, score: Int = 60) {
     val pulse = remember { androidx.compose.animation.core.Animatable(0.82f) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
         pulse.animateTo(1.12f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1600), androidx.compose.animation.core.RepeatMode.Reverse))
@@ -167,8 +233,9 @@ fun RadarCanvas(modifier: Modifier = Modifier) {
         listOf(0.38f, 0.68f, 1f).forEach { factor -> drawCircle(AuraCyan.copy(alpha = 0.16f), radius * factor, center, style = Stroke(1.dp.toPx())) }
         drawLine(AuraCyan.copy(alpha = 0.25f), Offset(center.x - radius, center.y), Offset(center.x + radius, center.y), strokeWidth = 1.dp.toPx())
         drawLine(AuraCyan.copy(alpha = 0.25f), Offset(center.x, center.y - radius), Offset(center.x, center.y + radius), strokeWidth = 1.dp.toPx())
-        drawCircle(AuraCyan.copy(alpha = 0.16f), radius * pulse.value, center, style = Stroke(2.dp.toPx()))
-        drawCircle(AuraCyan, radius * 0.11f, center)
+        val tone = if (score >= 85) com.aura.defense.ui.AuraGreen else if (score >= 60) AuraAmber else com.aura.defense.ui.AuraRed
+        drawCircle(tone.copy(alpha = 0.16f), radius * pulse.value, center, style = Stroke(2.dp.toPx()))
+        drawCircle(tone, radius * 0.11f, center)
     }
 }
 

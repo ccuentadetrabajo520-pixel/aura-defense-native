@@ -28,6 +28,7 @@ fun AuraCenterDialog(
     visibilityVisible: Boolean,
     onEditId: () -> Unit,
     onVisibilityToggle: () -> Unit,
+    onTelemetry: () -> Unit,
     onItemClick: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -45,6 +46,7 @@ fun AuraCenterDialog(
                     CenterRow("Aura ID editable", auraId, onEditId)
                     CenterRow("Modo de visibilidad", if (visibilityVisible) "Visible" else "Invisible", onVisibilityToggle)
                 }
+                CenterRow("Telemetría del dispositivo", "Ver datos", onTelemetry)
                 CenterSection("PERMISOS") { permissions.forEach { CenterRow(it, "No conectado", { onItemClick(it) }) } }
                 CenterSection("PRIVACIDAD") { privacy.forEach { CenterRow(it, "Ajuste local", { onItemClick(it) }) } }
                 CenterSection("HERRAMIENTAS") { tools.forEach { CenterRow(it, "Módulo", { onItemClick(it) }) } }

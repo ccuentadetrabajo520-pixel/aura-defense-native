@@ -49,10 +49,7 @@ import com.aura.defense.ui.components.TacticalMap
 
 @Composable
 fun HomeScreen(
-    auraScore: String,
-    vpnStatus: String,
-    dnsStatus: String,
-    riskCount: Int,
+    result: com.aura.defense.security.PostureResult,
     onStartScan: () -> Unit,
     onModuleDialog: (String, String) -> Unit
 ) {
@@ -63,18 +60,18 @@ fun HomeScreen(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
                         Text("PUNTUACIÓN AURA", color = AuraMuted, fontSize = 11.sp)
-                        Text(auraScore, color = AuraCyan, fontSize = 24.sp)
+                        Text("${result.score}/100", color = AuraCyan, fontSize = 24.sp)
                     }
-                    StatusDot(AuraAmber, "ESTADO", "Parcial")
+                        StatusDot(if (result.score >= 85) AuraGreen else if (result.score >= 60) AuraAmber else AuraRed, "ESTADO", result.status)
                 }
-                RadarCanvas(Modifier.fillMaxWidth().height(150.dp))
+                    RadarCanvas(Modifier.fillMaxWidth().height(150.dp), result.score)
             }
         }
         Panel(modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                Metric("VPN", vpnStatus, AuraAmber)
-                Metric("DNS", dnsStatus, AuraGreen)
-                Metric("RIESGOS", riskCount.toString(), AuraRed)
+                Metric("VPN", if (result.telemetry.vpnActiva) "Activa" else "Inactiva", AuraAmber)
+                Metric("DNS", result.telemetry.dnsPrivado, AuraGreen)
+                Metric("RIESGOS", result.findings.count { it.severity >= com.aura.defense.security.FindingSeverity.MEDIUM }.toString(), AuraRed)
             }
         }
         ActionButton("Iniciar escaneo", onClick = { onStartScan() })
