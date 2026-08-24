@@ -52,7 +52,7 @@ data class PostureResult(
 }
 
 class SecurityPostureEngine {
-    fun evaluate(telemetry: DeviceTelemetrySnapshot): PostureResult {
+    fun evaluate(telemetry: DeviceTelemetrySnapshot, riskyApps: Int = 0, highRiskApps: Int = 0): PostureResult {
         val findings = buildList {
             if (!telemetry.batteryLevel.contains("%")) add(SecurityFinding("Batería no disponible", FindingSeverity.LOW, "No se pudo leer el nivel de batería.", "Esta señal no está disponible en este dispositivo.", "Vuelve a ejecutar el diagnóstico más tarde."))
             if (!telemetry.vpnActive) add(SecurityFinding("VPN", FindingSeverity.LOW, "No se detecta una VPN activa.", "El motor solo informa del estado observado.", "Activa una VPN de confianza si necesitas proteger el tráfico.", SettingsAction.VPN))
@@ -61,6 +61,7 @@ class SecurityPostureEngine {
             val patchAge = patchAgeInDays(telemetry.securityPatch)
             if (patchAge != null && patchAge > 180) add(SecurityFinding("Parche de seguridad antiguo", FindingSeverity.MEDIUM, "El parche tiene aproximadamente $patchAge días.", "Los parches del sistema corrigen problemas conocidos de seguridad y estabilidad.", "Busca actualizaciones del sistema en Ajustes de Android.", SettingsAction.SEGURIDAD))
             if (telemetry.apiLevel in 1..28) add(SecurityFinding("Versión de Android antigua", FindingSeverity.MEDIUM, "API ${telemetry.apiLevel} (${telemetry.androidVersion}).", "Las versiones antiguas pueden no incluir controles modernos del sistema.", "Comprueba si hay una actualización disponible.", SettingsAction.SEGURIDAD))
+            if (riskyApps > 0) add(SecurityFinding("Apps con señales de riesgo", if (highRiskApps > 0) FindingSeverity.HIGH else FindingSeverity.MEDIUM, "${riskyApps} apps requieren revisión; ${highRiskApps} tienen severidad alta o crítica.", "El escáner ha encontrado permisos o configuraciones sensibles en apps visibles por Android.", "Revisa los detalles de las apps detectadas."))
         }
         val score = (100 - findings.sumOf { severityPenalty(it.severity) }).coerceIn(0, 100)
         return PostureResult(score, statusFor(score), findings, telemetry, java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(java.util.Date()))

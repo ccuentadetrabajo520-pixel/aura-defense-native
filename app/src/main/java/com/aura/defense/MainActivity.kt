@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
+import android.net.Uri
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,9 +21,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.aura.defense.apps.AppScanResult
+import com.aura.defense.apps.AppScanner
+import com.aura.defense.apps.InstalledAppInfo
 import com.aura.defense.data.AuraPreferences
 import com.aura.defense.data.DeviceTelemetryProvider
 import com.aura.defense.ui.AuraBackground
@@ -34,6 +42,7 @@ import com.aura.defense.ui.components.AuraTopBar
 import com.aura.defense.ui.components.ModuleDialog
 import com.aura.defense.ui.components.PostureSummaryDialog
 import com.aura.defense.ui.components.TelemetryDialog
+import com.aura.defense.ui.components.AppRisksDialog
 import com.aura.defense.security.SecurityPostureEngine
 import com.aura.defense.security.SettingsAction
 import com.aura.defense.ui.screens.AppsScreen
@@ -57,6 +66,8 @@ class MainActivity : ComponentActivity() {
 private fun AuraDefenseApp(preferences: AuraPreferences, telemetryProvider: DeviceTelemetryProvider) {
     val context = LocalContext.current
     val engine = remember { SecurityPostureEngine() }
+    val appScanner = remember { AppScanner(context) }
+    val scope = rememberCoroutineScope()
     var result by remember { mutableStateOf(com.aura.defense.security.PostureResult.pending()) }
     var selectedTab by remember { mutableStateOf(0) }
     var auraId by remember { mutableStateOf(preferences.getAuraId()) }
@@ -66,6 +77,9 @@ private fun AuraDefenseApp(preferences: AuraPreferences, telemetryProvider: Devi
     var showTelemetry by remember { mutableStateOf(false) }
     var showSummary by remember { mutableStateOf(false) }
     var moduleDialog by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var appScanResult by remember { mutableStateOf<AppScanResult?>(null) }
+    var scanningApps by remember { mutableStateOf(false) }
+    var showAppRisks by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         runCatching { engine.evaluate(telemetryProvider.read()) }
@@ -108,7 +122,23 @@ private fun AuraDefenseApp(preferences: AuraPreferences, telemetryProvider: Devi
                 )
                 1 -> AurasScreen { title, message -> moduleDialog = title to message }
                 2 -> DefenseScreen { title, message -> moduleDialog = title to message }
-                else -> AppsScreen { title, message -> moduleDialog = title to message }
+                else -> AppsScreen(
+                    scanResult = appScanResult,
+                    scanning = scanningApps,
+                    onScan = {
+                        if (!scanningApps) scope.launch {
+                            scanningApps = true
+                            val scan = withContext(Dispatchers.Default) { appScanner.scan() }
+                            appScanResult = scan
+                            result = engine.evaluate(result.telemetry, scan.riskyApps.size, scan.highRiskApps.size)
+                            scanningApps = false
+                            moduleDialog = "Escaneo de apps" to "Escaneo completado: ${scan.apps.size} apps visibles por Android. Riesgos: ${scan.riskyApps.size}. Riesgo alto: ${scan.highRiskApps.size}."
+                        }
+                    },
+                    onViewRisks = { showAppRisks = true },
+                    onExport = { moduleDialog = "Reporte de apps" to "La exportación se conectará en una fase posterior. Los datos del escaneo permanecen en este dispositivo." },
+                    onModuleDialog = { title, message -> moduleDialog = title to message }
+                )
             }
         }
     }
@@ -130,12 +160,28 @@ private fun AuraDefenseApp(preferences: AuraPreferences, telemetryProvider: Devi
             onEditId = { showAuraIdDialog = true },
             onVisibilityToggle = { visibilityVisible = !visibilityVisible },
             onTelemetry = { showTelemetry = true },
-            onItemClick = { item -> moduleDialog = item to "Este módulo se conectará a la API real de Android en la siguiente fase. No se mostrará como activo hasta que funcione de verdad." },
+            onItemClick = { item ->
+                if (item == "Escáner de apps") {
+                    selectedTab = 3
+                    showAuraCenter = false
+                } else {
+                    moduleDialog = item to "Este módulo se conectará a la API real de Android en la siguiente fase. No se mostrará como activo hasta que funcione de verdad."
+                }
+            },
             onDismiss = { showAuraCenter = false }
         )
     }
     if (showTelemetry) {
         TelemetryDialog(result.telemetry, onSettingsAction = { action -> openAndroidSettings(action, context) }, onDismiss = { showTelemetry = false })
+    }
+    if (showAppRisks) {
+        AppRisksDialog(
+            apps = appScanResult?.riskyApps.orEmpty(),
+            onDetails = { openAppSettings(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, it, context) },
+            onPermissions = { openAppSettings(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, it, context) },
+            onUninstall = { openAppSettings(Intent.ACTION_DELETE, it, context) },
+            onDismiss = { showAppRisks = false }
+        )
     }
     if (showSummary) {
         PostureSummaryDialog(
@@ -160,4 +206,10 @@ private fun openAndroidSettings(action: SettingsAction, context: Context) {
     }
     runCatching { context.startActivity(Intent(intentAction)) }
         .onFailure { Log.e("AuraDefense", "No se pudo abrir el ajuste de Android", it) }
+}
+
+private fun openAppSettings(action: String, app: InstalledAppInfo, context: Context) {
+    runCatching {
+        context.startActivity(Intent(action, Uri.parse("package:${app.packageName}")))
+    }.onFailure { Log.e("AuraDefense", "No se pudo abrir el ajuste de la app", it) }
 }

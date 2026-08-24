@@ -34,7 +34,7 @@ fun AuraCenterDialog(
 ) {
     val permissions = listOf("Permiso de VPN", "Permiso de ubicación", "Permiso de cámara", "Permiso de notificaciones", "Acceso a notificaciones", "Acceso al uso", "Optimización de batería")
     val privacy = listOf("Modo local prioritario", "No subir apps", "No subir ubicación", "No subir URLs", "Borrar historial local")
-    val tools = listOf("Analizador de enlaces", "Antiphishing QR", "Auditor de contraseñas", "Escáner de contenido compartido", "Protección de notificaciones", "Informes", "Bóveda cifrada", "Modo emergencia", "Comprobaciones programadas", "Acceso rápido", "Auras LAN")
+    val tools = listOf("Escáner de apps", "Analizador de enlaces", "Antiphishing QR", "Auditor de contraseñas", "Escáner de contenido compartido", "Protección de notificaciones", "Informes", "Bóveda cifrada", "Modo emergencia", "Comprobaciones programadas", "Acceso rápido", "Auras LAN")
     val legal = listOf("Términos y condiciones", "Responsabilidad del usuario", "Límites reales de Android sin root")
 
     AlertDialog(

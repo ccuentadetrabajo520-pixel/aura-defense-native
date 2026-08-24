@@ -46,6 +46,9 @@ import com.aura.defense.ui.components.RadarCanvas
 import com.aura.defense.ui.components.SectionTitle
 import com.aura.defense.ui.components.StatusDot
 import com.aura.defense.ui.components.TacticalMap
+import com.aura.defense.apps.AppScanResult
+import com.aura.defense.apps.AppRiskSeverity
+import com.aura.defense.apps.InstalledAppInfo
 
 @Composable
 fun HomeScreen(
@@ -133,10 +136,17 @@ private fun SentinelCanvas(modifier: Modifier) {
 }
 
 @Composable
-fun AppsScreen(onModuleDialog: (String, String) -> Unit) {
+fun AppsScreen(
+    scanResult: AppScanResult?,
+    scanning: Boolean,
+    onScan: () -> Unit,
+    onViewRisks: () -> Unit,
+    onExport: () -> Unit,
+    onModuleDialog: (String, String) -> Unit
+) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionTitle("APPS", "Escáner genómico de apps", "Interfaz visual del escáner. No se inventan resultados del gestor de paquetes.")
-        Panel(modifier = Modifier.fillMaxWidth()) { ScannerCanvas(Modifier.fillMaxWidth().height(190.dp)) }
+        Panel(modifier = Modifier.fillMaxWidth()) { ScannerCanvas(Modifier.fillMaxWidth().height(190.dp), scanning) }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("RED", "SENSORES", "IDENTIDAD").forEach { label ->
                 Box(modifier = Modifier.weight(1f).background(AuraSurface, RoundedCornerShape(8.dp)).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
@@ -147,19 +157,23 @@ fun AppsScreen(onModuleDialog: (String, String) -> Unit) {
         Panel(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text("RESUMEN DE RIESGOS", color = AuraCyan, fontSize = 11.sp)
-                Text("Esperando un escaneo real del gestor de paquetes", color = AuraMuted, fontSize = 14.sp)
+                Text(scanResult?.let { "${it.apps.size} apps visibles por Android" } ?: "Sin escaneo ejecutado", color = AuraMuted, fontSize = 14.sp)
+                scanResult?.let {
+                    Text("Riesgos: ${it.riskyApps.size} · Riesgo alto: ${it.highRiskApps.size}", color = AuraMuted, fontSize = 13.sp)
+                    Text("Último escaneo: ${it.scannedAt}", color = AuraMuted, fontSize = 12.sp)
+                }
             }
         }
-        ActionButton("Escanear apps visibles", onClick = { onModuleDialog("Escáner de apps", "El escáner real del gestor de paquetes se conectará en la siguiente fase.") })
-        ActionButton("Auditar permisos", onClick = { onModuleDialog("Auditoría de permisos", "La auditoría real de permisos del gestor de paquetes se conectará en la siguiente fase.") }, outlined = true)
-        ActionButton("Exportar informe de apps", onClick = { onModuleDialog("Informe de apps", "La exportación de informes se conectará cuando esté disponible el escáner real del gestor de paquetes.") }, outlined = true)
+        ActionButton(if (scanning) "Escaneando apps..." else "Escanear apps", onClick = onScan)
+        ActionButton("Ver riesgos", onClick = onViewRisks, outlined = true)
+        ActionButton("Exportar reporte de apps", onClick = onExport, outlined = true)
     }
 }
 
 @Composable
-private fun ScannerCanvas(modifier: Modifier) {
+private fun ScannerCanvas(modifier: Modifier, scanning: Boolean) {
     val transition = rememberInfiniteTransition(label = "scanner")
-    val beam by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(1800), RepeatMode.Reverse), label = "beam")
+    val beam by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(1800), if (scanning) RepeatMode.Reverse else RepeatMode.Restart), label = "beam")
     Canvas(modifier) {
         val columns = 6
         val rows = 3
