@@ -120,15 +120,3 @@ class DeviceTelemetryProvider(private val context: Context) {
         Settings.Global.getInt(context.contentResolver, name, 0) == 1
     }.onFailure { Log.e("AuraDefense", "No se pudo leer un ajuste del sistema", it) }.getOrNull()
 }
-
-fun formatBytes(bytes: Long?): String {
-    if (bytes == null) return "No disponible"
-    val units = arrayOf("B", "MB", "GB", "TB")
-    var value = bytes.toDouble()
-    var index = 0
-    while (value >= 1024 && index < units.lastIndex) {
-        value /= 1024
-        index++
-    }
-    return String.format(Locale.getDefault(), "%.1f %s", value, units[index])
-}

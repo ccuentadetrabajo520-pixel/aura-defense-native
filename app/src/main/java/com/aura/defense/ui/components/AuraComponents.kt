@@ -48,6 +48,7 @@ import com.aura.defense.ui.AuraCyan
 import com.aura.defense.ui.AuraMuted
 import com.aura.defense.ui.AuraSurface
 import com.aura.defense.ui.AuraSurfaceRaised
+import com.aura.defense.util.formatBytes
 
 @Composable
 fun AuraTopBar(auraId: String, onAuraIdClick: () -> Unit, onSettingsClick: () -> Unit) {
@@ -172,8 +173,8 @@ fun TelemetryDialog(
                 TelemetryLine("Android", "${telemetry.versionAndroid} (API ${telemetry.api})")
                 TelemetryLine("Parche de seguridad", telemetry.parcheSeguridad)
                 TelemetryLine("Batería", telemetry.bateriaPorcentaje?.let { "$it%" } ?: "No disponible")
-                TelemetryLine("RAM disponible / total", "${com.aura.defense.data.formatBytes(telemetry.ramDisponibleBytes)} / ${com.aura.defense.data.formatBytes(telemetry.ramTotalBytes)}")
-                TelemetryLine("Almacenamiento disponible / total", "${com.aura.defense.data.formatBytes(telemetry.almacenamientoDisponibleBytes)} / ${com.aura.defense.data.formatBytes(telemetry.almacenamientoTotalBytes)}")
+                TelemetryLine("RAM disponible / total", "${formatBytes(telemetry.ramDisponibleBytes ?: 0L)} / ${formatBytes(telemetry.ramTotalBytes ?: 0L)}")
+                TelemetryLine("Almacenamiento disponible / total", "${formatBytes(telemetry.almacenamientoDisponibleBytes ?: 0L)} / ${formatBytes(telemetry.almacenamientoTotalBytes ?: 0L)}")
                 TelemetryLine("Red activa", if (telemetry.redActiva) "Sí" else "No")
                 TelemetryLine("VPN", if (telemetry.vpnActiva) "Activa" else "Inactiva")
                 TelemetryLine("DNS privado", telemetry.dnsPrivado)
