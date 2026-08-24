@@ -31,27 +31,27 @@ fun AuraCenterDialog(
     onItemClick: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val permissions = listOf("VPN permission", "Location permission", "Camera permission", "Notification permission", "Notification access", "Usage access", "Battery optimization")
-    val privacy = listOf("Local-first mode", "Do not upload apps", "Do not upload location", "Do not upload URLs", "Clear local history")
-    val tools = listOf("Link Analyzer", "QR Anti-Phishing", "Password Auditor", "Share Scanner", "Notification Guard", "Reports", "Encrypted Vault", "Emergency Mode", "Scheduled Checks", "Quick Settings Tile", "Auras LAN")
-    val legal = listOf("Terms and Conditions", "User responsibility", "Android no-root limitations")
+    val permissions = listOf("Permiso de VPN", "Permiso de ubicación", "Permiso de cámara", "Permiso de notificaciones", "Acceso a notificaciones", "Acceso al uso", "Optimización de batería")
+    val privacy = listOf("Modo local prioritario", "No subir apps", "No subir ubicación", "No subir URLs", "Borrar historial local")
+    val tools = listOf("Analizador de enlaces", "Antiphishing QR", "Auditor de contraseñas", "Escáner de contenido compartido", "Protección de notificaciones", "Informes", "Bóveda cifrada", "Modo emergencia", "Comprobaciones programadas", "Acceso rápido", "Auras LAN")
+    val legal = listOf("Términos y condiciones", "Responsabilidad del usuario", "Límites reales de Android sin root")
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Aura Center") },
+        title = { Text("Centro Aura") },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                CenterSection("IDENTITY") {
-                    CenterRow("Editable Aura ID", auraId, onEditId)
-                    CenterRow("Visibility mode", if (visibilityVisible) "Visible" else "Invisible", onVisibilityToggle)
+                CenterSection("IDENTIDAD") {
+                    CenterRow("Aura ID editable", auraId, onEditId)
+                    CenterRow("Modo de visibilidad", if (visibilityVisible) "Visible" else "Invisible", onVisibilityToggle)
                 }
-                CenterSection("PERMISSIONS") { permissions.forEach { CenterRow(it, "Not connected", { onItemClick(it) }) } }
-                CenterSection("PRIVACY") { privacy.forEach { CenterRow(it, "Local setting", { onItemClick(it) }) } }
-                CenterSection("TOOLS") { tools.forEach { CenterRow(it, "Module", { onItemClick(it) }) } }
-                CenterSection("LEGAL") { legal.forEach { CenterRow(it, "Information", { onItemClick(it) }) } }
+                CenterSection("PERMISOS") { permissions.forEach { CenterRow(it, "No conectado", { onItemClick(it) }) } }
+                CenterSection("PRIVACIDAD") { privacy.forEach { CenterRow(it, "Ajuste local", { onItemClick(it) }) } }
+                CenterSection("HERRAMIENTAS") { tools.forEach { CenterRow(it, "Módulo", { onItemClick(it) }) } }
+                CenterSection("LEGAL") { legal.forEach { CenterRow(it, "Información", { onItemClick(it) }) } }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } }
     )
 }
 

@@ -57,15 +57,15 @@ fun HomeScreen(
     onModuleDialog: (String, String) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        SectionTitle("HOME DASHBOARD", "Your defense cockpit", "Local UI state only. Native security modules are not connected yet.")
+        SectionTitle("PANEL PRINCIPAL", "Centro de defensa Aura", "Interfaz de prueba. Los módulos nativos se conectarán en las siguientes fases.")
         Panel(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
-                        Text("AURA SCORE", color = AuraMuted, fontSize = 11.sp)
+                        Text("PUNTUACIÓN AURA", color = AuraMuted, fontSize = 11.sp)
                         Text(auraScore, color = AuraCyan, fontSize = 24.sp)
                     }
-                    StatusDot(AuraAmber, "STATUS", "Partial")
+                    StatusDot(AuraAmber, "ESTADO", "Parcial")
                 }
                 RadarCanvas(Modifier.fillMaxWidth().height(150.dp))
             }
@@ -74,45 +74,45 @@ fun HomeScreen(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 Metric("VPN", vpnStatus, AuraAmber)
                 Metric("DNS", dnsStatus, AuraGreen)
-                Metric("RISKS", riskCount.toString(), AuraRed)
+                Metric("RIESGOS", riskCount.toString(), AuraRed)
             }
         }
-        ActionButton("Start Scan", onClick = { onStartScan() })
-        ActionButton("Activate VPN Defense", onClick = { onModuleDialog("VPN Defense", "VPN Defense will be connected to VpnService in Phase 4/5.") }, outlined = true)
-        ActionButton("Emergency Mode", onClick = { onModuleDialog("Emergency Mode", "Emergency Mode will enable the configured protective response when native defense modules are connected.") }, outlined = true)
+        ActionButton("Iniciar escaneo", onClick = { onStartScan() })
+        ActionButton("Activar defensa VPN", onClick = { onModuleDialog("Defensa VPN", "La defensa VPN se conectará al servicio VPN de Android en las fases 4/5.") }, outlined = true)
+        ActionButton("Modo emergencia", onClick = { onModuleDialog("Modo emergencia", "El modo emergencia activará la respuesta protectora configurada cuando los módulos nativos de defensa estén conectados.") }, outlined = true)
     }
 }
 
 @Composable
 fun AurasScreen(onModuleDialog: (String, String) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        SectionTitle("AURAS", "Tactical field", "Privacy-safe view with no location or LAN data active.")
+        SectionTitle("AURAS", "Campo táctico", "Vista privada sin ubicación ni datos LAN activos.")
         TacticalMap(Modifier.fillMaxWidth().height(250.dp))
         Panel(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Location not enabled", color = AuraAmber, fontSize = 17.sp)
-                Text("LAN discovery not active yet", color = AuraMuted, fontSize = 13.sp)
-                Text("No nearby Aura data is shown until native permissions and discovery are connected.", color = AuraMuted, fontSize = 12.sp)
+                Text("Ubicación no activada", color = AuraAmber, fontSize = 17.sp)
+                Text("El descubrimiento LAN aún no está activo", color = AuraMuted, fontSize = 13.sp)
+                Text("No se muestran Auras cercanas hasta conectar los permisos nativos y el descubrimiento.", color = AuraMuted, fontSize = 12.sp)
             }
         }
-        ActionButton("Enable location", onClick = { onModuleDialog("Location permission", "Location will use the Android location permission when the native location module is connected.") })
-        ActionButton("Search LAN Auras", onClick = { onModuleDialog("LAN discovery", "LAN Auras will use UDP discovery in a later native phase.") }, outlined = true)
+        ActionButton("Activar ubicación", onClick = { onModuleDialog("Permiso de ubicación", "La ubicación usará el permiso de ubicación de Android cuando se conecte el módulo nativo.") })
+        ActionButton("Buscar Auras LAN", onClick = { onModuleDialog("Descubrimiento LAN", "Las Auras LAN usarán descubrimiento UDP en una fase nativa posterior.") }, outlined = true)
     }
 }
 
 @Composable
 fun DefenseScreen(onModuleDialog: (String, String) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        SectionTitle("DEFENSE", "Sentinel Firewall", "A visual control surface. No blocking events are simulated.")
+        SectionTitle("DEFENSA", "Cortafuegos Centinela", "Superficie de control visual. No se simulan bloqueos.")
         Panel(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 SentinelCanvas(Modifier.fillMaxWidth().height(250.dp))
-                Text("READY / PARTIAL", color = AuraGreen, fontSize = 12.sp)
+                Text("LISTO / PARCIAL", color = AuraGreen, fontSize = 12.sp)
             }
         }
-        ActionButton("Prepare VPN", onClick = { onModuleDialog("Prepare VPN", "VPN preparation will connect to the native VpnService in a later phase.") })
-        ActionButton("Firewall Profiles", onClick = { onModuleDialog("Firewall Profiles", "Firewall profiles will be connected to native Android controls in the next implementation phase.") }, outlined = true)
-        ActionButton("Emergency Mode", onClick = { onModuleDialog("Emergency Mode", "Emergency Mode will define its native response when the defense modules are connected.") }, outlined = true)
+        ActionButton("Preparar VPN", onClick = { onModuleDialog("Preparar VPN", "La preparación de VPN se conectará al servicio VPN nativo en una fase posterior.") })
+        ActionButton("Perfiles del cortafuegos", onClick = { onModuleDialog("Perfiles del cortafuegos", "Los perfiles del cortafuegos se conectarán a los controles nativos de Android en la siguiente fase.") }, outlined = true)
+        ActionButton("Modo emergencia", onClick = { onModuleDialog("Modo emergencia", "El modo emergencia definirá su respuesta nativa cuando los módulos de defensa estén conectados.") }, outlined = true)
     }
 }
 
@@ -138,10 +138,10 @@ private fun SentinelCanvas(modifier: Modifier) {
 @Composable
 fun AppsScreen(onModuleDialog: (String, String) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        SectionTitle("APPS", "Apps Genome Scanner", "Visual scanner shell. No PackageManager results are fabricated.")
+        SectionTitle("APPS", "Escáner genómico de apps", "Interfaz visual del escáner. No se inventan resultados del gestor de paquetes.")
         Panel(modifier = Modifier.fillMaxWidth()) { ScannerCanvas(Modifier.fillMaxWidth().height(190.dp)) }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("NETWORK", "SENSORS", "IDENTITY").forEach { label ->
+            listOf("RED", "SENSORES", "IDENTIDAD").forEach { label ->
                 Box(modifier = Modifier.weight(1f).background(AuraSurface, RoundedCornerShape(8.dp)).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
                     Text(label, color = AuraMuted, fontSize = 10.sp)
                 }
@@ -149,13 +149,13 @@ fun AppsScreen(onModuleDialog: (String, String) -> Unit) {
         }
         Panel(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("RISK SUMMARY", color = AuraCyan, fontSize = 11.sp)
-                Text("Awaiting real PackageManager scan", color = AuraMuted, fontSize = 14.sp)
+                Text("RESUMEN DE RIESGOS", color = AuraCyan, fontSize = 11.sp)
+                Text("Esperando un escaneo real del gestor de paquetes", color = AuraMuted, fontSize = 14.sp)
             }
         }
-        ActionButton("Scan visible apps", onClick = { onModuleDialog("Apps scanner", "The real PackageManager scanner will be connected in the next phase.") })
-        ActionButton("Permission audit", onClick = { onModuleDialog("Permission audit", "The real PackageManager permission audit will be connected in the next phase.") }, outlined = true)
-        ActionButton("Export app report", onClick = { onModuleDialog("App report", "Report export will be connected after the real PackageManager scanner is available.") }, outlined = true)
+        ActionButton("Escanear apps visibles", onClick = { onModuleDialog("Escáner de apps", "El escáner real del gestor de paquetes se conectará en la siguiente fase.") })
+        ActionButton("Auditar permisos", onClick = { onModuleDialog("Auditoría de permisos", "La auditoría real de permisos del gestor de paquetes se conectará en la siguiente fase.") }, outlined = true)
+        ActionButton("Exportar informe de apps", onClick = { onModuleDialog("Informe de apps", "La exportación de informes se conectará cuando esté disponible el escáner real del gestor de paquetes.") }, outlined = true)
     }
 }
 

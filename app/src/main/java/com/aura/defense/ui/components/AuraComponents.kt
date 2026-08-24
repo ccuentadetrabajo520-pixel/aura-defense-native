@@ -56,8 +56,8 @@ fun AuraTopBar(auraId: String, onAuraIdClick: () -> Unit, onSettingsClick: () ->
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column {
-            Text("AURA / DEFENSE", color = AuraCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-            Text("Private mobile defense", color = AuraMuted, fontSize = 12.sp)
+            Text("AURA / DEFENSA", color = AuraCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+            Text("Defensa móvil privada", color = AuraMuted, fontSize = 12.sp)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Surface(
@@ -69,7 +69,7 @@ fun AuraTopBar(auraId: String, onAuraIdClick: () -> Unit, onSettingsClick: () ->
                 Text(auraId, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = AuraCyan, fontSize = 12.sp, maxLines = 1)
             }
             IconButton(onClick = onSettingsClick) {
-                Text("SET", color = AuraMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text("Ajustes", color = AuraMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -77,7 +77,7 @@ fun AuraTopBar(auraId: String, onAuraIdClick: () -> Unit, onSettingsClick: () ->
 
 @Composable
 fun AuraBottomNav(selected: Int, onSelected: (Int) -> Unit) {
-    val labels = listOf("Home", "Auras", "Defense", "Apps")
+    val labels = listOf("Inicio", "Auras", "Defensa", "Apps")
     Surface(color = AuraSurface, shape = RoundedCornerShape(18.dp)) {
         Row(modifier = Modifier.fillMaxWidth().padding(6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             labels.forEachIndexed { index, label ->
@@ -140,7 +140,7 @@ fun ActionButton(label: String, onClick: () -> Unit, outlined: Boolean = false) 
 
 @Composable
 fun ModuleDialog(title: String, message: String, onDismiss: () -> Unit) {
-    AlertDialog(onDismissRequest = onDismiss, title = { Text(title) }, text = { Text(message) }, confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } })
+    AlertDialog(onDismissRequest = onDismiss, title = { Text(title) }, text = { Text(message) }, confirmButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } })
 }
 
 @Composable
@@ -148,10 +148,10 @@ fun AuraIdDialog(currentId: String, onSave: (String) -> Unit, onDismiss: () -> U
     var value by remember { mutableStateOf(currentId) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Editable Aura ID") },
+        title = { Text("Editar Aura ID") },
         text = { OutlinedTextField(value = value, onValueChange = { value = it }, singleLine = true, label = { Text("Aura ID") }, modifier = Modifier.fillMaxWidth()) },
-        confirmButton = { TextButton(onClick = { if (value.isNotBlank()) { onSave(value); onDismiss() } }) { Text("Save") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        confirmButton = { TextButton(onClick = { if (value.isNotBlank()) { onSave(value); onDismiss() } }) { Text("Guardar") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
     )
 }
 

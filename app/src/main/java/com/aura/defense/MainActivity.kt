@@ -32,9 +32,9 @@ import com.aura.defense.ui.screens.DefenseScreen
 import com.aura.defense.ui.screens.HomeScreen
 
 private data class AuraUiState(
-    val auraScore: String = "Analyzing...",
-    val vpnStatus: String = "Standby",
-    val dnsStatus: String = "Ready",
+    val auraScore: String = "Analizando...",
+    val vpnStatus: String = "En espera",
+    val dnsStatus: String = "Listo",
     val riskCount: Int = 0,
     val selectedTab: Int = 0,
     val auraId: String,
@@ -81,7 +81,7 @@ private fun AuraDefenseApp(preferences: AuraPreferences) {
                     vpnStatus = state.vpnStatus,
                     dnsStatus = state.dnsStatus,
                     riskCount = state.riskCount,
-                    onStartScan = { state = state.copy(auraScore = "Base ready for real diagnosis") },
+                    onStartScan = { state = state.copy(auraScore = "Base lista para un diagnóstico real") },
                     onModuleDialog = { title, message -> moduleDialog = title to message }
                 )
                 1 -> AurasScreen { title, message -> moduleDialog = title to message }
@@ -107,7 +107,7 @@ private fun AuraDefenseApp(preferences: AuraPreferences) {
             visibilityVisible = state.visibilityVisible,
             onEditId = { showAuraIdDialog = true },
             onVisibilityToggle = { state = state.copy(visibilityVisible = !state.visibilityVisible) },
-            onItemClick = { item -> moduleDialog = item to "This module will be connected to the real Android API in the next implementation phase." },
+            onItemClick = { item -> moduleDialog = item to "Este módulo se conectará a la API real de Android en la siguiente fase. No se mostrará como activo hasta que funcione de verdad." },
             onDismiss = { showAuraCenter = false }
         )
     }
