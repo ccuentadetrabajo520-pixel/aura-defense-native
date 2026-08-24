@@ -67,12 +67,19 @@ class DeviceTelemetryProvider(private val context: Context) {
 
     private fun readPrivateDns(): String = runCatching {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return "No disponible"
-        when (Settings.Global.getString(context.contentResolver, Settings.Global.PRIVATE_DNS_MODE)) {
+        val privateDnsMode = runCatching {
+            Settings.Global.getString(context.contentResolver, "private_dns_mode")
+        }.getOrNull()
+        val privateDnsSpecifier = runCatching {
+            Settings.Global.getString(context.contentResolver, "private_dns_specifier")
+        }.getOrNull()
+
+        when (privateDnsMode?.takeIf { it.isNotBlank() }) {
             "off" -> "Inactivo"
             "opportunistic" -> "Automático"
-            "hostname" -> Settings.Global.getString(context.contentResolver, Settings.Global.PRIVATE_DNS_SPECIFIER)
-                ?.takeIf { it.isNotBlank() } ?: "Personalizado"
-            else -> "No disponible"
+            "hostname" -> privateDnsSpecifier?.takeIf { it.isNotBlank() }
+                ?.let { "DNS privado activo: $it" } ?: "DNS privado activo"
+            else -> "Activo"
         }
     }.getOrDefault("No disponible")
 
