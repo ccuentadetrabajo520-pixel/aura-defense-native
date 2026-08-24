@@ -50,6 +50,7 @@ import com.aura.defense.ui.components.LinkAnalyzerDialog
 import com.aura.defense.ui.components.PasswordAuditorDialog
 import com.aura.defense.ui.components.ReportDialog
 import com.aura.defense.ui.components.ShareScannerDialog
+import com.aura.defense.ui.components.QrScannerDialog
 import com.aura.defense.security.SecurityPostureEngine
 import com.aura.defense.security.SettingsAction
 import com.aura.defense.ui.screens.AppsScreen
@@ -110,6 +111,7 @@ private fun AuraDefenseApp(
     var showPasswordAuditor by remember { mutableStateOf(false) }
     var showReports by remember { mutableStateOf(false) }
     var showShareScanner by remember { mutableStateOf(sharedText != null) }
+    var showQrScanner by remember { mutableStateOf(false) }
     var linkHistory by remember { mutableStateOf<List<LinkAnalysis>>(emptyList()) }
     var passwordAudit by remember { mutableStateOf<PasswordAudit?>(null) }
 
@@ -206,6 +208,9 @@ private fun AuraDefenseApp(
                 } else if (item == "Auditor de contraseñas") {
                     showPasswordAuditor = true
                     showAuraCenter = false
+                } else if (item == "QR Anti-Phishing") {
+                    showQrScanner = true
+                    showAuraCenter = false
                 } else if (item == "Reportes") {
                     showReports = true
                     showAuraCenter = false
@@ -241,6 +246,12 @@ private fun AuraDefenseApp(
         PasswordAuditorDialog(
             onAudit = { passwordAudit = it },
             onDismiss = { showPasswordAuditor = false }
+        )
+    }
+    if (showQrScanner) {
+        QrScannerDialog(
+            onAnalysis = { analysis -> linkHistory = (linkHistory + analysis).takeLast(20) },
+            onDismiss = { showQrScanner = false }
         )
     }
     if (showReports) {
