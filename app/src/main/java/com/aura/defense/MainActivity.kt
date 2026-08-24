@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -14,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,8 +57,7 @@ class MainActivity : ComponentActivity() {
 private fun AuraDefenseApp(preferences: AuraPreferences, telemetryProvider: DeviceTelemetryProvider) {
     val context = LocalContext.current
     val engine = remember { SecurityPostureEngine() }
-    val initialResult = remember { engine.evaluate(telemetryProvider.read()) }
-    var result by remember { mutableStateOf(initialResult) }
+    var result by remember { mutableStateOf(com.aura.defense.security.PostureResult.pending()) }
     var selectedTab by remember { mutableStateOf(0) }
     var auraId by remember { mutableStateOf(preferences.getAuraId()) }
     var visibilityVisible by remember { mutableStateOf(true) }
@@ -65,6 +66,15 @@ private fun AuraDefenseApp(preferences: AuraPreferences, telemetryProvider: Devi
     var showTelemetry by remember { mutableStateOf(false) }
     var showSummary by remember { mutableStateOf(false) }
     var moduleDialog by remember { mutableStateOf<Pair<String, String>?>(null) }
+
+    LaunchedEffect(Unit) {
+        runCatching { engine.evaluate(telemetryProvider.read()) }
+            .onSuccess { result = it }
+            .onFailure {
+                Log.e("AuraDefense", "No se pudo completar el diagnóstico inicial", it)
+                moduleDialog = "Diagnóstico no disponible" to "No se pudo completar el diagnóstico en este dispositivo. Aura seguirá funcionando con los datos disponibles."
+            }
+    }
 
     Scaffold(
         containerColor = AuraBackground,
@@ -86,7 +96,14 @@ private fun AuraDefenseApp(preferences: AuraPreferences, telemetryProvider: Devi
             when (selectedTab) {
                 0 -> HomeScreen(
                     result = result,
-                    onStartScan = { result = engine.evaluate(telemetryProvider.read()); showSummary = true },
+                    onStartScan = {
+                        runCatching { engine.evaluate(telemetryProvider.read()) }
+                            .onSuccess { result = it; showSummary = true }
+                            .onFailure {
+                                Log.e("AuraDefense", "No se pudo completar el diagnóstico solicitado", it)
+                                moduleDialog = "Diagnóstico no disponible" to "No se pudo completar el diagnóstico en este dispositivo. Aura seguirá funcionando con los datos disponibles."
+                            }
+                    },
                     onModuleDialog = { title, message -> moduleDialog = title to message }
                 )
                 1 -> AurasScreen { title, message -> moduleDialog = title to message }
@@ -142,4 +159,5 @@ private fun openAndroidSettings(action: SettingsAction, context: Context) {
         SettingsAction.NOTIFICACIONES -> Settings.ACTION_APP_NOTIFICATION_SETTINGS
     }
     runCatching { context.startActivity(Intent(intentAction)) }
+        .onFailure { Log.e("AuraDefense", "No se pudo abrir el ajuste de Android", it) }
 }

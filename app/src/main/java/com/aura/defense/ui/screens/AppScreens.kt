@@ -60,7 +60,7 @@ fun HomeScreen(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
                         Text("PUNTUACIÓN AURA", color = AuraMuted, fontSize = 11.sp)
-                        Text("${result.score}/100", color = AuraCyan, fontSize = 24.sp)
+                        Text(if (result.score >= 0) "${result.score}/100" else "No disponible", color = AuraCyan, fontSize = 24.sp)
                     }
                         StatusDot(if (result.score >= 85) AuraGreen else if (result.score >= 60) AuraAmber else AuraRed, "ESTADO", result.status)
                 }

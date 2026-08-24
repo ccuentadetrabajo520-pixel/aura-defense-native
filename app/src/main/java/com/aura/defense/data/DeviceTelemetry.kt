@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.StatFs
 import android.provider.Settings
 import android.app.KeyguardManager
+import android.util.Log
 import java.util.Locale
 
  data class DeviceTelemetry(
@@ -29,35 +30,67 @@ import java.util.Locale
     val bloqueoSeguro: Boolean,
     val adbActivo: Boolean?,
     val opcionesDesarrollador: Boolean?
+) {
+    companion object {
+        fun unavailable() = DeviceTelemetry(
+            fabricante = "No disponible",
+            modelo = "No disponible",
+            versionAndroid = "No disponible",
+            api = 0,
+            parcheSeguridad = "No disponible",
+            bateriaPorcentaje = null,
+            ramDisponibleBytes = null,
+            ramTotalBytes = null,
+            almacenamientoDisponibleBytes = null,
+            almacenamientoTotalBytes = null,
+            redActiva = false,
+            redValidada = null,
+            vpnActiva = false,
+            dnsPrivado = "No disponible",
+            bloqueoSeguro = false,
+            adbActivo = null,
+            opcionesDesarrollador = null
+        )
+    }
 )
 
 class DeviceTelemetryProvider(private val context: Context) {
     fun read(): DeviceTelemetry {
-        val connectivity = context.getSystemService(ConnectivityManager::class.java)
-        val network = connectivity?.activeNetwork
-        val capabilities = network?.let { connectivity.getNetworkCapabilities(it) }
-        val battery = context.getSystemService(BatteryManager::class.java)
-        val batteryLevel = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)?.takeIf { it in 0..100 }
-        val memory = context.getSystemService(ActivityManager::class.java)?.let {
-            ActivityManager.MemoryInfo().also(it::getMemoryInfo)
+        return runCatching { readAvailableSignals() }.getOrElse { error ->
+            Log.e("AuraDefense", "No se pudo leer la telemetría del dispositivo", error)
+            DeviceTelemetry.unavailable()
         }
+    }
+
+    private fun readAvailableSignals(): DeviceTelemetry {
+        val connectivity = runCatching { context.getSystemService(ConnectivityManager::class.java) }.getOrNull()
+        val network = runCatching { connectivity?.activeNetwork }.getOrNull()
+        val capabilities = runCatching { network?.let { connectivity?.getNetworkCapabilities(it) } }.getOrNull()
+        val battery = runCatching { context.getSystemService(BatteryManager::class.java) }.getOrNull()
+        val batteryLevel = runCatching { battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) }
+            .getOrNull()?.takeIf { it in 0..100 }
+        val memory = runCatching {
+            context.getSystemService(ActivityManager::class.java)?.let { manager ->
+                ActivityManager.MemoryInfo().also(manager::getMemoryInfo)
+            }
+        }.getOrNull()
         val storage = runCatching { StatFs(context.filesDir.absolutePath) }.getOrNull()
-        val security = context.getSystemService(KeyguardManager::class.java)?.isKeyguardSecure ?: false
+        val security = runCatching { context.getSystemService(KeyguardManager::class.java)?.isKeyguardSecure }.getOrNull() ?: false
 
         return DeviceTelemetry(
-            fabricante = Build.MANUFACTURER.orEmpty().ifBlank { "No disponible" }.replaceFirstChar { it.uppercase(Locale.getDefault()) },
-            modelo = Build.MODEL.orEmpty().ifBlank { "No disponible" },
-            versionAndroid = Build.VERSION.RELEASE.orEmpty().ifBlank { "No disponible" },
-            api = Build.VERSION.SDK_INT,
-            parcheSeguridad = Build.VERSION.SECURITY_PATCH.orEmpty().ifBlank { "No disponible" },
+            fabricante = runCatching { Build.MANUFACTURER.orEmpty().ifBlank { "No disponible" }.replaceFirstChar { it.uppercase(Locale.getDefault()) } }.getOrDefault("No disponible"),
+            modelo = runCatching { Build.MODEL.orEmpty().ifBlank { "No disponible" } }.getOrDefault("No disponible"),
+            versionAndroid = runCatching { Build.VERSION.RELEASE.orEmpty().ifBlank { "No disponible" } }.getOrDefault("No disponible"),
+            api = runCatching { Build.VERSION.SDK_INT }.getOrDefault(0),
+            parcheSeguridad = runCatching { Build.VERSION.SECURITY_PATCH.orEmpty().ifBlank { "No disponible" } }.getOrDefault("No disponible"),
             bateriaPorcentaje = batteryLevel,
-            ramDisponibleBytes = memory?.availMem,
-            ramTotalBytes = memory?.totalMem,
-            almacenamientoDisponibleBytes = storage?.availableBytes,
-            almacenamientoTotalBytes = storage?.totalBytes,
+            ramDisponibleBytes = runCatching { memory?.availMem }.getOrNull(),
+            ramTotalBytes = runCatching { memory?.totalMem }.getOrNull(),
+            almacenamientoDisponibleBytes = runCatching { storage?.availableBytes }.getOrNull(),
+            almacenamientoTotalBytes = runCatching { storage?.totalBytes }.getOrNull(),
             redActiva = capabilities != null,
-            redValidada = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
-            vpnActiva = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true,
+            redValidada = runCatching { capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) }.getOrNull(),
+            vpnActiva = runCatching { capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true }.getOrDefault(false),
             dnsPrivado = readPrivateDns(),
             bloqueoSeguro = security,
             adbActivo = readGlobalInt(Settings.Global.ADB_ENABLED),
@@ -81,11 +114,11 @@ class DeviceTelemetryProvider(private val context: Context) {
                 ?.let { "DNS privado activo: $it" } ?: "DNS privado activo"
             else -> "Activo"
         }
-    }.getOrDefault("No disponible")
+    }.onFailure { Log.e("AuraDefense", "No se pudo leer el DNS privado", it) }.getOrDefault("No disponible")
 
     private fun readGlobalInt(name: String): Boolean? = runCatching {
         Settings.Global.getInt(context.contentResolver, name, 0) == 1
-    }.getOrNull()
+    }.onFailure { Log.e("AuraDefense", "No se pudo leer un ajuste del sistema", it) }.getOrNull()
 }
 
 fun formatBytes(bytes: Long?): String {

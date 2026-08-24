@@ -25,7 +25,17 @@ data class PostureResult(
     val findings: List<SecurityFinding>,
     val telemetry: DeviceTelemetry,
     val timestamp: String
-)
+) {
+    companion object {
+        fun pending() = PostureResult(
+            score = -1,
+            status = "Diagnóstico pendiente",
+            findings = emptyList(),
+            telemetry = DeviceTelemetry.unavailable(),
+            timestamp = "No disponible"
+        )
+    }
+}
 
 class SecurityPostureEngine {
     fun evaluate(telemetry: DeviceTelemetry): PostureResult {
