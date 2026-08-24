@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="aura_background">#081317</color>
+    <color name="aura_surface">#10242A</color>
+    <color name="aura_teal">#62E6D5</color>
+    <color name="aura_text">#E5F4F1</color>
+</resources>
