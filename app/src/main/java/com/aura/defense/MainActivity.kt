@@ -49,6 +49,7 @@ import com.aura.defense.ui.components.AppRisksDialog
 import com.aura.defense.ui.components.LinkAnalyzerDialog
 import com.aura.defense.ui.components.PasswordAuditorDialog
 import com.aura.defense.ui.components.ReportDialog
+import com.aura.defense.ui.components.ShareScannerDialog
 import com.aura.defense.security.SecurityPostureEngine
 import com.aura.defense.security.SettingsAction
 import com.aura.defense.ui.screens.AppsScreen
@@ -57,19 +58,38 @@ import com.aura.defense.ui.screens.DefenseScreen
 import com.aura.defense.ui.screens.HomeScreen
 
 class MainActivity : ComponentActivity() {
+    private var sharedText by mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        sharedText = extractSharedText(intent)
         val preferences = AuraPreferences(this)
         setContent {
             AuraTheme {
-                AuraDefenseApp(preferences = preferences, telemetryProvider = DeviceTelemetryProvider(this@MainActivity))
+                AuraDefenseApp(
+                    preferences = preferences,
+                    telemetryProvider = DeviceTelemetryProvider(this@MainActivity),
+                    sharedText = sharedText,
+                    onSharedTextConsumed = { sharedText = null }
+                )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        sharedText = extractSharedText(intent)
     }
 }
 
 @Composable
-private fun AuraDefenseApp(preferences: AuraPreferences, telemetryProvider: DeviceTelemetryProvider) {
+private fun AuraDefenseApp(
+    preferences: AuraPreferences,
+    telemetryProvider: DeviceTelemetryProvider,
+    sharedText: String?,
+    onSharedTextConsumed: () -> Unit
+) {
     val context = LocalContext.current
     val engine = remember { SecurityPostureEngine() }
     val appScanner = remember { AppScanner(context) }
@@ -89,8 +109,13 @@ private fun AuraDefenseApp(preferences: AuraPreferences, telemetryProvider: Devi
     var showLinkAnalyzer by remember { mutableStateOf(false) }
     var showPasswordAuditor by remember { mutableStateOf(false) }
     var showReports by remember { mutableStateOf(false) }
+    var showShareScanner by remember { mutableStateOf(sharedText != null) }
     var linkHistory by remember { mutableStateOf<List<LinkAnalysis>>(emptyList()) }
     var passwordAudit by remember { mutableStateOf<PasswordAudit?>(null) }
+
+    LaunchedEffect(sharedText) {
+        if (sharedText != null) showShareScanner = true
+    }
 
     LaunchedEffect(Unit) {
         runCatching { engine.evaluate(telemetryProvider.read()) }
@@ -184,6 +209,9 @@ private fun AuraDefenseApp(preferences: AuraPreferences, telemetryProvider: Devi
                 } else if (item == "Reportes") {
                     showReports = true
                     showAuraCenter = false
+                } else if (item == "Escáner de contenido compartido") {
+                    moduleDialog = item to "Para usar esta función, comparte un enlace o texto desde otra app y selecciona Aura Defense."
+                    showAuraCenter = false
                 } else {
                     moduleDialog = item to "Este módulo se conectará a la API real de Android en la siguiente fase. No se mostrará como activo hasta que funcione de verdad."
                 }
@@ -226,6 +254,18 @@ private fun AuraDefenseApp(preferences: AuraPreferences, telemetryProvider: Devi
             onDismiss = { showReports = false }
         )
     }
+    if (showShareScanner && sharedText != null) {
+        ShareScannerDialog(
+            text = sharedText,
+            onAnalyses = { analyses ->
+                linkHistory = (linkHistory + analyses).takeLast(20)
+            },
+            onDismiss = {
+                showShareScanner = false
+                onSharedTextConsumed()
+            }
+        )
+    }
     if (showSummary) {
         PostureSummaryDialog(
             result,
@@ -238,6 +278,11 @@ private fun AuraDefenseApp(preferences: AuraPreferences, telemetryProvider: Devi
     }
     moduleDialog?.let { (title, message) -> ModuleDialog(title, message) { moduleDialog = null } }
 }
+
+private fun extractSharedText(intent: Intent?): String? = runCatching {
+    if (intent?.action != Intent.ACTION_SEND || intent.type != "text/plain") return null
+    intent.getStringExtra(Intent.EXTRA_TEXT)?.takeIf { it.isNotBlank() }
+}.onFailure { Log.e("AuraDefense", "No se pudo leer el contenido compartido", it) }.getOrNull()
 
 private fun openAndroidSettings(action: SettingsAction, context: Context) {
     val intentAction = when (action) {
