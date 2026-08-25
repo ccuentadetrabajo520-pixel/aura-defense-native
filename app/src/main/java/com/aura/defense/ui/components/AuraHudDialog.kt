@@ -11,6 +11,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.Dialog
@@ -19,6 +22,9 @@ import androidx.compose.ui.unit.dp
 import com.aura.defense.ui.AuraCyan
 import com.aura.defense.ui.AuraSurface
 import com.aura.defense.ui.AuraSurfaceRaised
+
+private val AuraHudText = Color(0xFFEAF7F5)
+private val AuraHudSecondaryText = Color(0xFFB7CCCA)
 
 @Composable
 fun AuraHudDialog(
@@ -48,16 +54,36 @@ fun AuraHudDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)) {
-                        title()
+                        CompositionLocalProvider(
+                            LocalContentColor provides AuraHudText,
+                            LocalTextStyle provides MaterialTheme.typography.titleLarge
+                        ) {
+                            title()
+                        }
                     }
                 }
-                text()
+                CompositionLocalProvider(
+                    LocalContentColor provides AuraHudText,
+                    LocalTextStyle provides MaterialTheme.typography.bodyMedium
+                ) {
+                    text()
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    dismissButton?.invoke()
-                    confirmButton()
+                    CompositionLocalProvider(
+                        LocalContentColor provides AuraHudSecondaryText,
+                        LocalTextStyle provides MaterialTheme.typography.labelLarge
+                    ) {
+                        dismissButton?.invoke()
+                    }
+                    CompositionLocalProvider(
+                        LocalContentColor provides AuraCyan,
+                        LocalTextStyle provides MaterialTheme.typography.labelLarge
+                    ) {
+                        confirmButton()
+                    }
                 }
             }
         }
