@@ -1,30 +1,58 @@
 package com.aura.defense.notifications
 
+import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.util.Log
 import com.aura.defense.tools.LinkAnalyzer
 import com.aura.defense.tools.LinkRisk
 
 class AuraNotificationListenerService : NotificationListenerService() {
-    private val urlPattern = Regex("https?://[^\\s<>\\\"']+")
+    private val urlRegex = Regex(
+        pattern = """https?://[^\s<>\"']+|www\.[^\s<>\"']+""",
+        option = RegexOption.IGNORE_CASE
+    )
 
-    override fun onNotificationPosted(sbn: StatusBarNotification) {
+    override fun onNotificationPosted(sbn: StatusBarNotification?) {
         runCatching {
-            val notification = sbn.notification
-            val extras = notification.extras ?: return
-            val visibleText = buildList {
-                extras.getCharSequence("android.text")?.toString()?.let(::add)
-                extras.getCharSequence("android.bigText")?.toString()?.let(::add)
-                extras.getCharSequenceArray("android.textLines")?.forEach { add(it.toString()) }
-            }
+            if (sbn == null) return
+            val urls = extractUrls(extractNotificationText(sbn))
+            if (urls.isEmpty()) return
+
             val store = NotificationAlertStore(applicationContext)
             val now = System.currentTimeMillis()
-            visibleText.flatMap { text -> urlPattern.findAll(text).map { it.value.trimEnd('.', ',', ';', ':', ')', ']', '}') }.distinct().forEach { url ->
+            urls.forEach { url ->
                 val analysis = LinkAnalyzer().analyze(url)
                 if (analysis.risk != LinkRisk.SEGURO) {
                     store.add(NotificationAlert(sbn.packageName, now, url, analysis))
                 }
             }
+        }.onFailure {
+            Log.e("AuraDefense", "Error al procesar notificación")
         }
+    }
+
+    private fun extractNotificationText(sbn: StatusBarNotification): String {
+        val extras = sbn.notification.extras ?: return ""
+        val parts = mutableListOf<String>()
+
+        extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.let { parts.add(it) }
+        extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.let { parts.add(it) }
+        extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.let { parts.add(it) }
+        extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.let { parts.add(it) }
+        extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.forEach { line ->
+            line?.toString()?.let { parts.add(it) }
+        }
+
+        return parts.joinToString(" ")
+    }
+
+    private fun extractUrls(text: String): List<String> {
+        if (text.isBlank()) return emptyList()
+        return urlRegex.findAll(text)
+            .map { it.value.trim().trimEnd('.', ',', ';', ':', ')', ']', '}') }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .toList()
     }
 }
