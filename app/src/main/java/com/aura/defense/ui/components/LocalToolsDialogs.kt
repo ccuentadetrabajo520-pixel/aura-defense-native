@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -33,7 +32,7 @@ import com.aura.defense.ui.AuraMuted
 fun LinkAnalyzerDialog(onAnalysis: (LinkAnalysis) -> Unit, onDismiss: () -> Unit) {
     var value by remember { mutableStateOf("") }
     var analysis by remember { mutableStateOf<LinkAnalysis?>(null) }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Analizador de enlaces") }, text = {
+    AuraHudDialog(onDismissRequest = onDismiss, title = { Text("Analizador de enlaces") }, text = {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("El análisis se realiza solo en este dispositivo. No se envía la URL.", color = AuraMuted, fontSize = 12.sp)
             OutlinedTextField(value = value, onValueChange = { value = it }, label = { Text("URL") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -50,7 +49,7 @@ fun PasswordAuditorDialog(onAudit: (PasswordAudit) -> Unit, onDismiss: () -> Uni
     var value by remember { mutableStateOf("") }
     var audit by remember { mutableStateOf<PasswordAudit?>(null) }
     DisposableEffect(Unit) { onDispose { value = "" } }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Auditor de contraseñas") }, text = {
+    AuraHudDialog(onDismissRequest = onDismiss, title = { Text("Auditor de contraseñas") }, text = {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("La contraseña se analiza localmente, no se guarda ni se registra.", color = AuraMuted, fontSize = 12.sp)
             OutlinedTextField(value = value, onValueChange = { value = it }, label = { Text("Contraseña") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())

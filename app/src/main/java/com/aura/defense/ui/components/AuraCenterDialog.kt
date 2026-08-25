@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,7 +38,7 @@ fun AuraCenterDialog(
     val tools = listOf("Escáner de apps", "Analizador de enlaces", "QR Anti-Phishing", "Auditor de contraseñas", "Escáner de contenido compartido", "Protección de notificaciones", "Reportes", "Bóveda cifrada", "Modo emergencia", "Comprobaciones programadas", "Acceso rápido", "Auras LAN")
     val legal = listOf("Términos y condiciones", "Responsabilidad del usuario", "Límites reales de Android sin root")
 
-    AlertDialog(
+    AuraHudDialog(
         onDismissRequest = onDismiss,
         title = { Text("Centro Aura") },
         text = {

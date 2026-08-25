@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,7 +24,7 @@ fun ShareScannerDialog(text: String, onAnalyses: (List<LinkAnalysis>) -> Unit, o
         extractUrls(text).map { LinkAnalyzer().analyze(it) }
     }
     androidx.compose.runtime.LaunchedEffect(analyses) { onAnalyses(analyses) }
-    AlertDialog(
+    AuraHudDialog(
         onDismissRequest = onDismiss,
         title = { Text("Análisis compartido") },
         text = {

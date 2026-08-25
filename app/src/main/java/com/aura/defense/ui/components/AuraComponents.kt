@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.IconButton
@@ -142,13 +141,13 @@ fun ActionButton(label: String, onClick: () -> Unit, outlined: Boolean = false) 
 
 @Composable
 fun ModuleDialog(title: String, message: String, onDismiss: () -> Unit) {
-    AlertDialog(onDismissRequest = onDismiss, title = { Text(title) }, text = { Text(message) }, confirmButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } })
+    AuraHudDialog(onDismissRequest = onDismiss, title = { Text(title) }, text = { Text(message) }, confirmButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } })
 }
 
 @Composable
 fun AuraIdDialog(currentId: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
     var value by remember { mutableStateOf(currentId) }
-    AlertDialog(
+    AuraHudDialog(
         onDismissRequest = onDismiss,
         title = { Text("Editar Aura ID") },
         text = { OutlinedTextField(value = value, onValueChange = { value = it }, singleLine = true, label = { Text("Aura ID") }, modifier = Modifier.fillMaxWidth()) },
@@ -163,7 +162,7 @@ fun TelemetryDialog(
     onSettingsAction: (com.aura.defense.security.SettingsAction) -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    AuraHudDialog(
         onDismissRequest = onDismiss,
         title = { Text("Telemetría del dispositivo") },
         text = {
@@ -200,7 +199,7 @@ private fun TelemetryLine(label: String, value: String) {
 
 @Composable
 fun PostureSummaryDialog(result: com.aura.defense.security.PostureResult, onFindingAction: (com.aura.defense.security.SecurityFinding) -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
+    AuraHudDialog(
         onDismissRequest = onDismiss,
         title = { Text("Diagnóstico real") },
         text = {
