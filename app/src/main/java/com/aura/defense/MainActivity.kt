@@ -134,6 +134,7 @@ private fun AuraDefenseApp(
     val appScanner = remember { AppScanner(context) }
     val threatEngine = remember { ThreatIntelligenceEngine(context) }
     var threatSnapshot by remember { mutableStateOf(threatEngine.snapshot) }
+    var threatRefreshing by remember { mutableStateOf(false) }
     val guardianEngine = remember { AuraGuardianEngine(threatEngine) }
     val historyStore = remember { AuraHistoryStore(context) }
     val changeDetector = remember { SuspiciousChangeDetector(historyStore) }
@@ -425,7 +426,15 @@ private fun AuraDefenseApp(
     if (showThreatIntelligence) {
         ThreatIntelligenceDialog(
             snapshot = threatSnapshot,
-            onRefresh = { threatSnapshot = threatEngine.refresh() },
+            refreshing = threatRefreshing,
+            onRefresh = {
+                threatRefreshing = true
+                scope.launch {
+                    val updated = withContext(Dispatchers.IO) { threatEngine.refresh() }
+                    threatSnapshot = updated
+                    threatRefreshing = false
+                }
+            },
             onRestore = { threatSnapshot = threatEngine.restoreBundled() },
             onDismiss = { showThreatIntelligence = false }
         )

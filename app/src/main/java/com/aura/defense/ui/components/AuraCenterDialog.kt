@@ -72,6 +72,7 @@ fun AuraCenterDialog(
 @Composable
 fun ThreatIntelligenceDialog(
     snapshot: ThreatIntelligenceSnapshot,
+    refreshing: Boolean,
     onRefresh: () -> Unit,
     onRestore: () -> Unit,
     onDismiss: () -> Unit
@@ -81,19 +82,16 @@ fun ThreatIntelligenceDialog(
         title = { Text("Inteligencia de amenazas") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Base activa: ${if (snapshot.isUpdated) "Base actualizada" else "Base incluida"}")
-                Text("Indicadores cargados: ${snapshot.indicators.size}")
+                Text("Base activa: ${if (snapshot.isBundled) "Base incluida" else "Base actualizada"}")
+                Text("Indicadores cargados: ${snapshot.indicatorCount}")
                 Text("Versión: ${snapshot.version}")
                 Text("Última actualización: ${snapshot.updatedAt}")
                 Text("Fuente: ${snapshot.source}")
                 Text(snapshot.lastUpdateStatus, color = AuraMuted)
-                if (snapshot.lastUpdateStatus.contains("fuente remota no configurada")) {
-                    Text("Actualización remota no configurada todavía", color = AuraMuted)
-                }
                 Text("Aura usa inteligencia local. No se suben URLs ni datos del dispositivo.", color = AuraMuted)
-                AuraHudActionButton("Ver estado") { onRefresh() }
-                AuraHudActionButton("Actualizar inteligencia") { onRefresh() }
-                AuraHudActionButton("Restaurar base local") { onRestore() }
+                if (refreshing) Text("Actualizando inteligencia...", color = AuraMuted)
+                AuraHudActionButton("Actualizar inteligencia") { if (!refreshing) onRefresh() }
+                AuraHudActionButton("Restaurar base local") { if (!refreshing) onRestore() }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } }

@@ -13,7 +13,10 @@ data class ThreatIntelligenceSnapshot(
     val checksum: String?,
     val isUpdated: Boolean,
     val lastUpdateStatus: String
-)
+) {
+    val indicatorCount: Int get() = indicators.size
+    val isBundled: Boolean get() = !isUpdated
+}
 
 class ThreatIntelligenceRepository(private val context: Context) {
     private var snapshot: ThreatIntelligenceSnapshot = loadSnapshot()
@@ -22,11 +25,24 @@ class ThreatIntelligenceRepository(private val context: Context) {
     fun current(): ThreatIntelligenceSnapshot = snapshot
 
     fun refresh(): ThreatIntelligenceSnapshot {
-        snapshot = loadSnapshot(lastUpdateStatus = if (REMOTE_UPDATE_URL == null) {
-            "Actualización de inteligencia omitida: fuente remota no configurada."
+        if (THREAT_FEED_URL == null) {
+            snapshot = loadSnapshot(lastUpdateStatus = "Actualización remota no configurada todavía.")
+            return snapshot
+        }
+        val content = ThreatFeedService().download(THREAT_FEED_URL)
+        val validated = content?.let(::validate)
+        if (validated == null) {
+            snapshot = loadSnapshot(lastUpdateStatus = INVALID_MESSAGE)
+            return snapshot
+        }
+        val saved = runCatching {
+            context.openFileOutput(CACHE_FILE, Context.MODE_PRIVATE).bufferedWriter().use { it.write(content) }
+        }.isSuccess
+        snapshot = if (saved) {
+            validated.copy(isUpdated = true, lastUpdateStatus = "Base actualizada validada y guardada.")
         } else {
-            "Actualización remota pendiente de implementación segura."
-        })
+            loadSnapshot(lastUpdateStatus = "No se pudo guardar la actualización. Aura usará la base local incluida.")
+        }
         return snapshot
     }
 
@@ -76,15 +92,31 @@ class ThreatIntelligenceRepository(private val context: Context) {
         if (content.toByteArray(Charsets.UTF_8).size > MAX_BYTES) return null
         val root = content.trim()
         val objectRoot = if (root.startsWith("{")) JSONObject(root) else null
-        val entries = objectRoot?.optJSONArray("indicators") ?: JSONArray(root)
+        val entries = objectRoot?.optJSONArray("indicators")
+            ?: objectRoot?.optJSONArray("threats")
+            ?: JSONArray(root)
         if (entries.length() == 0) return null
         val indicators = (0 until entries.length()).map { index ->
             val value = entries.getJSONObject(index)
-            if (value.optString("indicator").trim().isBlank()) error("Indicador vacío")
-            ThreatIndicator.fromJson(value)
-        }
+            val domain = value.optString("domain").trim().ifBlank { value.optString("indicator").trim() }
+            if (domain.isBlank() || value.optString("category").trim().isBlank() ||
+                value.optString("severity").trim().isBlank() || value.optString("source").trim().isBlank()) {
+                error("Indicador incompleto")
+            }
+            val normalized = JSONObject(value.toString()).apply {
+                put("indicator", domain.lowercase())
+                put("indicatorType", optString("indicatorType", "DOMAIN").uppercase())
+                put("category", optString("category").uppercase())
+                put("severity", optString("severity").uppercase())
+                put("id", optString("id", "threat-${domain.lowercase()}"))
+                put("descriptionEs", optString("descriptionEs", "Indicador de inteligencia de amenazas."))
+                put("updatedAt", optString("updatedAt", objectRoot?.optString("updatedAt", "") ?: ""))
+            }
+            ThreatIndicator.fromJson(normalized)
+        }.distinctBy { it.indicator.lowercase() }
+        if (indicators.isEmpty()) return null
         val checksum = objectRoot?.optString("checksum")?.takeIf { it.isNotBlank() }
-        if (checksum != null && checksum != sha256(objectRoot.getJSONArray("indicators").toString())) return null
+        if (checksum != null && checksum != sha256(entries.toString())) return null
         ThreatIntelligenceSnapshot(
             indicators = indicators,
             version = objectRoot?.optString("version")?.takeIf { it.isNotBlank() } ?: "local-compatible",
@@ -102,9 +134,9 @@ class ThreatIntelligenceRepository(private val context: Context) {
 
     private companion object {
         const val FILE_NAME = "threats.json"
-        const val CACHE_FILE = "threats-updated.json"
-        const val MAX_BYTES = 1_048_576
-        val REMOTE_UPDATE_URL: String? = null
+        const val CACHE_FILE = "threat_cache.json"
+        const val MAX_BYTES = 2 * 1024 * 1024
+        const val THREAT_FEED_URL: String? = null
         const val INVALID_MESSAGE = "No se pudo validar la inteligencia de amenazas. Aura usará la base local incluida."
     }
 }
