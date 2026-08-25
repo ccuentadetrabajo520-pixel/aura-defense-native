@@ -31,7 +31,8 @@ fun AuraCenterDialog(
     onTelemetry: () -> Unit,
     onItemClick: (String) -> Unit,
     onDismiss: () -> Unit,
-    notificationGuardStatus: String = "Desactivado · Acceso requerido"
+    notificationGuardStatus: String = "Desactivado · Acceso requerido",
+    permissionStatus: (String) -> String = { "No disponible" }
 ) {
     val permissions = listOf("Permiso de VPN", "Permiso de ubicación", "Permiso de cámara", "Permiso de notificaciones", "Acceso a notificaciones", "Acceso al uso", "Optimización de batería")
     val privacy = listOf("Modo local prioritario", "No subir apps", "No subir ubicación", "No subir URLs", "Borrar historial local")
@@ -48,7 +49,7 @@ fun AuraCenterDialog(
                     CenterRow("Modo de visibilidad", if (visibilityVisible) "Visible" else "Invisible", onVisibilityToggle)
                 }
                 CenterRow("Telemetría del dispositivo", "Ver datos", onTelemetry)
-                CenterSection("PERMISOS") { permissions.forEach { CenterRow(it, "No conectado", { onItemClick(it) }) } }
+                CenterSection("PERMISOS") { permissions.forEach { CenterRow(it, permissionStatus(it), { onItemClick(it) }) } }
                 CenterSection("PRIVACIDAD") { privacy.forEach { CenterRow(it, "Ajuste local", { onItemClick(it) }) } }
                 CenterSection("HERRAMIENTAS") {
                     tools.forEach {

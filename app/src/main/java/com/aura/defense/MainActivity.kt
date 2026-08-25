@@ -1,12 +1,17 @@
 package com.aura.defense
 
 import android.os.Bundle
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.app.usage.UsageStatsManager
 import android.provider.Settings
 import android.net.Uri
 import android.util.Log
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -116,8 +121,16 @@ private fun AuraDefenseApp(
     var showShareScanner by remember { mutableStateOf(sharedText != null) }
     var showQrScanner by remember { mutableStateOf(false) }
     var showNotificationGuard by remember { mutableStateOf(false) }
+    var locationActive by remember { mutableStateOf(hasLocationPermission(context)) }
     var linkHistory by remember { mutableStateOf<List<LinkAnalysis>>(emptyList()) }
     var passwordAudit by remember { mutableStateOf<PasswordAudit?>(null) }
+    val locationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        locationActive = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (!locationActive) moduleDialog = "Permiso de ubicación" to "Permiso de ubicación denegado. Aura mantendrá el modo privado."
+    }
 
     LaunchedEffect(sharedText) {
         if (sharedText != null) showShareScanner = true
@@ -160,10 +173,29 @@ private fun AuraDefenseApp(
                                 moduleDialog = "Diagnóstico no disponible" to "No se pudo completar el diagnóstico en este dispositivo. Aura seguirá funcionando con los datos disponibles."
                             }
                     },
+                    onModuleDialog = { title, message -> moduleDialog = title to message },
+                    onEmergency = {
+                        runCatching { engine.evaluate(telemetryProvider.read()) }
+                            .onSuccess { result = it; showSummary = true }
+                            .onFailure { moduleDialog = "Modo emergencia" to "No se pudo actualizar el diagnóstico en este dispositivo." }
+                    }
+                )
+                1 -> AurasScreen(
+                    locationActive = locationActive,
+                    onActivateLocation = {
+                        if (hasLocationPermission(context)) locationActive = true
+                        else locationLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                    },
                     onModuleDialog = { title, message -> moduleDialog = title to message }
                 )
-                1 -> AurasScreen { title, message -> moduleDialog = title to message }
-                2 -> DefenseScreen { title, message -> moduleDialog = title to message }
+                2 -> DefenseScreen(
+                    onModuleDialog = { title, message -> moduleDialog = title to message },
+                    onEmergency = {
+                        runCatching { engine.evaluate(telemetryProvider.read()) }
+                            .onSuccess { result = it; showSummary = true }
+                            .onFailure { moduleDialog = "Modo emergencia" to "No se pudo actualizar el diagnóstico en este dispositivo." }
+                    }
+                )
                 else -> AppsScreen(
                     scanResult = appScanResult,
                     scanning = scanningApps,
@@ -203,6 +235,17 @@ private fun AuraDefenseApp(
             onVisibilityToggle = { visibilityVisible = !visibilityVisible },
             onTelemetry = { showTelemetry = true },
             notificationGuardStatus = if (isNotificationAccessEnabled(context)) "Activo" else "Desactivado · Acceso requerido",
+            permissionStatus = { item ->
+                when (item) {
+                    "Permiso de cámara" -> "Abrir escáner QR"
+                    "Permiso de ubicación" -> if (hasLocationPermission(context)) "Activo" else "Acceso requerido"
+                    "Permiso de notificaciones" -> "No requerido en esta versión de Android"
+                    "Acceso a notificaciones" -> if (isNotificationAccessEnabled(context)) "Activo" else "Acceso requerido"
+                    "Acceso al uso" -> if (hasUsageAccess(context)) "Activo" else "Acceso requerido"
+                    "Optimización de batería" -> "Abrir configuración"
+                    else -> "No disponible"
+                }
+            },
             onItemClick = { item ->
                 if (item == "Escáner de apps") {
                     selectedTab = 3
@@ -219,6 +262,20 @@ private fun AuraDefenseApp(
                 } else if (item == "Protección de notificaciones") {
                     showNotificationGuard = true
                     showAuraCenter = false
+                } else if (item == "Permiso de cámara") {
+                    showQrScanner = true
+                    showAuraCenter = false
+                } else if (item == "Permiso de ubicación") {
+                    locationLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                } else if (item == "Acceso a notificaciones") {
+                    showNotificationGuard = true
+                    showAuraCenter = false
+                } else if (item == "Acceso al uso") {
+                    openSetting(Settings.ACTION_USAGE_ACCESS_SETTINGS, context) { moduleDialog = "Acceso al uso" to it }
+                } else if (item == "Optimización de batería") {
+                    openSetting(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS, Settings.ACTION_BATTERY_SAVER_SETTINGS, context) { moduleDialog = "Optimización de batería" to it }
+                } else if (item == "Permiso de notificaciones") {
+                    moduleDialog = item to "No requerido en esta versión de Android. Aura no envía alertas propias."
                 } else if (item == "Reportes") {
                     showReports = true
                     showAuraCenter = false
@@ -226,7 +283,19 @@ private fun AuraDefenseApp(
                     moduleDialog = item to "Para usar esta función, comparte un enlace o texto desde otra app y selecciona Aura Defense."
                     showAuraCenter = false
                 } else {
-                    moduleDialog = item to "Este módulo se conectará a la API real de Android en la siguiente fase. No se mostrará como activo hasta que funcione de verdad."
+                    val message = when (item) {
+                        "Modo de visibilidad" -> "Este ajuste solo cambia la visibilidad local del Aura ID. No publica datos ni inicia conexiones."
+                        "Modo local prioritario" -> "Los análisis disponibles se ejecutan localmente en este dispositivo."
+                        "No subir apps", "No subir ubicación", "No subir URLs" -> "Aura no sube estos datos. El funcionamiento actual es local."
+                        "Borrar historial local" -> "El historial de enlaces disponible en esta sesión se mantiene local y puede borrarse al cerrar la aplicación."
+                        "Bóveda cifrada" -> "La bóveda cifrada aún no está disponible. No se guardarán datos como si estuviera activa."
+                        "Comprobaciones programadas" -> "Las comprobaciones programadas aún no están disponibles. La optimización de batería solo puede abrirse desde sus ajustes de Android."
+                        "Acceso rápido" -> "El acceso rápido aún no está disponible en este dispositivo."
+                        "Protección de notificaciones" -> "Abre Protección de notificaciones para revisar el acceso real y las alertas locales."
+                        "Auras LAN" -> "El descubrimiento LAN real se implementará con UDP. No se mostrarán Auras cercanas hasta que una instancia real responda."
+                        else -> "Esta opción informativa no tiene una acción nativa disponible en Android."
+                    }
+                    moduleDialog = item to message
                 }
             },
             onDismiss = { showAuraCenter = false }
@@ -306,6 +375,28 @@ private fun extractSharedText(intent: Intent?): String? = runCatching {
     if (intent?.action != Intent.ACTION_SEND || intent.type != "text/plain") return null
     intent.getStringExtra(Intent.EXTRA_TEXT)?.takeIf { it.isNotBlank() }
 }.onFailure { Log.e("AuraDefense", "No se pudo leer el contenido compartido", it) }.getOrNull()
+
+private fun hasLocationPermission(context: Context): Boolean =
+    androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+        androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+private fun hasUsageAccess(context: Context): Boolean = runCatching {
+    val manager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+    manager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, System.currentTimeMillis() - 60_000L, System.currentTimeMillis()).isNotEmpty()
+}.getOrDefault(false)
+
+private fun openSetting(action: String, context: Context, onFailure: (String) -> Unit) {
+    openSetting(action, null, context, onFailure)
+}
+
+private fun openSetting(action: String, fallbackAction: String?, context: Context, onFailure: (String) -> Unit) {
+    runCatching { context.startActivity(Intent(action)) }
+        .onFailure {
+            if (fallbackAction == null) onFailure("No se pudo abrir esta configuración en este dispositivo.")
+            else runCatching { context.startActivity(Intent(fallbackAction)) }
+                .onFailure { onFailure("No se pudo abrir esta configuración en este dispositivo.") }
+        }
+}
 
 private fun openAndroidSettings(action: SettingsAction, context: Context) {
     val intentAction = when (action) {

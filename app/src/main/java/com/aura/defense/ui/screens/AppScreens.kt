@@ -54,10 +54,11 @@ import com.aura.defense.apps.InstalledAppInfo
 fun HomeScreen(
     result: com.aura.defense.security.PostureResult,
     onStartScan: () -> Unit,
-    onModuleDialog: (String, String) -> Unit
+    onModuleDialog: (String, String) -> Unit,
+    onEmergency: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        SectionTitle("PANEL PRINCIPAL", "Centro de defensa Aura", "Interfaz de prueba. Los módulos nativos se conectarán en las siguientes fases.")
+        SectionTitle("PANEL PRINCIPAL", "Centro de defensa Aura", "Diagnóstico local del dispositivo y sus señales disponibles.")
         Panel(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -78,30 +79,30 @@ fun HomeScreen(
             }
         }
         ActionButton("Iniciar escaneo", onClick = { onStartScan() })
-        ActionButton("Activar defensa VPN", onClick = { onModuleDialog("Defensa VPN", "La defensa VPN se conectará al servicio VPN de Android en las fases 4/5.") }, outlined = true)
-        ActionButton("Modo emergencia", onClick = { onModuleDialog("Modo emergencia", "El modo emergencia activará la respuesta protectora configurada cuando los módulos nativos de defensa estén conectados.") }, outlined = true)
+        ActionButton("Activar defensa VPN", onClick = { onModuleDialog("Defensa VPN", "El servicio VPN real se implementará en la fase de cortafuegos. Aura no mostrará protección VPN activa hasta que Android confirme el servicio.") }, outlined = true)
+        ActionButton("Modo emergencia", onClick = onEmergency, outlined = true)
     }
 }
 
 @Composable
-fun AurasScreen(onModuleDialog: (String, String) -> Unit) {
+fun AurasScreen(locationActive: Boolean, onActivateLocation: () -> Unit, onModuleDialog: (String, String) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        SectionTitle("AURAS", "Campo táctico", "Vista privada sin ubicación ni datos LAN activos.")
+        SectionTitle("AURAS", "Campo táctico", if (locationActive) "Ubicación activa. No se muestran coordenadas." else "Vista privada sin ubicación ni datos LAN activos.")
         TacticalMap(Modifier.fillMaxWidth().height(250.dp))
         Panel(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Ubicación no activada", color = AuraAmber, fontSize = 17.sp)
+                Text(if (locationActive) "Ubicación activa" else "Ubicación no activada", color = if (locationActive) AuraGreen else AuraAmber, fontSize = 17.sp)
                 Text("El descubrimiento LAN aún no está activo", color = AuraMuted, fontSize = 13.sp)
-                Text("No se muestran Auras cercanas hasta conectar los permisos nativos y el descubrimiento.", color = AuraMuted, fontSize = 12.sp)
+                Text("No se muestran Auras cercanas hasta que una instancia real responda por LAN.", color = AuraMuted, fontSize = 12.sp)
             }
         }
-        ActionButton("Activar ubicación", onClick = { onModuleDialog("Permiso de ubicación", "La ubicación usará el permiso de ubicación de Android cuando se conecte el módulo nativo.") })
-        ActionButton("Buscar Auras LAN", onClick = { onModuleDialog("Descubrimiento LAN", "Las Auras LAN usarán descubrimiento UDP en una fase nativa posterior.") }, outlined = true)
+        ActionButton(if (locationActive) "Actualizar permiso de ubicación" else "Activar ubicación", onClick = onActivateLocation)
+        ActionButton("Buscar Auras LAN", onClick = { onModuleDialog("Descubrimiento LAN", "El descubrimiento LAN real se implementará con UDP en la fase Auras LAN. No se mostrarán Auras cercanas hasta que una instancia real responda.") }, outlined = true)
     }
 }
 
 @Composable
-fun DefenseScreen(onModuleDialog: (String, String) -> Unit) {
+fun DefenseScreen(onModuleDialog: (String, String) -> Unit, onEmergency: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionTitle("DEFENSA", "Cortafuegos Centinela", "Superficie de control visual. No se simulan bloqueos.")
         Panel(modifier = Modifier.fillMaxWidth()) {
@@ -110,9 +111,9 @@ fun DefenseScreen(onModuleDialog: (String, String) -> Unit) {
                 Text("LISTO / PARCIAL", color = AuraGreen, fontSize = 12.sp)
             }
         }
-        ActionButton("Preparar VPN", onClick = { onModuleDialog("Preparar VPN", "La preparación de VPN se conectará al servicio VPN nativo en una fase posterior.") })
-        ActionButton("Perfiles del cortafuegos", onClick = { onModuleDialog("Perfiles del cortafuegos", "Los perfiles del cortafuegos se conectarán a los controles nativos de Android en la siguiente fase.") }, outlined = true)
-        ActionButton("Modo emergencia", onClick = { onModuleDialog("Modo emergencia", "El modo emergencia definirá su respuesta nativa cuando los módulos de defensa estén conectados.") }, outlined = true)
+        ActionButton("Preparar VPN", onClick = { onModuleDialog("Preparar VPN", "El servicio VPN real se implementará en la fase de cortafuegos. Aura no mostrará protección VPN activa hasta que Android confirme el servicio.") })
+        ActionButton("Perfiles del cortafuegos", onClick = { onModuleDialog("Perfiles del cortafuegos", "El cortafuegos VPN aún no está implementado. No se aplicarán bloqueos ni se guardarán perfiles activos.") }, outlined = true)
+        ActionButton("Modo emergencia", onClick = onEmergency, outlined = true)
     }
 }
 
