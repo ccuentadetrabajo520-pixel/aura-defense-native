@@ -24,24 +24,29 @@ import com.aura.defense.ui.AuraMuted
 @Composable
 fun AuraVaultDialog(context: Context, onDismiss: () -> Unit) {
     val vault = remember { AuraVault(context) }
+    val available = remember { vault.isAvailable() }
     var message by remember { mutableStateOf<String?>(null) }
     AuraHudDialog(onDismissRequest = onDismiss, title = { Text("Bóveda cifrada") }, text = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(if (vault.isAvailable()) "Bóveda disponible en este dispositivo." else "Bóveda no disponible en este dispositivo.", color = if (vault.isAvailable()) AuraGreen else AuraAmber)
-            vault.readSummary()?.let { Text("Último resumen guardado: $it", color = AuraMuted, fontSize = 12.sp) }
+            Text(if (available) "Bóveda disponible en este dispositivo." else "Bóveda no disponible en este dispositivo.", color = if (available) AuraGreen else AuraAmber)
+            if (available) vault.readSummary()?.let { Text("Último resumen guardado: $it", color = AuraMuted, fontSize = 12.sp) }
+                ?: Text("No hay historial guardado.", color = AuraMuted, fontSize = 12.sp)
             message?.let { Text(it, color = AuraMuted, fontSize = 12.sp) }
             TextButton(onClick = {
-                vault.readSummary()?.let { summary ->
+                val summary = vault.readSummary()
+                if (summary == null) {
+                    message = "No hay historial guardado."
+                } else {
                     runCatching {
                         context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
                             putExtra(Intent.EXTRA_TEXT, summary)
                         }, "Exportar historial"))
-                    }
+                    }.onSuccess { message = "Historial exportado." }.onFailure { message = "No se pudo acceder a la bóveda cifrada." })
                 }
             }) { Text("Exportar historial") }
         }
-    }, confirmButton = { Button(onClick = { message = if (vault.saveSummary("Resumen guardado localmente")) "Resumen guardado en la bóveda." else "Bóveda no disponible en este dispositivo." }) { Text("Guardar reporte en bóveda") } }, dismissButton = { TextButton(onClick = { vault.clear(); message = "Historial borrado." }) { Text("Borrar historial") } })
+    }, confirmButton = { Button(onClick = { message = if (vault.saveSummary("Resumen guardado localmente")) "Reporte guardado en la bóveda." else "No se pudo acceder a la bóveda cifrada." }) { Text("Guardar reporte en bóveda") } }, dismissButton = { TextButton(onClick = { message = if (vault.clear()) "Historial borrado." else "No se pudo acceder a la bóveda cifrada." }) { Text("Borrar historial") } })
 }
 
 @Composable

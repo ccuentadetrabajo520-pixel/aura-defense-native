@@ -2,6 +2,8 @@ package com.aura.defense.vault
 
 import android.content.Context
 import android.util.Base64
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -12,15 +14,22 @@ import javax.crypto.spec.GCMParameterSpec
 class AuraVault(context: Context) {
     private val preferences = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
 
-    fun isAvailable(): Boolean = runCatching { getKey(); true }.getOrDefault(false)
-
-    fun saveSummary(summary: String): Boolean = runCatching {
-        val encrypted = encrypt(summary)
-        preferences.edit().putString(KEY, encrypted).apply()
+    fun isAvailable(): Boolean = runCatching {
+        encrypt("comprobación local")
         true
     }.getOrDefault(false)
 
-    fun readSummary(): String? = runCatching { preferences.getString(KEY, null)?.let(::decrypt) }.getOrNull()
+    fun saveSummary(summary: String): Boolean = runCatching {
+        val entries = readEntries().toMutableList()
+        entries.add(summary)
+        val encrypted = encrypt(entries.takeLast(MAX_ENTRIES).joinToString("\n"))
+        check(preferences.edit().putString(KEY, encrypted).commit())
+        true
+    }.getOrDefault(false)
+
+    fun readSummary(): String? = runCatching {
+        preferences.getString(KEY, null)?.let(::decrypt)?.takeIf { it.isNotBlank() }
+    }.getOrNull()
 
     fun clear(): Boolean = runCatching { preferences.edit().remove(KEY).apply(); true }.getOrDefault(false)
 
@@ -38,13 +47,39 @@ class AuraVault(context: Context) {
         return String(cipher.doFinal(Base64.decode(parts[1], Base64.NO_WRAP)), StandardCharsets.UTF_8)
     }
 
+    private fun readEntries(): List<String> = preferences.getString(KEY, null)?.let(::decrypt)
+        ?.lineSequence()?.filter { it.isNotBlank() }?.toList().orEmpty()
+
     private fun getKey(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        (store.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
-        return KeyGenerator.getInstance("AES", "AndroidKeyStore").apply {
-            init(256)
-        }.generateKey()
+        (store.getKey(KEY_ALIAS, null) as? SecretKey)?.let { existing ->
+            runCatching {
+                Cipher.getInstance("AES/GCM/NoPadding").init(Cipher.ENCRYPT_MODE, existing)
+                return existing
+            }
+            runCatching { store.deleteEntry(KEY_ALIAS) }
+        }
+        return generateKey()
     }
 
-    private companion object { const val NAME = "aura_vault"; const val KEY = "summary"; const val KEY_ALIAS = "aura_vault_key" }
+    private fun generateKey(): SecretKey {
+        val spec = KeyGenParameterSpec.Builder(
+            KEY_ALIAS,
+            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+        )
+            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+            .setKeySize(128)
+            .build()
+        return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+            .apply { init(spec) }
+            .generateKey()
+    }
+
+    private companion object {
+        const val NAME = "aura_vault"
+        const val KEY = "summary"
+        const val KEY_ALIAS = "aura_vault_key"
+        const val MAX_ENTRIES = 50
+    }
 }
