@@ -6,10 +6,11 @@ import com.aura.defense.security.PostureResult
 import com.aura.defense.tools.LinkAnalysis
 import com.aura.defense.tools.PasswordAudit
 import com.aura.defense.notifications.NotificationAlert
+import com.aura.defense.threats.ThreatIndicator
 import java.util.Locale
 
 class AuraReportBuilder {
-    fun text(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList()): String = buildString {
+    fun text(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList(), indicators: List<ThreatIndicator> = emptyList()): String = buildString {
         appendLine("INFORME AURA DEFENS")
         appendLine("Fecha: ${posture.timestamp}")
         appendLine("Aura ID: $auraId")
@@ -32,10 +33,15 @@ class AuraReportBuilder {
         appendLine("PROTECCIÓN DE NOTIFICACIONES")
         appendNotificationSummary(notifications)
         appendLine()
+        appendLine("INTELIGENCIA LOCAL DE AMENAZAS")
+        appendLine("Indicadores cargados: ${indicators.size}")
+        appendLine("Última actualización incluida: ${indicators.maxOfOrNull { it.updatedAt } ?: "No disponible"}")
+        appendLine("Coincidencias recientes: ${countThreatMatches(links, notifications)}")
+        appendLine()
         appendLine("Límites reales de Android sin root: las señales disponibles dependen de la versión, permisos y fabricante. Este informe no confirma malware.")
     }
 
-    fun json(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList()): String {
+    fun json(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList(), indicators: List<ThreatIndicator> = emptyList()): String {
         fun quote(value: String) = "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
         return "{" + listOf(
             "\"fecha\":${quote(posture.timestamp)}",
@@ -49,6 +55,9 @@ class AuraReportBuilder {
             "\"enlacesNotificacionesAnalizados\":${notifications.size}",
             "\"enlacesNotificacionesSospechosos\":${notifications.count { it.analysis.risk.name == "SOSPECHOSO" }}",
             "\"enlacesNotificacionesPeligrosos\":${notifications.count { it.analysis.risk.name == "PELIGROSO" }}",
+            "\"indicadoresInteligenciaLocal\":${indicators.size}",
+            "\"actualizacionInteligenciaLocal\":${quote(indicators.maxOfOrNull { it.updatedAt } ?: "No disponible")}",
+            "\"coincidenciasInteligenciaLocal\":${countThreatMatches(links, notifications)}",
             "\"auditoriaContrasena\":${password?.let { quote(it.strength.name) } ?: "null"}",
             "\"limitesAndroid\":${quote("Las señales dependen de la versión, permisos y fabricante; no confirma malware")}" 
         ).joinToString(",") + "}"
@@ -59,6 +68,10 @@ class AuraReportBuilder {
         appendLine("Sospechosos: ${alerts.count { it.analysis.risk.name == "SOSPECHOSO" }}")
         appendLine("Peligrosos: ${alerts.count { it.analysis.risk.name == "PELIGROSO" }}")
     }
+
+    private fun countThreatMatches(links: List<LinkAnalysis>, notifications: List<NotificationAlert>): Int =
+        links.count { it.reasons.contains("Coincidencia en inteligencia local") } +
+            notifications.count { it.analysis.reasons.contains("Coincidencia en inteligencia local") }
 
     private fun StringBuilder.appendTelemetry(t: DeviceTelemetrySnapshot) {
         appendLine("Fabricante: ${t.manufacturer}")

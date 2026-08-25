@@ -112,7 +112,7 @@ fun QrScannerDialog(onAnalysis: (LinkAnalysis) -> Unit, onDismiss: () -> Unit) {
                     if (url != null) {
                         var analysis by remember(url) { mutableStateOf<LinkAnalysis?>(null) }
                         TextButton(onClick = {
-                            analysis = LinkAnalyzer().analyze(url)
+                            analysis = LinkAnalyzer(context).analyze(url)
                             analysis?.let(onAnalysis)
                         }) { Text("Analizar enlace") }
                         analysis?.let { result ->

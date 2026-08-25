@@ -14,14 +14,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import com.aura.defense.tools.LinkAnalysis
 import com.aura.defense.tools.LinkAnalyzer
 import com.aura.defense.tools.LinkRisk
 
 @Composable
 fun ShareScannerDialog(text: String, onAnalyses: (List<LinkAnalysis>) -> Unit, onDismiss: () -> Unit) {
+    val context = LocalContext.current
     val analyses = remember(text) {
-        extractUrls(text).map { LinkAnalyzer().analyze(it) }
+        extractUrls(text).map { LinkAnalyzer(context).analyze(it) }
     }
     androidx.compose.runtime.LaunchedEffect(analyses) { onAnalyses(analyses) }
     AuraHudDialog(

@@ -1,0 +1,82 @@
+[
+  {
+    "id": "local-phishing-001",
+    "indicator": "phishing.test",
+    "indicatorType": "DOMAIN",
+    "category": "PHISHING",
+    "severity": "HIGH",
+    "descriptionEs": "Dominio de prueba asociado a suplantación de identidad.",
+    "source": "Inteligencia local incluida en AURA DEFENS",
+    "updatedAt": "2026-08-25"
+  },
+  {
+    "id": "local-malware-001",
+    "indicator": "malware.test",
+    "indicatorType": "DOMAIN",
+    "category": "MALWARE",
+    "severity": "CRITICAL",
+    "descriptionEs": "Dominio de prueba asociado a distribución de software malicioso.",
+    "source": "Inteligencia local incluida en AURA DEFENS",
+    "updatedAt": "2026-08-25"
+  },
+  {
+    "id": "local-spyware-001",
+    "indicator": "spyware.test",
+    "indicatorType": "DOMAIN",
+    "category": "SPYWARE",
+    "severity": "HIGH",
+    "descriptionEs": "Dominio de prueba asociado a software de vigilancia.",
+    "source": "Inteligencia local incluida en AURA DEFENS",
+    "updatedAt": "2026-08-25"
+  },
+  {
+    "id": "local-botnet-001",
+    "indicator": "botnet.test",
+    "indicatorType": "DOMAIN",
+    "category": "BOTNET",
+    "severity": "HIGH",
+    "descriptionEs": "Dominio de prueba asociado a infraestructura de botnet.",
+    "source": "Inteligencia local incluida en AURA DEFENS",
+    "updatedAt": "2026-08-25"
+  },
+  {
+    "id": "local-c2-001",
+    "indicator": "c2.test",
+    "indicatorType": "DOMAIN",
+    "category": "C2",
+    "severity": "CRITICAL",
+    "descriptionEs": "Dominio de prueba asociado a control remoto malicioso.",
+    "source": "Inteligencia local incluida en AURA DEFENS",
+    "updatedAt": "2026-08-25"
+  },
+  {
+    "id": "local-wallet-001",
+    "indicator": "scam-wallet.test",
+    "indicatorType": "DOMAIN",
+    "category": "CRYPTO_SCAM",
+    "severity": "HIGH",
+    "descriptionEs": "Dominio de prueba asociado a estafas de activos digitales.",
+    "source": "Inteligencia local incluida en AURA DEFENS",
+    "updatedAt": "2026-08-25"
+  },
+  {
+    "id": "local-tracking-001",
+    "indicator": "tracking.test",
+    "indicatorType": "DOMAIN",
+    "category": "TRACKING",
+    "severity": "MEDIUM",
+    "descriptionEs": "Dominio de prueba asociado a seguimiento web.",
+    "source": "Inteligencia local incluida en AURA DEFENS",
+    "updatedAt": "2026-08-25"
+  },
+  {
+    "id": "local-ads-001",
+    "indicator": "ads.test",
+    "indicatorType": "DOMAIN",
+    "category": "ADS",
+    "severity": "LOW",
+    "descriptionEs": "Dominio de prueba asociado a publicidad no deseada.",
+    "source": "Inteligencia local incluida en AURA DEFENS",
+    "updatedAt": "2026-08-25"
+  }
+]

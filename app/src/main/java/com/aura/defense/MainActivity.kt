@@ -45,6 +45,8 @@ import com.aura.defense.reports.AuraReportBuilder
 import com.aura.defense.data.AuraPreferences
 import com.aura.defense.data.DeviceTelemetryProvider
 import com.aura.defense.notifications.NotificationAlertStore
+import com.aura.defense.threats.ThreatIntelligenceEngine
+import com.aura.defense.threats.ThreatCategory
 import com.aura.defense.ui.AuraBackground
 import com.aura.defense.ui.AuraTheme
 import com.aura.defense.ui.components.AuraBottomNav
@@ -106,6 +108,7 @@ private fun AuraDefenseApp(
     val context = LocalContext.current
     val engine = remember { SecurityPostureEngine() }
     val appScanner = remember { AppScanner(context) }
+    val threatEngine = remember { ThreatIntelligenceEngine(context) }
     val scope = rememberCoroutineScope()
     var result by remember { mutableStateOf(com.aura.defense.security.PostureResult.pending()) }
     var selectedTab by remember { mutableStateOf(0) }
@@ -276,6 +279,9 @@ private fun AuraDefenseApp(
                 } else if (item == "Protección de notificaciones") {
                     showNotificationGuard = true
                     showAuraCenter = false
+                } else if (item == "Inteligencia de amenazas") {
+                    moduleDialog = item to "Indicadores cargados: ${threatEngine.indicators.size}. Categorías disponibles: ${threatEngine.categories.joinToString(", ") { it.toSpanish() }}. Última actualización incluida: ${threatEngine.lastUpdatedAt}. Aura usa inteligencia local incluida en la app. No se suben URLs ni datos del dispositivo en esta fase."
+                    showAuraCenter = false
                 } else if (item == "Permiso de cámara") {
                     showQrScanner = true
                     showAuraCenter = false
@@ -352,8 +358,8 @@ private fun AuraDefenseApp(
         ReportDialog(
             onExport = { json ->
                 val notificationAlerts = NotificationAlertStore(context).getAll()
-                val content = if (json) AuraReportBuilder().json(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts)
-                else AuraReportBuilder().text(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts)
+                val content = if (json) AuraReportBuilder().json(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators)
+                else AuraReportBuilder().text(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators)
                 shareReport(content, json, context)
                 showReports = false
             },
@@ -389,6 +395,17 @@ private fun extractSharedText(intent: Intent?): String? = runCatching {
     if (intent?.action != Intent.ACTION_SEND || intent.type != "text/plain") return null
     intent.getStringExtra(Intent.EXTRA_TEXT)?.takeIf { it.isNotBlank() }
 }.onFailure { Log.e("AuraDefense", "No se pudo leer el contenido compartido", it) }.getOrNull()
+
+private fun ThreatCategory.toSpanish() = when (this) {
+    ThreatCategory.PHISHING -> "suplantación"
+    ThreatCategory.MALWARE -> "software malicioso"
+    ThreatCategory.SPYWARE -> "vigilancia"
+    ThreatCategory.BOTNET -> "botnet"
+    ThreatCategory.C2 -> "control remoto"
+    ThreatCategory.TRACKING -> "seguimiento"
+    ThreatCategory.ADS -> "publicidad"
+    ThreatCategory.CRYPTO_SCAM -> "estafa de activos digitales"
+}
 
 private fun hasLocationPermission(context: Context): Boolean =
     androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||

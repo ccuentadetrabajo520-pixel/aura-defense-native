@@ -1,5 +1,8 @@
 package com.aura.defense.tools
 
+import android.content.Context
+import com.aura.defense.threats.ThreatIntelligenceEngine
+import com.aura.defense.threats.ThreatSeverity
 import java.net.InetAddress
 import java.net.URI
 
@@ -7,11 +10,19 @@ enum class LinkRisk { SEGURO, SOSPECHOSO, PELIGROSO }
 
 data class LinkAnalysis(val url: String, val risk: LinkRisk, val reasons: List<String>)
 
-class LinkAnalyzer {
+class LinkAnalyzer(context: Context? = null) {
+    private val threatEngine = context?.let { ThreatIntelligenceEngine(it) }
+
     fun analyze(input: String): LinkAnalysis {
         val value = input.trim()
         if (value.isBlank()) return LinkAnalysis(value, LinkRisk.SOSPECHOSO, listOf("Introduce una URL para analizarla"))
+        val threatMatches = threatEngine?.findMatches(value).orEmpty()
         val reasons = buildList {
+            if (threatMatches.isNotEmpty()) {
+                add("Coincidencia en inteligencia local")
+                add("Dominio asociado a categoría de riesgo")
+                add("Revisión recomendada")
+            }
             val lower = value.lowercase()
             runCatching {
                 val uri = URI(value)
@@ -28,6 +39,8 @@ class LinkAnalyzer {
             if (lower.containsAny("login", "verify", "wallet", "bank", "reset", "prize", "crypto", "seed", "password")) add("Palabras sensibles detectadas")
         }
         val risk = when {
+            threatMatches.any { it.severity == ThreatSeverity.HIGH || it.severity == ThreatSeverity.CRITICAL } -> LinkRisk.PELIGROSO
+            threatMatches.any { it.severity == ThreatSeverity.MEDIUM } -> LinkRisk.SOSPECHOSO
             reasons.any { it == "Usa HTTP sin cifrado" && reasons.size >= 3 } || reasons.size >= 4 -> LinkRisk.PELIGROSO
             reasons.isNotEmpty() -> LinkRisk.SOSPECHOSO
             else -> LinkRisk.SEGURO

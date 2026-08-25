@@ -22,7 +22,7 @@ class AuraNotificationListenerService : NotificationListenerService() {
             val store = NotificationAlertStore(applicationContext)
             val now = System.currentTimeMillis()
             urls.forEach { url ->
-                val analysis = LinkAnalyzer().analyze(url)
+                val analysis = LinkAnalyzer(applicationContext).analyze(url)
                 if (analysis.risk != LinkRisk.SEGURO) {
                     store.add(NotificationAlert(sbn.packageName, now, url, analysis))
                 }

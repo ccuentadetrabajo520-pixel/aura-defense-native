@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -30,6 +31,7 @@ import com.aura.defense.ui.AuraMuted
 
 @Composable
 fun LinkAnalyzerDialog(onAnalysis: (LinkAnalysis) -> Unit, onDismiss: () -> Unit) {
+    val context = LocalContext.current
     var value by remember { mutableStateOf("") }
     var analysis by remember { mutableStateOf<LinkAnalysis?>(null) }
     AuraHudDialog(onDismissRequest = onDismiss, title = { Text("Analizador de enlaces") }, text = {
@@ -41,7 +43,7 @@ fun LinkAnalyzerDialog(onAnalysis: (LinkAnalysis) -> Unit, onDismiss: () -> Unit
                 result.reasons.forEach { Text("• $it", color = AuraMuted, fontSize = 12.sp) }
             }
         }
-    }, confirmButton = { TextButton(onClick = { val result = com.aura.defense.tools.LinkAnalyzer().analyze(value); analysis = result; onAnalysis(result) }) { Text("Analizar") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } })
+    }, confirmButton = { TextButton(onClick = { val result = com.aura.defense.tools.LinkAnalyzer(context).analyze(value); analysis = result; onAnalysis(result) }) { Text("Analizar") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } })
 }
 
 @Composable
