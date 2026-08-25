@@ -94,7 +94,9 @@ class MainActivity : ComponentActivity() {
                     preferences = preferences,
                     telemetryProvider = DeviceTelemetryProvider(this@MainActivity),
                     sharedText = sharedText,
-                    onSharedTextConsumed = { sharedText = null }
+                    onSharedTextConsumed = { sharedText = null },
+                    sharedFile = sharedFile,
+                    onSharedFileConsumed = { sharedFile = null }
                 )
             }
         }
@@ -113,7 +115,9 @@ private fun AuraDefenseApp(
     preferences: AuraPreferences,
     telemetryProvider: DeviceTelemetryProvider,
     sharedText: String?,
-    onSharedTextConsumed: () -> Unit
+    onSharedTextConsumed: () -> Unit,
+    sharedFile: Uri?,
+    onSharedFileConsumed: () -> Unit
 ) {
     val context = LocalContext.current
     val engine = remember { SecurityPostureEngine() }
@@ -394,7 +398,7 @@ private fun AuraDefenseApp(
         AuraGuardianDialog(assessment = guardianAssessment, onDismiss = { showGuardian = false })
     }
     if (showFileAnalyzer) {
-        AuraFileAnalyzerDialog(initialUri = sharedFile, onAnalysis = { fileAnalysis = it }, onDismiss = { showFileAnalyzer = false; sharedFile = null })
+        AuraFileAnalyzerDialog(initialUri = sharedFile, onAnalysis = { fileAnalysis = it }, onDismiss = { showFileAnalyzer = false; onSharedFileConsumed() })
     }
     if (showVault) AuraVaultDialog(context, onDismiss = { showVault = false })
     if (showSchedule) AuraScheduleDialog(context, onDismiss = { showSchedule = false })
