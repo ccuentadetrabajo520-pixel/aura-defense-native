@@ -51,6 +51,7 @@ import com.aura.defense.ui.components.AuraGuardianPanel
 import com.aura.defense.apps.AppScanResult
 import com.aura.defense.apps.AppRiskSeverity
 import com.aura.defense.apps.InstalledAppInfo
+import com.aura.defense.lan.AuraLanPeer
 
 @Composable
 fun HomeScreen(
@@ -90,19 +91,41 @@ fun HomeScreen(
 }
 
 @Composable
-fun AurasScreen(locationActive: Boolean, onActivateLocation: () -> Unit, onModuleDialog: (String, String) -> Unit) {
+fun AurasScreen(
+    locationActive: Boolean,
+    lanSearching: Boolean,
+    lanPeers: List<AuraLanPeer>,
+    lastLanScan: String?,
+    visible: Boolean,
+    onActivateLocation: () -> Unit,
+    onVisibilityToggle: () -> Unit,
+    onSearchLan: () -> Unit,
+    onStopLanSearch: () -> Unit,
+    onModuleDialog: (String, String) -> Unit
+) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionTitle("AURAS", "Campo táctico", if (locationActive) "Ubicación activa. No se muestran coordenadas." else "Vista privada sin ubicación ni datos LAN activos.")
         TacticalMap(Modifier.fillMaxWidth().height(250.dp))
         Panel(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(if (locationActive) "Ubicación activa" else "Ubicación no activada", color = if (locationActive) AuraGreen else AuraAmber, fontSize = 17.sp)
-                Text("El descubrimiento LAN aún no está activo", color = AuraMuted, fontSize = 13.sp)
-                Text("No se muestran Auras cercanas hasta que una instancia real responda por LAN.", color = AuraMuted, fontSize = 12.sp)
+                Text(if (lanSearching) "Buscando en la red local..." else "El descubrimiento LAN está listo", color = AuraMuted, fontSize = 13.sp)
+                Text("La búsqueda se realiza solo en esta red local. No se comparte ubicación ni datos privados.", color = AuraMuted, fontSize = 12.sp)
+                if (lanPeers.isEmpty() && !lanSearching) Text("No se encontraron Auras cercanas", color = AuraAmber, fontSize = 14.sp)
+                lanPeers.forEach { peer ->
+                    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("Aura encontrada", color = AuraCyan, fontSize = 13.sp)
+                        Text("${peer.name} · ${peer.auraId}", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
+                        Text("Nivel: ${peer.guardianLevel}", color = AuraMuted, fontSize = 11.sp)
+                        Text("Última señal: ${peer.timestamp}", color = AuraMuted, fontSize = 11.sp)
+                    }
+                }
+                lastLanScan?.let { Text("Última comprobación: $it", color = AuraMuted, fontSize = 11.sp) }
             }
         }
         ActionButton(if (locationActive) "Actualizar permiso de ubicación" else "Activar ubicación", onClick = onActivateLocation)
-        ActionButton("Buscar Auras LAN", onClick = { onModuleDialog("Descubrimiento LAN", "El descubrimiento LAN real se implementará con UDP en la fase Auras LAN. No se mostrarán Auras cercanas hasta que una instancia real responda.") }, outlined = true)
+        ActionButton(if (visible) "Modo visible" else "Modo invisible", onClick = onVisibilityToggle, outlined = true)
+        ActionButton(if (lanSearching) "Detener búsqueda" else "Buscar Auras", onClick = if (lanSearching) onStopLanSearch else onSearchLan, outlined = true)
     }
 }
 

@@ -9,6 +9,8 @@ import android.app.usage.UsageStatsManager
 import android.provider.Settings
 import android.net.Uri
 import android.util.Log
+import android.os.Handler
+import android.os.Looper
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -70,6 +72,8 @@ import com.aura.defense.ui.components.AuraGuardianDialog
 import com.aura.defense.ui.components.AuraFileAnalyzerDialog
 import com.aura.defense.ui.components.AuraVaultDialog
 import com.aura.defense.ui.components.AuraScheduleDialog
+import com.aura.defense.lan.AuraLanDiscovery
+import com.aura.defense.lan.AuraLanPeer
 import com.aura.defense.ui.components.isNotificationAccessEnabled
 import com.aura.defense.security.SecurityPostureEngine
 import com.aura.defense.security.SettingsAction
@@ -148,6 +152,10 @@ private fun AuraDefenseApp(
     var showVault by remember { mutableStateOf(false) }
     var showSchedule by remember { mutableStateOf(false) }
     var fileAnalysis by remember { mutableStateOf<AuraFileAnalysis?>(null) }
+    var lanSearching by remember { mutableStateOf(false) }
+    var lanPeers by remember { mutableStateOf<List<AuraLanPeer>>(emptyList()) }
+    var lastLanScan by remember { mutableStateOf<String?>(null) }
+    var lanSearchJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     var showIntro by remember { mutableStateOf(true) }
     var locationActive by remember { mutableStateOf(hasLocationPermission(context)) }
     var linkHistory by remember { mutableStateOf<List<LinkAnalysis>>(emptyList()) }
@@ -223,10 +231,36 @@ private fun AuraDefenseApp(
                 )
                 1 -> AurasScreen(
                     locationActive = locationActive,
+                    lanSearching = lanSearching,
+                    lanPeers = lanPeers,
+                    lastLanScan = lastLanScan,
+                    visible = visibilityVisible,
                     onActivateLocation = {
                         if (hasLocationPermission(context)) locationActive = true
                         else locationLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
                     },
+                    onVisibilityToggle = { visibilityVisible = !visibilityVisible },
+                    onSearchLan = {
+                        lanSearchJob?.cancel()
+                        lanPeers = emptyList()
+                        lanSearching = true
+                        lanSearchJob = scope.launch {
+                            val success = AuraLanDiscovery(context).discover(
+                                auraId = auraId,
+                                guardianLevel = guardianAssessment.level.toSpanish(),
+                                visible = visibilityVisible,
+                                onPeer = { peer ->
+                                    Handler(Looper.getMainLooper()).post {
+                                        if (lanPeers.none { it.auraId == peer.auraId }) lanPeers = (lanPeers + peer).takeLast(20)
+                                    }
+                                }
+                            )
+                            lanSearching = false
+                            lastLanScan = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+                            if (!success) moduleDialog = "Auras LAN" to "No se pudo completar la búsqueda en la red local."
+                        }
+                    },
+                    onStopLanSearch = { lanSearchJob?.cancel(); lanSearching = false },
                     onModuleDialog = { title, message -> moduleDialog = title to message }
                 )
                 2 -> DefenseScreen(
@@ -310,6 +344,9 @@ private fun AuraDefenseApp(
                 } else if (item == "Guardián Aura") {
                     showGuardian = true
                     showAuraCenter = false
+                } else if (item == "Auras LAN") {
+                    selectedTab = 1
+                    showAuraCenter = false
                 } else if (item == "Analizador de archivos") {
                     showFileAnalyzer = true
                     showAuraCenter = false
@@ -352,7 +389,7 @@ private fun AuraDefenseApp(
                         "Comprobaciones programadas" -> "Las comprobaciones programadas aún no están disponibles. La optimización de batería solo puede abrirse desde sus ajustes de Android."
                         "Acceso rápido" -> "El acceso rápido aún no está disponible en este dispositivo."
                         "Protección de notificaciones" -> "Abre Protección de notificaciones para revisar el acceso real y las alertas locales."
-                        "Auras LAN" -> "El descubrimiento LAN real se implementará con UDP. No se mostrarán Auras cercanas hasta que una instancia real responda."
+                        "Auras LAN" -> "Abre la pestaña Auras y pulsa Buscar Auras para consultar respuestas UDP reales. No se mostrarán Auras cercanas hasta que una instancia real responda."
                         else -> "Esta opción informativa no tiene una acción nativa disponible en Android."
                     }
                     moduleDialog = item to message
@@ -406,8 +443,8 @@ private fun AuraDefenseApp(
         ReportDialog(
             onExport = { json ->
                 val vaultAvailable = com.aura.defense.vault.AuraVault(context).isAvailable()
-                val content = if (json) AuraReportBuilder().json(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment, fileAnalysis, vaultAvailable)
-                else AuraReportBuilder().text(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment, fileAnalysis, vaultAvailable)
+                val content = if (json) AuraReportBuilder().json(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan)
+                else AuraReportBuilder().text(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan)
                 shareReport(content, json, context)
                 showReports = false
             },

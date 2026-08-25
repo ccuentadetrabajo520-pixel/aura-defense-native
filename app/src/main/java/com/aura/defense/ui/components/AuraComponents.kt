@@ -247,9 +247,5 @@ fun TacticalMap(modifier: Modifier = Modifier) {
         while (x < size.width) { drawLine(Color(0xFF1E4A50).copy(alpha = 0.45f), Offset(x, 0f), Offset(x, size.height)); x += step }
         var y = 0f
         while (y < size.height) { drawLine(Color(0xFF1E4A50).copy(alpha = 0.45f), Offset(0f, y), Offset(size.width, y)); y += step }
-        val center = Offset(size.width / 2f, size.height / 2f)
-        drawCircle(AuraCyan.copy(alpha = 0.12f), 58.dp.toPx(), center)
-        drawCircle(AuraCyan, 8.dp.toPx(), center)
-        drawCircle(AuraCyan.copy(alpha = 0.65f), 16.dp.toPx(), center, style = Stroke(1.dp.toPx()))
     }
 }
