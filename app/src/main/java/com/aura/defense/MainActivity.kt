@@ -39,6 +39,7 @@ import kotlinx.coroutines.withContext
 import com.aura.defense.apps.AppScanResult
 import com.aura.defense.apps.AppScanner
 import com.aura.defense.apps.InstalledAppInfo
+import com.aura.defense.files.AuraFileAnalysis
 import com.aura.defense.tools.LinkAnalysis
 import com.aura.defense.tools.PasswordAudit
 import com.aura.defense.reports.AuraReportBuilder
@@ -66,6 +67,9 @@ import com.aura.defense.ui.components.ShareScannerDialog
 import com.aura.defense.ui.components.QrScannerDialog
 import com.aura.defense.ui.components.NotificationGuardDialog
 import com.aura.defense.ui.components.AuraGuardianDialog
+import com.aura.defense.ui.components.AuraFileAnalyzerDialog
+import com.aura.defense.ui.components.AuraVaultDialog
+import com.aura.defense.ui.components.AuraScheduleDialog
 import com.aura.defense.ui.components.isNotificationAccessEnabled
 import com.aura.defense.security.SecurityPostureEngine
 import com.aura.defense.security.SettingsAction
@@ -76,11 +80,13 @@ import com.aura.defense.ui.screens.HomeScreen
 
 class MainActivity : ComponentActivity() {
     private var sharedText by mutableStateOf<String?>(null)
+    private var sharedFile by mutableStateOf<Uri?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         sharedText = extractSharedText(intent)
+        sharedFile = extractSharedFile(intent)
         val preferences = AuraPreferences(this)
         setContent {
             AuraTheme {
@@ -98,6 +104,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         sharedText = extractSharedText(intent)
+        sharedFile = extractSharedFile(intent)
     }
 }
 
@@ -133,6 +140,10 @@ private fun AuraDefenseApp(
     var showQrScanner by remember { mutableStateOf(false) }
     var showNotificationGuard by remember { mutableStateOf(false) }
     var showGuardian by remember { mutableStateOf(false) }
+    var showFileAnalyzer by remember { mutableStateOf(sharedFile != null) }
+    var showVault by remember { mutableStateOf(false) }
+    var showSchedule by remember { mutableStateOf(false) }
+    var fileAnalysis by remember { mutableStateOf<AuraFileAnalysis?>(null) }
     var showIntro by remember { mutableStateOf(true) }
     var locationActive by remember { mutableStateOf(hasLocationPermission(context)) }
     var linkHistory by remember { mutableStateOf<List<LinkAnalysis>>(emptyList()) }
@@ -150,6 +161,7 @@ private fun AuraDefenseApp(
     LaunchedEffect(sharedText) {
         if (sharedText != null) showShareScanner = true
     }
+    LaunchedEffect(sharedFile) { if (sharedFile != null) showFileAnalyzer = true }
 
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(6000)
@@ -294,6 +306,18 @@ private fun AuraDefenseApp(
                 } else if (item == "Guardián Aura") {
                     showGuardian = true
                     showAuraCenter = false
+                } else if (item == "Analizador de archivos") {
+                    showFileAnalyzer = true
+                    showAuraCenter = false
+                } else if (item == "Bóveda cifrada") {
+                    showVault = true
+                    showAuraCenter = false
+                } else if (item == "Comprobaciones programadas") {
+                    showSchedule = true
+                    showAuraCenter = false
+                } else if (item == "Tile de acceso rápido") {
+                    moduleDialog = item to "Añade el mosaico Aura desde el panel de ajustes rápidos de Android. Mostrará un estado neutro y abrirá la aplicación."
+                    showAuraCenter = false
                 } else if (item == "Permiso de cámara") {
                     showQrScanner = true
                     showAuraCenter = false
@@ -369,11 +393,17 @@ private fun AuraDefenseApp(
     if (showGuardian) {
         AuraGuardianDialog(assessment = guardianAssessment, onDismiss = { showGuardian = false })
     }
+    if (showFileAnalyzer) {
+        AuraFileAnalyzerDialog(initialUri = sharedFile, onAnalysis = { fileAnalysis = it }, onDismiss = { showFileAnalyzer = false; sharedFile = null })
+    }
+    if (showVault) AuraVaultDialog(context, onDismiss = { showVault = false })
+    if (showSchedule) AuraScheduleDialog(context, onDismiss = { showSchedule = false })
     if (showReports) {
         ReportDialog(
             onExport = { json ->
-                val content = if (json) AuraReportBuilder().json(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment)
-                else AuraReportBuilder().text(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment)
+                val vaultAvailable = com.aura.defense.vault.AuraVault(context).isAvailable()
+                val content = if (json) AuraReportBuilder().json(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment, fileAnalysis, vaultAvailable)
+                else AuraReportBuilder().text(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment, fileAnalysis, vaultAvailable)
                 shareReport(content, json, context)
                 showReports = false
             },
@@ -409,6 +439,14 @@ private fun extractSharedText(intent: Intent?): String? = runCatching {
     if (intent?.action != Intent.ACTION_SEND || intent.type != "text/plain") return null
     intent.getStringExtra(Intent.EXTRA_TEXT)?.takeIf { it.isNotBlank() }
 }.onFailure { Log.e("AuraDefense", "No se pudo leer el contenido compartido", it) }.getOrNull()
+
+private fun extractSharedFile(intent: Intent?): Uri? = runCatching {
+    when (intent?.action) {
+        Intent.ACTION_SEND -> intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+        Intent.ACTION_VIEW -> intent.data
+        else -> null
+    }
+}.getOrNull()
 
 private fun ThreatCategory.toSpanish() = when (this) {
     ThreatCategory.PHISHING -> "suplantación"
