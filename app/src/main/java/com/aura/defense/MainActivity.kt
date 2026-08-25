@@ -216,6 +216,52 @@ private fun AuraDefenseApp(
             }
     }
 
+    fun runEmergencyMode() {
+        if (emergencyRunning) return
+        showEmergency = true
+        emergencyRunning = true
+        emergencyResult = null
+        emergencyStep = 0
+        scope.launch {
+            runCatching {
+                val telemetry = withContext(Dispatchers.Default) { telemetryProvider.read() }
+                emergencyStep = 1
+                val refreshedPosture = withContext(Dispatchers.Default) { engine.evaluate(telemetry) }
+                result = refreshedPosture
+                val scan = withContext(Dispatchers.Default) { appScanner.scan() }
+                emergencyStep = 2
+                appScanResult = scan
+                val scannedPosture = withContext(Dispatchers.Default) {
+                    engine.evaluate(telemetry, scan.riskyApps.size, scan.highRiskApps.size)
+                }
+                result = scannedPosture
+                changeDetector.compare(scannedPosture, scan, linkHistory, notificationAlerts)
+                historyEntries = historyStore.getEntries()
+                emergencyStep = 3
+                val assessment = guardianEngine.assess(scannedPosture, scan, linkHistory, notificationAlerts, historyEntries)
+                emergencyStep = 4
+                val vpnStatus = if (telemetry.vpnActive) "Activa" else "VPN no disponible en esta versión."
+                val recentLinks = linkHistory + notificationAlerts.map { it.analysis }
+                emergencyStep = 5
+                val vaultAvailable = com.aura.defense.vault.AuraVault(context).isAvailable()
+                val reportText = AuraReportBuilder().text(auraId, scannedPosture, scan, recentLinks, passwordAudit, notificationAlerts, threatEngine.indicators, assessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp(), threatSnapshot)
+                val reportJson = AuraReportBuilder().json(auraId, scannedPosture, scan, recentLinks, passwordAudit, notificationAlerts, threatEngine.indicators, assessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp(), threatSnapshot)
+                val reportSaved = withContext(Dispatchers.IO) {
+                    runCatching {
+                        File(context.filesDir, "informe-emergencia.txt").writeText(reportText)
+                        File(context.filesDir, "informe-emergencia.json").writeText(reportJson)
+                        true
+                    }.getOrDefault(false)
+                }
+                emergencyResult = EmergencyModeResult(scannedPosture, scan, assessment, recentLinks.size, vpnStatus, reportText, reportJson, reportSaved)
+            }.onFailure {
+                Log.e("AuraDefense", "No se pudo completar el modo emergencia", it)
+                moduleDialog = "Modo emergencia" to "El proceso no pudo completar todas las comprobaciones. No se ha simulado ningún resultado."
+            }
+            emergencyRunning = false
+        }
+    }
+
     Crossfade(targetState = showIntro, animationSpec = tween(650), label = "aura-core-transition") { showingIntro ->
         if (showingIntro) {
             com.aura.defense.ui.components.AuraCoreIntro()
@@ -228,52 +274,6 @@ private fun AuraDefenseApp(
                     onAuraIdClick = { showAuraIdDialog = true },
                     onSettingsClick = { showAuraCenter = true }
                 )
-
-                fun runEmergencyMode() {
-                    if (emergencyRunning) return
-                    showEmergency = true
-                    emergencyRunning = true
-                    emergencyResult = null
-                    emergencyStep = 0
-                    scope.launch {
-                        runCatching {
-                            val telemetry = withContext(Dispatchers.Default) { telemetryProvider.read() }
-                            emergencyStep = 1
-                            val refreshedPosture = withContext(Dispatchers.Default) { engine.evaluate(telemetry) }
-                            result = refreshedPosture
-                            val scan = withContext(Dispatchers.Default) { appScanner.scan() }
-                            emergencyStep = 2
-                            appScanResult = scan
-                            val scannedPosture = withContext(Dispatchers.Default) {
-                                engine.evaluate(telemetry, scan.riskyApps.size, scan.highRiskApps.size)
-                            }
-                            result = scannedPosture
-                            changeDetector.compare(scannedPosture, scan, linkHistory, notificationAlerts)
-                            historyEntries = historyStore.getEntries()
-                            emergencyStep = 3
-                            val assessment = guardianEngine.assess(scannedPosture, scan, linkHistory, notificationAlerts, historyEntries)
-                            emergencyStep = 4
-                            val vpnStatus = if (telemetry.vpnActive) "Activa" else "VPN no disponible en esta versión."
-                            val recentLinks = linkHistory + notificationAlerts.map { it.analysis }
-                            emergencyStep = 5
-                            val vaultAvailable = com.aura.defense.vault.AuraVault(context).isAvailable()
-                            val reportText = AuraReportBuilder().text(auraId, scannedPosture, scan, recentLinks, passwordAudit, notificationAlerts, threatEngine.indicators, assessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp(), threatSnapshot)
-                            val reportJson = AuraReportBuilder().json(auraId, scannedPosture, scan, recentLinks, passwordAudit, notificationAlerts, threatEngine.indicators, assessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp(), threatSnapshot)
-                            val reportSaved = withContext(Dispatchers.IO) {
-                                runCatching {
-                                    File(context.filesDir, "informe-emergencia.txt").writeText(reportText)
-                                    File(context.filesDir, "informe-emergencia.json").writeText(reportJson)
-                                    true
-                                }.getOrDefault(false)
-                            }
-                            emergencyResult = EmergencyModeResult(scannedPosture, scan, assessment, recentLinks.size, vpnStatus, reportText, reportJson, reportSaved)
-                        }.onFailure {
-                            Log.e("AuraDefense", "No se pudo completar el modo emergencia", it)
-                            moduleDialog = "Modo emergencia" to "El proceso no pudo completar todas las comprobaciones. No se ha simulado ningún resultado."
-                        }
-                        emergencyRunning = false
-                    }
-                }
             }
         },
         bottomBar = { AuraBottomNav(selectedTab) { selectedTab = it } }
