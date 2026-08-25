@@ -42,6 +42,9 @@ import com.aura.defense.apps.AppScanResult
 import com.aura.defense.apps.AppScanner
 import com.aura.defense.apps.InstalledAppInfo
 import com.aura.defense.files.AuraFileAnalysis
+import com.aura.defense.history.AuraHistoryEntry
+import com.aura.defense.history.AuraHistoryStore
+import com.aura.defense.history.SuspiciousChangeDetector
 import com.aura.defense.tools.LinkAnalysis
 import com.aura.defense.tools.PasswordAudit
 import com.aura.defense.reports.AuraReportBuilder
@@ -73,6 +76,7 @@ import com.aura.defense.ui.components.AuraGuardianDialog
 import com.aura.defense.ui.components.AuraFileAnalyzerDialog
 import com.aura.defense.ui.components.AuraVaultDialog
 import com.aura.defense.ui.components.AuraScheduleDialog
+import com.aura.defense.ui.components.AuraHistoryDialog
 import com.aura.defense.lan.AuraLanDiscovery
 import com.aura.defense.lan.AuraLanPeer
 import com.aura.defense.ui.components.isNotificationAccessEnabled
@@ -129,6 +133,8 @@ private fun AuraDefenseApp(
     val appScanner = remember { AppScanner(context) }
     val threatEngine = remember { ThreatIntelligenceEngine(context) }
     val guardianEngine = remember { AuraGuardianEngine(threatEngine) }
+    val historyStore = remember { AuraHistoryStore(context) }
+    val changeDetector = remember { SuspiciousChangeDetector(historyStore) }
     val scope = rememberCoroutineScope()
     var result by remember { mutableStateOf(com.aura.defense.security.PostureResult.pending()) }
     var selectedTab by remember { mutableStateOf(0) }
@@ -152,7 +158,9 @@ private fun AuraDefenseApp(
     var showFileAnalyzer by remember { mutableStateOf(sharedFile != null) }
     var showVault by remember { mutableStateOf(false) }
     var showSchedule by remember { mutableStateOf(false) }
+    var showHistory by remember { mutableStateOf(false) }
     var fileAnalysis by remember { mutableStateOf<AuraFileAnalysis?>(null) }
+    var historyEntries by remember { mutableStateOf(historyStore.getEntries()) }
     var lanSearching by remember { mutableStateOf(false) }
     var lanPeers by remember { mutableStateOf<List<AuraLanPeer>>(emptyList()) }
     var lastLanScan by remember { mutableStateOf<String?>(null) }
@@ -162,7 +170,7 @@ private fun AuraDefenseApp(
     var linkHistory by remember { mutableStateOf<List<LinkAnalysis>>(emptyList()) }
     var passwordAudit by remember { mutableStateOf<PasswordAudit?>(null) }
     val notificationAlerts = remember { NotificationAlertStore(context).getAll() }
-    val guardianAssessment: AuraGuardianAssessment = guardianEngine.assess(result, appScanResult, linkHistory, notificationAlerts)
+    val guardianAssessment: AuraGuardianAssessment = guardianEngine.assess(result, appScanResult, linkHistory, notificationAlerts, historyEntries)
     val locationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -173,6 +181,12 @@ private fun AuraDefenseApp(
 
     LaunchedEffect(sharedText) {
         if (sharedText != null) showShareScanner = true
+    }
+    LaunchedEffect(result.score) {
+        if (result.score >= 0 && historyStore.baseline() == null) {
+            changeDetector.compare(result, appScanResult, linkHistory)
+            historyEntries = historyStore.getEntries()
+        }
     }
     LaunchedEffect(sharedFile) { if (sharedFile != null) showFileAnalyzer = true }
 
@@ -214,6 +228,7 @@ private fun AuraDefenseApp(
                 0 -> HomeScreen(
                     result = result,
                     guardianAssessment = guardianAssessment,
+                    historyCount = historyEntries.size,
                     onGuardianAnalysis = { showGuardian = true },
                     onStartScan = {
                         runCatching { engine.evaluate(telemetryProvider.read()) }
@@ -281,6 +296,8 @@ private fun AuraDefenseApp(
                             val scan = withContext(Dispatchers.Default) { appScanner.scan() }
                             appScanResult = scan
                             result = engine.evaluate(result.telemetry, scan.riskyApps.size, scan.highRiskApps.size)
+                            changeDetector.compare(result, scan, linkHistory, notificationAlerts)
+                            historyEntries = historyStore.getEntries()
                             scanningApps = false
                             moduleDialog = "Escaneo de apps" to "Escaneo completado: ${scan.apps.size} apps visibles por Android. Riesgos: ${scan.riskyApps.size}. Riesgo alto: ${scan.highRiskApps.size}."
                         }
@@ -344,6 +361,9 @@ private fun AuraDefenseApp(
                     showAuraCenter = false
                 } else if (item == "Guardián Aura") {
                     showGuardian = true
+                    showAuraCenter = false
+                } else if (item == "Historial inteligente") {
+                    showHistory = true
                     showAuraCenter = false
                 } else if (item == "Auras LAN") {
                     selectedTab = 1
@@ -440,12 +460,22 @@ private fun AuraDefenseApp(
     }
     if (showVault) AuraVaultDialog(context, onDismiss = { showVault = false })
     if (showSchedule) AuraScheduleDialog(context, onDismiss = { showSchedule = false })
+    if (showHistory) {
+        AuraHistoryDialog(
+            context = context,
+            posture = result,
+            appScan = appScanResult,
+            links = linkHistory,
+            onUpdated = { historyEntries = it },
+            onDismiss = { showHistory = false }
+        )
+    }
     if (showReports) {
         ReportDialog(
             onExport = { json ->
                 val vaultAvailable = com.aura.defense.vault.AuraVault(context).isAvailable()
-                val content = if (json) AuraReportBuilder().json(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan)
-                else AuraReportBuilder().text(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan)
+                val content = if (json) AuraReportBuilder().json(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp())
+                else AuraReportBuilder().text(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp())
                 shareReport(content, json, context)
                 showReports = false
             },

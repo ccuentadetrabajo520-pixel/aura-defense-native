@@ -57,6 +57,7 @@ import com.aura.defense.lan.AuraLanPeer
 fun HomeScreen(
     result: com.aura.defense.security.PostureResult,
     guardianAssessment: AuraGuardianAssessment,
+    historyCount: Int,
     onGuardianAnalysis: () -> Unit,
     onStartScan: () -> Unit,
     onModuleDialog: (String, String) -> Unit,
@@ -65,6 +66,7 @@ fun HomeScreen(
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionTitle("PANEL PRINCIPAL", "Centro de defensa Aura", "Diagnóstico local del dispositivo y sus señales disponibles.")
         AuraGuardianPanel(assessment = guardianAssessment, onViewAnalysis = onGuardianAnalysis)
+        if (historyCount > 0) Text("Cambios recientes: $historyCount", color = AuraMuted, fontSize = 12.sp)
         Panel(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {

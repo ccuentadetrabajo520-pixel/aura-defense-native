@@ -12,10 +12,11 @@ import com.aura.defense.guardian.GuardianConfidence
 import com.aura.defense.guardian.GuardianLevel
 import com.aura.defense.files.AuraFileAnalysis
 import com.aura.defense.lan.AuraLanPeer
+import com.aura.defense.history.AuraHistoryEntry
 import java.util.Locale
 
 class AuraReportBuilder {
-    fun text(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList(), indicators: List<ThreatIndicator> = emptyList(), guardian: AuraGuardianAssessment? = null, file: AuraFileAnalysis? = null, vaultAvailable: Boolean = false, lanPeers: List<AuraLanPeer> = emptyList(), lastLanScan: String? = null): String = buildString {
+    fun text(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList(), indicators: List<ThreatIndicator> = emptyList(), guardian: AuraGuardianAssessment? = null, file: AuraFileAnalysis? = null, vaultAvailable: Boolean = false, lanPeers: List<AuraLanPeer> = emptyList(), lastLanScan: String? = null, history: List<AuraHistoryEntry> = emptyList(), baselineTimestamp: String = "No disponible"): String = buildString {
         appendLine("INFORME AURA DEFENS")
         appendLine("Fecha: ${posture.timestamp}")
         appendLine("Aura ID: $auraId")
@@ -48,11 +49,12 @@ class AuraReportBuilder {
         appendLine("AURAS LAN")
         appendLine("Última comprobación: ${lastLanScan ?: "No disponible"}")
         appendLine("Auras encontradas: ${lanPeers.size}")
+        appendHistorySummary(history, baselineTimestamp)
         appendLine()
         appendLine("Límites reales de Android sin root: las señales disponibles dependen de la versión, permisos y fabricante. Este informe no confirma malware.")
     }
 
-    fun json(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList(), indicators: List<ThreatIndicator> = emptyList(), guardian: AuraGuardianAssessment? = null, file: AuraFileAnalysis? = null, vaultAvailable: Boolean = false, lanPeers: List<AuraLanPeer> = emptyList(), lastLanScan: String? = null): String {
+    fun json(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList(), indicators: List<ThreatIndicator> = emptyList(), guardian: AuraGuardianAssessment? = null, file: AuraFileAnalysis? = null, vaultAvailable: Boolean = false, lanPeers: List<AuraLanPeer> = emptyList(), lastLanScan: String? = null, history: List<AuraHistoryEntry> = emptyList(), baselineTimestamp: String = "No disponible"): String {
         fun quote(value: String) = "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
         return "{" + listOf(
             "\"fecha\":${quote(posture.timestamp)}",
@@ -79,6 +81,12 @@ class AuraReportBuilder {
             "\"bovedaDisponible\":$vaultAvailable",
             "\"ultimaComprobacionLan\":${quote(lastLanScan ?: "No disponible")}",
             "\"aurasLanEncontradas\":${lanPeers.size}",
+            "\"historialEventos\":${history.size}",
+            "\"historialBajos\":${history.count { it.severity == "LOW" }}",
+            "\"historialMedios\":${history.count { it.severity == "MEDIUM" }}",
+            "\"historialAltos\":${history.count { it.severity == "HIGH" }}",
+            "\"historialCriticos\":${history.count { it.severity == "CRITICAL" }}",
+            "\"lineaBaseFecha\":${quote(baselineTimestamp)}",
             "\"auditoriaContrasena\":${password?.let { quote(it.strength.name) } ?: "null"}",
             "\"limitesAndroid\":${quote("Las señales dependen de la versión, permisos y fabricante; no confirma malware")}" 
         ).joinToString(",") + "}"
@@ -110,6 +118,17 @@ class AuraReportBuilder {
         appendLine("Archivo: ${file?.name ?: "No disponible"}")
         appendLine("Riesgo potencial: ${file?.risk ?: "No disponible"}")
         appendLine("Bóveda cifrada: ${if (vaultAvailable) "Disponible" else "No disponible"}")
+    }
+
+    private fun StringBuilder.appendHistorySummary(history: List<AuraHistoryEntry>, baselineTimestamp: String) {
+        appendLine()
+        appendLine("HISTORIAL INTELIGENTE")
+        appendLine("Eventos recientes: ${history.size}")
+        appendLine("Bajos: ${history.count { it.severity == "LOW" }}")
+        appendLine("Medios: ${history.count { it.severity == "MEDIUM" }}")
+        appendLine("Altos: ${history.count { it.severity == "HIGH" }}")
+        appendLine("Críticos: ${history.count { it.severity == "CRITICAL" }}")
+        appendLine("Última línea base: $baselineTimestamp")
     }
 
     private fun GuardianLevel.toSpanish() = when (this) {

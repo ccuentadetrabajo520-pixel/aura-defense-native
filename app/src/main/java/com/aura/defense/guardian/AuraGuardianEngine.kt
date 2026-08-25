@@ -8,6 +8,7 @@ import com.aura.defense.security.PostureResult
 import com.aura.defense.threats.ThreatIntelligenceEngine
 import com.aura.defense.tools.LinkAnalysis
 import com.aura.defense.tools.LinkRisk
+import com.aura.defense.history.AuraHistoryEntry
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -17,7 +18,8 @@ class AuraGuardianEngine(private val threatEngine: ThreatIntelligenceEngine) {
         posture: PostureResult,
         appScan: AppScanResult?,
         links: List<LinkAnalysis>,
-        notificationAlerts: List<NotificationAlert>
+        notificationAlerts: List<NotificationAlert>,
+        history: List<AuraHistoryEntry> = emptyList()
     ): AuraGuardianAssessment {
         val reasons = mutableListOf<String>()
         val recommendations = mutableListOf<AuraGuardianRecommendation>()
@@ -77,6 +79,17 @@ class AuraGuardianEngine(private val threatEngine: ThreatIntelligenceEngine) {
         }
 
         if (threatEngine.indicators.isEmpty()) missing.add("Inteligencia local no disponible")
+        val recentHigh = history.count { it.severity == "HIGH" }
+        val recentCritical = history.count { it.severity == "CRITICAL" }
+        if (history.isEmpty()) missing.add("Historial pendiente")
+        if (recentHigh > 0) {
+            score++
+            reasons.add("Hay cambios recientes de severidad alta")
+        }
+        if (recentCritical > 0) {
+            score += 2
+            reasons.add("Hay cambios recientes de severidad crítica")
+        }
         if (!posture.telemetry.vpnActive && posture.telemetry.privateDnsStatus in setOf("Inactivo", "No disponible") && dangerousLinks > 0) {
             score++
             reasons.add("VPN inactiva, DNS no activo y hay un enlace peligroso reciente")

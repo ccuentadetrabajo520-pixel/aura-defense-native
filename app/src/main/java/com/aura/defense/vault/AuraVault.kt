@@ -27,6 +27,12 @@ class AuraVault(context: Context) {
         true
     }.getOrDefault(false)
 
+    fun replaceSummary(summary: String): Boolean = runCatching {
+        val encrypted = encrypt(summary)
+        check(preferences.edit().putString(KEY, encrypted).commit())
+        true
+    }.getOrDefault(false)
+
     fun readSummary(): String? = runCatching {
         preferences.getString(KEY, null)?.let(::decrypt)?.takeIf { it.isNotBlank() }
     }.getOrNull()

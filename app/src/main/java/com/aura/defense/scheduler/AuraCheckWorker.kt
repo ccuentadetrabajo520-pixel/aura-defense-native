@@ -7,6 +7,9 @@ import com.aura.defense.apps.AppScanner
 import com.aura.defense.data.DeviceTelemetryProvider
 import com.aura.defense.security.SecurityPostureEngine
 import com.aura.defense.vault.AuraVault
+import com.aura.defense.history.AuraHistoryStore
+import com.aura.defense.history.SuspiciousChangeDetector
+import com.aura.defense.notifications.NotificationAlertStore
 
 class AuraCheckWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result = runCatching {
@@ -14,6 +17,13 @@ class AuraCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
         val posture = SecurityPostureEngine().evaluate(telemetry)
         val appSummary = runCatching { AppScanner(applicationContext).scan() }.getOrNull()
         val finalPosture = if (appSummary == null) posture else SecurityPostureEngine().evaluate(telemetry, appSummary.riskyApps.size, appSummary.highRiskApps.size)
+        val historyStore = AuraHistoryStore(applicationContext)
+        SuspiciousChangeDetector(historyStore).compare(
+            finalPosture,
+            appSummary,
+            emptyList(),
+            NotificationAlertStore(applicationContext).getAll()
+        )
         AuraVault(applicationContext).saveSummary("Fecha: ${finalPosture.timestamp}; Estado: ${finalPosture.status}; Puntuación: ${finalPosture.score}")
         Result.success()
     }.getOrElse { Result.failure() }
