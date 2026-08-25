@@ -43,31 +43,23 @@ fun AuraCenterDialog(
         title = { Text("Centro Aura") },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                CenterSection("IDENTIDAD") {
+                AuraHudSection("IDENTIDAD") {
                     CenterRow("Aura ID editable", auraId, onEditId)
                     CenterRow("Modo de visibilidad", if (visibilityVisible) "Visible" else "Invisible", onVisibilityToggle)
                 }
                 CenterRow("Telemetría del dispositivo", "Ver datos", onTelemetry)
-                CenterSection("PERMISOS") { permissions.forEach { CenterRow(it, permissionStatus(it), { onItemClick(it) }) } }
-                CenterSection("PRIVACIDAD") { privacy.forEach { CenterRow(it, "Ajuste local", { onItemClick(it) }) } }
-                CenterSection("HERRAMIENTAS") {
+                AuraHudSection("PERMISOS") { permissions.forEach { CenterRow(it, permissionStatus(it), { onItemClick(it) }) } }
+                AuraHudSection("PRIVACIDAD") { privacy.forEach { CenterRow(it, "Local", { onItemClick(it) }) } }
+                AuraHudSection("HERRAMIENTAS") {
                     tools.forEach {
-                        CenterRow(it, if (it == "Protección de notificaciones") notificationGuardStatus else "Módulo", { onItemClick(it) })
+                        CenterRow(it, if (it == "Protección de notificaciones") notificationGuardStatus else "Disponible", { onItemClick(it) })
                     }
                 }
-                CenterSection("LEGAL") { legal.forEach { CenterRow(it, "Información", { onItemClick(it) }) } }
+                AuraHudSection("LEGAL") { legal.forEach { CenterRow(it, "Información", { onItemClick(it) }) } }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } }
     )
-}
-
-@Composable
-private fun CenterSection(title: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        Text(title, color = AuraCyan, fontSize = 11.sp)
-        content()
-    }
 }
 
 @Composable
@@ -78,6 +70,6 @@ private fun CenterRow(label: String, value: String, onClick: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, modifier = Modifier.weight(1f))
-        Text(value, color = AuraMuted, fontSize = 11.sp)
+        AuraStatusChip(value, if (value == "Activo" || value == "Visible" || value == "Local" || value == "Disponible") AuraCyan else AuraMuted)
     }
 }

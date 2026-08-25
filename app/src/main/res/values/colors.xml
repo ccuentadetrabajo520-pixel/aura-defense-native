@@ -4,4 +4,5 @@
     <color name="aura_surface">#10242A</color>
     <color name="aura_teal">#62E6D5</color>
     <color name="aura_text">#E5F4F1</color>
+    <color name="aura_core_background">#050B12</color>
 </resources>

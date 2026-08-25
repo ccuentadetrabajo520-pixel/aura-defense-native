@@ -6,9 +6,10 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <application
         android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AuraDefense">
+        android:theme="@style/Theme.AuraDefense.Starting">
         <activity
             android:name=".MainActivity"
             android:exported="true"

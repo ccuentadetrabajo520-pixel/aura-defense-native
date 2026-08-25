@@ -7,4 +7,9 @@
         <item name="android:navigationBarColor">@color/aura_background</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
+    <style name="Theme.AuraDefense.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/aura_core_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/aura_core_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.AuraDefense</item>
+    </style>
 </resources>

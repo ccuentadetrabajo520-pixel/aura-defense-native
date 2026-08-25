@@ -9,6 +9,7 @@ import android.app.usage.UsageStatsManager
 import android.provider.Settings
 import android.net.Uri
 import android.util.Log
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -70,6 +71,7 @@ class MainActivity : ComponentActivity() {
     private var sharedText by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         sharedText = extractSharedText(intent)
         val preferences = AuraPreferences(this)
@@ -121,6 +123,7 @@ private fun AuraDefenseApp(
     var showShareScanner by remember { mutableStateOf(sharedText != null) }
     var showQrScanner by remember { mutableStateOf(false) }
     var showNotificationGuard by remember { mutableStateOf(false) }
+    var showIntro by remember { mutableStateOf(true) }
     var locationActive by remember { mutableStateOf(hasLocationPermission(context)) }
     var linkHistory by remember { mutableStateOf<List<LinkAnalysis>>(emptyList()) }
     var passwordAudit by remember { mutableStateOf<PasswordAudit?>(null) }
@@ -137,6 +140,11 @@ private fun AuraDefenseApp(
     }
 
     LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(1500)
+        showIntro = false
+    }
+
+    LaunchedEffect(Unit) {
         runCatching { engine.evaluate(telemetryProvider.read()) }
             .onSuccess { result = it }
             .onFailure {
@@ -145,7 +153,9 @@ private fun AuraDefenseApp(
             }
     }
 
-    Scaffold(
+    if (showIntro) {
+        com.aura.defense.ui.components.AuraCoreIntro()
+    } else Scaffold(
         containerColor = AuraBackground,
         topBar = {
             androidx.compose.foundation.layout.Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
@@ -280,7 +290,7 @@ private fun AuraDefenseApp(
                     showReports = true
                     showAuraCenter = false
                 } else if (item == "Escáner de contenido compartido") {
-                    moduleDialog = item to "Para usar esta función, comparte un enlace o texto desde otra app y selecciona Aura Defense."
+                    moduleDialog = item to "Para usar esta función, comparte un enlace o texto desde otra app y selecciona AURA DEFENS."
                     showAuraCenter = false
                 } else {
                     val message = when (item) {
