@@ -60,6 +60,7 @@ import com.aura.defense.ui.AuraBackground
 import com.aura.defense.ui.AuraTheme
 import com.aura.defense.ui.components.AuraBottomNav
 import com.aura.defense.ui.components.AuraCenterDialog
+import com.aura.defense.ui.components.ThreatIntelligenceDialog
 import com.aura.defense.ui.components.AuraIdDialog
 import com.aura.defense.ui.components.AuraTopBar
 import com.aura.defense.ui.components.ModuleDialog
@@ -132,6 +133,7 @@ private fun AuraDefenseApp(
     val engine = remember { SecurityPostureEngine() }
     val appScanner = remember { AppScanner(context) }
     val threatEngine = remember { ThreatIntelligenceEngine(context) }
+    var threatSnapshot by remember { mutableStateOf(threatEngine.snapshot) }
     val guardianEngine = remember { AuraGuardianEngine(threatEngine) }
     val historyStore = remember { AuraHistoryStore(context) }
     val changeDetector = remember { SuspiciousChangeDetector(historyStore) }
@@ -141,6 +143,7 @@ private fun AuraDefenseApp(
     var auraId by remember { mutableStateOf(preferences.getAuraId()) }
     var visibilityVisible by remember { mutableStateOf(true) }
     var showAuraCenter by remember { mutableStateOf(false) }
+    var showThreatIntelligence by remember { mutableStateOf(false) }
     var showAuraIdDialog by remember { mutableStateOf(false) }
     var showTelemetry by remember { mutableStateOf(false) }
     var showSummary by remember { mutableStateOf(false) }
@@ -357,7 +360,7 @@ private fun AuraDefenseApp(
                     showNotificationGuard = true
                     showAuraCenter = false
                 } else if (item == "Inteligencia de amenazas") {
-                    moduleDialog = item to "Indicadores cargados: ${threatEngine.indicators.size}. Categorías disponibles: ${threatEngine.categories.joinToString(", ") { it.toSpanish() }}. Última actualización incluida: ${threatEngine.lastUpdatedAt}. Aura usa inteligencia local incluida en la app. No se suben URLs ni datos del dispositivo en esta fase."
+                    showThreatIntelligence = true
                     showAuraCenter = false
                 } else if (item == "Guardián Aura") {
                     showGuardian = true
@@ -419,6 +422,14 @@ private fun AuraDefenseApp(
             onDismiss = { showAuraCenter = false }
         )
     }
+    if (showThreatIntelligence) {
+        ThreatIntelligenceDialog(
+            snapshot = threatSnapshot,
+            onRefresh = { threatSnapshot = threatEngine.refresh() },
+            onRestore = { threatSnapshot = threatEngine.restoreBundled() },
+            onDismiss = { showThreatIntelligence = false }
+        )
+    }
     if (showTelemetry) {
         TelemetryDialog(result.telemetry, onSettingsAction = { action -> openAndroidSettings(action, context) }, onDismiss = { showTelemetry = false })
     }
@@ -474,8 +485,8 @@ private fun AuraDefenseApp(
         ReportDialog(
             onExport = { json ->
                 val vaultAvailable = com.aura.defense.vault.AuraVault(context).isAvailable()
-                val content = if (json) AuraReportBuilder().json(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp())
-                else AuraReportBuilder().text(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp())
+                val content = if (json) AuraReportBuilder().json(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp(), threatSnapshot)
+                else AuraReportBuilder().text(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp(), threatSnapshot)
                 shareReport(content, json, context)
                 showReports = false
             },

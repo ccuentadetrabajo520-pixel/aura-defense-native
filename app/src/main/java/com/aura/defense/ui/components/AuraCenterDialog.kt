@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import com.aura.defense.ui.AuraCyan
 import com.aura.defense.ui.AuraMuted
 import com.aura.defense.ui.AuraSurfaceRaised
+import com.aura.defense.threats.ThreatIntelligenceSnapshot
 
 @Composable
 fun AuraCenterDialog(
@@ -62,6 +63,37 @@ fun AuraCenterDialog(
                     }
                 }
                 AuraHudSection("LEGAL") { legal.forEach { CenterRow(it, "Información", { onItemClick(it) }) } }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } }
+    )
+}
+
+@Composable
+fun ThreatIntelligenceDialog(
+    snapshot: ThreatIntelligenceSnapshot,
+    onRefresh: () -> Unit,
+    onRestore: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AuraHudDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Inteligencia de amenazas") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Base activa: ${if (snapshot.isUpdated) "Base actualizada" else "Base incluida"}")
+                Text("Indicadores cargados: ${snapshot.indicators.size}")
+                Text("Versión: ${snapshot.version}")
+                Text("Última actualización: ${snapshot.updatedAt}")
+                Text("Fuente: ${snapshot.source}")
+                Text(snapshot.lastUpdateStatus, color = AuraMuted)
+                if (snapshot.lastUpdateStatus.contains("fuente remota no configurada")) {
+                    Text("Actualización remota no configurada todavía", color = AuraMuted)
+                }
+                Text("Aura usa inteligencia local. No se suben URLs ni datos del dispositivo.", color = AuraMuted)
+                AuraHudActionButton("Ver estado") { onRefresh() }
+                AuraHudActionButton("Actualizar inteligencia") { onRefresh() }
+                AuraHudActionButton("Restaurar base local") { onRestore() }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } }

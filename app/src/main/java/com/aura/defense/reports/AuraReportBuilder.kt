@@ -7,6 +7,7 @@ import com.aura.defense.tools.LinkAnalysis
 import com.aura.defense.tools.PasswordAudit
 import com.aura.defense.notifications.NotificationAlert
 import com.aura.defense.threats.ThreatIndicator
+import com.aura.defense.threats.ThreatIntelligenceSnapshot
 import com.aura.defense.guardian.AuraGuardianAssessment
 import com.aura.defense.guardian.GuardianConfidence
 import com.aura.defense.guardian.GuardianLevel
@@ -16,7 +17,7 @@ import com.aura.defense.history.AuraHistoryEntry
 import java.util.Locale
 
 class AuraReportBuilder {
-    fun text(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList(), indicators: List<ThreatIndicator> = emptyList(), guardian: AuraGuardianAssessment? = null, file: AuraFileAnalysis? = null, vaultAvailable: Boolean = false, lanPeers: List<AuraLanPeer> = emptyList(), lastLanScan: String? = null, history: List<AuraHistoryEntry> = emptyList(), baselineTimestamp: String = "No disponible"): String = buildString {
+    fun text(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList(), indicators: List<ThreatIndicator> = emptyList(), guardian: AuraGuardianAssessment? = null, file: AuraFileAnalysis? = null, vaultAvailable: Boolean = false, lanPeers: List<AuraLanPeer> = emptyList(), lastLanScan: String? = null, history: List<AuraHistoryEntry> = emptyList(), baselineTimestamp: String = "No disponible", threatSnapshot: ThreatIntelligenceSnapshot? = null): String = buildString {
         appendLine("INFORME AURA DEFENS")
         appendLine("Fecha: ${posture.timestamp}")
         appendLine("Aura ID: $auraId")
@@ -40,6 +41,7 @@ class AuraReportBuilder {
         appendNotificationSummary(notifications)
         appendLine()
         appendLine("INTELIGENCIA LOCAL DE AMENAZAS")
+        appendThreatMetadata(threatSnapshot, indicators)
         appendLine("Indicadores cargados: ${indicators.size}")
         appendLine("Última actualización incluida: ${indicators.maxOfOrNull { it.updatedAt } ?: "No disponible"}")
         appendLine("Coincidencias recientes: ${countThreatMatches(links, notifications)}")
@@ -54,7 +56,7 @@ class AuraReportBuilder {
         appendLine("Límites reales de Android sin root: las señales disponibles dependen de la versión, permisos y fabricante. Este informe no confirma malware.")
     }
 
-    fun json(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList(), indicators: List<ThreatIndicator> = emptyList(), guardian: AuraGuardianAssessment? = null, file: AuraFileAnalysis? = null, vaultAvailable: Boolean = false, lanPeers: List<AuraLanPeer> = emptyList(), lastLanScan: String? = null, history: List<AuraHistoryEntry> = emptyList(), baselineTimestamp: String = "No disponible"): String {
+    fun json(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList(), indicators: List<ThreatIndicator> = emptyList(), guardian: AuraGuardianAssessment? = null, file: AuraFileAnalysis? = null, vaultAvailable: Boolean = false, lanPeers: List<AuraLanPeer> = emptyList(), lastLanScan: String? = null, history: List<AuraHistoryEntry> = emptyList(), baselineTimestamp: String = "No disponible", threatSnapshot: ThreatIntelligenceSnapshot? = null): String {
         fun quote(value: String) = "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
         return "{" + listOf(
             "\"fecha\":${quote(posture.timestamp)}",
@@ -69,6 +71,10 @@ class AuraReportBuilder {
             "\"enlacesNotificacionesSospechosos\":${notifications.count { it.analysis.risk.name == "SOSPECHOSO" }}",
             "\"enlacesNotificacionesPeligrosos\":${notifications.count { it.analysis.risk.name == "PELIGROSO" }}",
             "\"indicadoresInteligenciaLocal\":${indicators.size}",
+            "\"versionInteligenciaAmenazas\":${quote(threatSnapshot?.version ?: "local-compatible")}",
+            "\"fuenteInteligenciaAmenazas\":${quote(threatSnapshot?.source ?: "Inteligencia local incluida")}",
+            "\"baseInteligenciaActualizada\":${threatSnapshot?.isUpdated ?: false}",
+            "\"estadoActualizacionInteligencia\":${quote(threatSnapshot?.lastUpdateStatus ?: "No disponible")}",
             "\"actualizacionInteligenciaLocal\":${quote(indicators.maxOfOrNull { it.updatedAt } ?: "No disponible")}",
             "\"coincidenciasInteligenciaLocal\":${countThreatMatches(links, notifications)}",
             "\"guardianNivel\":${quote(guardian?.level?.toSpanish() ?: "No disponible")}",
@@ -96,6 +102,14 @@ class AuraReportBuilder {
         appendLine("Enlaces analizados: ${alerts.size}")
         appendLine("Sospechosos: ${alerts.count { it.analysis.risk.name == "SOSPECHOSO" }}")
         appendLine("Peligrosos: ${alerts.count { it.analysis.risk.name == "PELIGROSO" }}")
+    }
+
+    private fun StringBuilder.appendThreatMetadata(snapshot: ThreatIntelligenceSnapshot?, indicators: List<ThreatIndicator>) {
+        appendLine("Versión: ${snapshot?.version ?: "local-compatible"}")
+        appendLine("Última actualización: ${snapshot?.updatedAt ?: indicators.maxOfOrNull { it.updatedAt } ?: "No disponible"}")
+        appendLine("Fuente: ${snapshot?.source ?: "Inteligencia local incluida"}")
+        appendLine("Base activa: ${if (snapshot?.isUpdated == true) "Base actualizada" else "Base incluida"}")
+        appendLine("Estado de actualización: ${snapshot?.lastUpdateStatus ?: "No disponible"}")
     }
 
     private fun countThreatMatches(links: List<LinkAnalysis>, notifications: List<NotificationAlert>): Int =

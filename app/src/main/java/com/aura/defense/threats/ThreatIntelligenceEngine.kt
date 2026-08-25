@@ -32,9 +32,22 @@ data class ThreatIndicator(
 }
 
 class ThreatIntelligenceEngine(context: Context) {
-    val indicators: List<ThreatIndicator> = ThreatIntelligenceRepository(context).load()
-    val lastUpdatedAt: String = indicators.maxOfOrNull { it.updatedAt } ?: "No disponible"
-    val categories: List<ThreatCategory> = indicators.map { it.category }.distinct()
+    private val repository = ThreatIntelligenceRepository(context)
+    var snapshot: ThreatIntelligenceSnapshot = repository.current()
+        private set
+    val indicators: List<ThreatIndicator> get() = snapshot.indicators
+    val lastUpdatedAt: String get() = snapshot.updatedAt
+    val categories: List<ThreatCategory> get() = indicators.map { it.category }.distinct()
+
+    fun refresh(): ThreatIntelligenceSnapshot {
+        snapshot = repository.refresh()
+        return snapshot
+    }
+
+    fun restoreBundled(): ThreatIntelligenceSnapshot {
+        snapshot = repository.restoreBundled()
+        return snapshot
+    }
 
     fun findMatches(input: String): List<ThreatIndicator> {
         val value = input.trim()
