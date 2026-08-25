@@ -42,7 +42,7 @@ fun AuraVaultDialog(context: Context, onDismiss: () -> Unit) {
                             type = "text/plain"
                             putExtra(Intent.EXTRA_TEXT, summary)
                         }, "Exportar historial"))
-                    }.onSuccess { message = "Historial exportado." }.onFailure { message = "No se pudo acceder a la bóveda cifrada." })
+                    }.onSuccess { message = "Historial exportado." }.onFailure { message = "No se pudo acceder a la bóveda cifrada." }
                 }
             }) { Text("Exportar historial") }
         }
