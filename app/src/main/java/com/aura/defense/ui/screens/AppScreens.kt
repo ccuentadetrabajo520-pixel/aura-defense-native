@@ -46,6 +46,8 @@ import com.aura.defense.ui.components.RadarCanvas
 import com.aura.defense.ui.components.SectionTitle
 import com.aura.defense.ui.components.StatusDot
 import com.aura.defense.ui.components.TacticalMap
+import com.aura.defense.guardian.AuraGuardianAssessment
+import com.aura.defense.ui.components.AuraGuardianPanel
 import com.aura.defense.apps.AppScanResult
 import com.aura.defense.apps.AppRiskSeverity
 import com.aura.defense.apps.InstalledAppInfo
@@ -53,12 +55,15 @@ import com.aura.defense.apps.InstalledAppInfo
 @Composable
 fun HomeScreen(
     result: com.aura.defense.security.PostureResult,
+    guardianAssessment: AuraGuardianAssessment,
+    onGuardianAnalysis: () -> Unit,
     onStartScan: () -> Unit,
     onModuleDialog: (String, String) -> Unit,
     onEmergency: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionTitle("PANEL PRINCIPAL", "Centro de defensa Aura", "Diagnóstico local del dispositivo y sus señales disponibles.")
+        AuraGuardianPanel(assessment = guardianAssessment, onViewAnalysis = onGuardianAnalysis)
         Panel(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {

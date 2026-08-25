@@ -45,6 +45,8 @@ import com.aura.defense.reports.AuraReportBuilder
 import com.aura.defense.data.AuraPreferences
 import com.aura.defense.data.DeviceTelemetryProvider
 import com.aura.defense.notifications.NotificationAlertStore
+import com.aura.defense.guardian.AuraGuardianAssessment
+import com.aura.defense.guardian.AuraGuardianEngine
 import com.aura.defense.threats.ThreatIntelligenceEngine
 import com.aura.defense.threats.ThreatCategory
 import com.aura.defense.ui.AuraBackground
@@ -63,6 +65,7 @@ import com.aura.defense.ui.components.ReportDialog
 import com.aura.defense.ui.components.ShareScannerDialog
 import com.aura.defense.ui.components.QrScannerDialog
 import com.aura.defense.ui.components.NotificationGuardDialog
+import com.aura.defense.ui.components.AuraGuardianDialog
 import com.aura.defense.ui.components.isNotificationAccessEnabled
 import com.aura.defense.security.SecurityPostureEngine
 import com.aura.defense.security.SettingsAction
@@ -109,6 +112,7 @@ private fun AuraDefenseApp(
     val engine = remember { SecurityPostureEngine() }
     val appScanner = remember { AppScanner(context) }
     val threatEngine = remember { ThreatIntelligenceEngine(context) }
+    val guardianEngine = remember { AuraGuardianEngine(threatEngine) }
     val scope = rememberCoroutineScope()
     var result by remember { mutableStateOf(com.aura.defense.security.PostureResult.pending()) }
     var selectedTab by remember { mutableStateOf(0) }
@@ -128,10 +132,13 @@ private fun AuraDefenseApp(
     var showShareScanner by remember { mutableStateOf(sharedText != null) }
     var showQrScanner by remember { mutableStateOf(false) }
     var showNotificationGuard by remember { mutableStateOf(false) }
+    var showGuardian by remember { mutableStateOf(false) }
     var showIntro by remember { mutableStateOf(true) }
     var locationActive by remember { mutableStateOf(hasLocationPermission(context)) }
     var linkHistory by remember { mutableStateOf<List<LinkAnalysis>>(emptyList()) }
     var passwordAudit by remember { mutableStateOf<PasswordAudit?>(null) }
+    val notificationAlerts = remember { NotificationAlertStore(context).getAll() }
+    val guardianAssessment: AuraGuardianAssessment = guardianEngine.assess(result, appScanResult, linkHistory, notificationAlerts)
     val locationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -181,6 +188,8 @@ private fun AuraDefenseApp(
             when (selectedTab) {
                 0 -> HomeScreen(
                     result = result,
+                    guardianAssessment = guardianAssessment,
+                    onGuardianAnalysis = { showGuardian = true },
                     onStartScan = {
                         runCatching { engine.evaluate(telemetryProvider.read()) }
                             .onSuccess { result = it; showSummary = true }
@@ -282,6 +291,9 @@ private fun AuraDefenseApp(
                 } else if (item == "Inteligencia de amenazas") {
                     moduleDialog = item to "Indicadores cargados: ${threatEngine.indicators.size}. Categorías disponibles: ${threatEngine.categories.joinToString(", ") { it.toSpanish() }}. Última actualización incluida: ${threatEngine.lastUpdatedAt}. Aura usa inteligencia local incluida en la app. No se suben URLs ni datos del dispositivo en esta fase."
                     showAuraCenter = false
+                } else if (item == "Guardián Aura") {
+                    showGuardian = true
+                    showAuraCenter = false
                 } else if (item == "Permiso de cámara") {
                     showQrScanner = true
                     showAuraCenter = false
@@ -354,12 +366,14 @@ private fun AuraDefenseApp(
     if (showNotificationGuard) {
         NotificationGuardDialog(onDismiss = { showNotificationGuard = false })
     }
+    if (showGuardian) {
+        AuraGuardianDialog(assessment = guardianAssessment, onDismiss = { showGuardian = false })
+    }
     if (showReports) {
         ReportDialog(
             onExport = { json ->
-                val notificationAlerts = NotificationAlertStore(context).getAll()
-                val content = if (json) AuraReportBuilder().json(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators)
-                else AuraReportBuilder().text(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators)
+                val content = if (json) AuraReportBuilder().json(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment)
+                else AuraReportBuilder().text(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment)
                 shareReport(content, json, context)
                 showReports = false
             },
