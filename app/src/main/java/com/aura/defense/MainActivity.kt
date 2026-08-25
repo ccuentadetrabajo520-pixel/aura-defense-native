@@ -36,6 +36,7 @@ import com.aura.defense.tools.PasswordAudit
 import com.aura.defense.reports.AuraReportBuilder
 import com.aura.defense.data.AuraPreferences
 import com.aura.defense.data.DeviceTelemetryProvider
+import com.aura.defense.notifications.NotificationAlertStore
 import com.aura.defense.ui.AuraBackground
 import com.aura.defense.ui.AuraTheme
 import com.aura.defense.ui.components.AuraBottomNav
@@ -51,6 +52,8 @@ import com.aura.defense.ui.components.PasswordAuditorDialog
 import com.aura.defense.ui.components.ReportDialog
 import com.aura.defense.ui.components.ShareScannerDialog
 import com.aura.defense.ui.components.QrScannerDialog
+import com.aura.defense.ui.components.NotificationGuardDialog
+import com.aura.defense.ui.components.isNotificationAccessEnabled
 import com.aura.defense.security.SecurityPostureEngine
 import com.aura.defense.security.SettingsAction
 import com.aura.defense.ui.screens.AppsScreen
@@ -112,6 +115,7 @@ private fun AuraDefenseApp(
     var showReports by remember { mutableStateOf(false) }
     var showShareScanner by remember { mutableStateOf(sharedText != null) }
     var showQrScanner by remember { mutableStateOf(false) }
+    var showNotificationGuard by remember { mutableStateOf(false) }
     var linkHistory by remember { mutableStateOf<List<LinkAnalysis>>(emptyList()) }
     var passwordAudit by remember { mutableStateOf<PasswordAudit?>(null) }
 
@@ -198,6 +202,7 @@ private fun AuraDefenseApp(
             onEditId = { showAuraIdDialog = true },
             onVisibilityToggle = { visibilityVisible = !visibilityVisible },
             onTelemetry = { showTelemetry = true },
+            notificationGuardStatus = if (isNotificationAccessEnabled(context)) "Activo" else "Desactivado · Acceso requerido",
             onItemClick = { item ->
                 if (item == "Escáner de apps") {
                     selectedTab = 3
@@ -210,6 +215,9 @@ private fun AuraDefenseApp(
                     showAuraCenter = false
                 } else if (item == "QR Anti-Phishing") {
                     showQrScanner = true
+                    showAuraCenter = false
+                } else if (item == "Protección de notificaciones") {
+                    showNotificationGuard = true
                     showAuraCenter = false
                 } else if (item == "Reportes") {
                     showReports = true
@@ -254,11 +262,15 @@ private fun AuraDefenseApp(
             onDismiss = { showQrScanner = false }
         )
     }
+    if (showNotificationGuard) {
+        NotificationGuardDialog(onDismiss = { showNotificationGuard = false })
+    }
     if (showReports) {
         ReportDialog(
             onExport = { json ->
-                val content = if (json) AuraReportBuilder().json(auraId, result, appScanResult, linkHistory, passwordAudit)
-                else AuraReportBuilder().text(auraId, result, appScanResult, linkHistory, passwordAudit)
+                val notificationAlerts = NotificationAlertStore(context).getAll()
+                val content = if (json) AuraReportBuilder().json(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts)
+                else AuraReportBuilder().text(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts)
                 shareReport(content, json, context)
                 showReports = false
             },

@@ -5,10 +5,11 @@ import com.aura.defense.data.DeviceTelemetrySnapshot
 import com.aura.defense.security.PostureResult
 import com.aura.defense.tools.LinkAnalysis
 import com.aura.defense.tools.PasswordAudit
+import com.aura.defense.notifications.NotificationAlert
 import java.util.Locale
 
 class AuraReportBuilder {
-    fun text(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?): String = buildString {
+    fun text(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList()): String = buildString {
         appendLine("INFORME AURA DEFENSE")
         appendLine("Fecha: ${posture.timestamp}")
         appendLine("Aura ID: $auraId")
@@ -28,10 +29,13 @@ class AuraReportBuilder {
         appendLine("AUDITORÍA DE CONTRASEÑA")
         appendLine(password?.let { "Resultado: ${it.strength.name.lowercase(Locale.getDefault())}, puntuación ${it.score}/100. La contraseña no se incluye." } ?: "No se ha ejecutado una auditoría")
         appendLine()
+        appendLine("PROTECCIÓN DE NOTIFICACIONES")
+        appendNotificationSummary(notifications)
+        appendLine()
         appendLine("Límites reales de Android sin root: las señales disponibles dependen de la versión, permisos y fabricante. Este informe no confirma malware.")
     }
 
-    fun json(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?): String {
+    fun json(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList()): String {
         fun quote(value: String) = "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
         return "{" + listOf(
             "\"fecha\":${quote(posture.timestamp)}",
@@ -42,9 +46,18 @@ class AuraReportBuilder {
             "\"appsConRiesgos\":${apps?.riskyApps?.size ?: 0}",
             "\"riesgoAlto\":${apps?.highRiskApps?.size ?: 0}",
             "\"enlacesAnalizados\":${links.size}",
+            "\"enlacesNotificacionesAnalizados\":${notifications.size}",
+            "\"enlacesNotificacionesSospechosos\":${notifications.count { it.analysis.risk.name == "SOSPECHOSO" }}",
+            "\"enlacesNotificacionesPeligrosos\":${notifications.count { it.analysis.risk.name == "PELIGROSO" }}",
             "\"auditoriaContrasena\":${password?.let { quote(it.strength.name) } ?: "null"}",
             "\"limitesAndroid\":${quote("Las señales dependen de la versión, permisos y fabricante; no confirma malware")}" 
         ).joinToString(",") + "}"
+    }
+
+    private fun StringBuilder.appendNotificationSummary(alerts: List<NotificationAlert>) {
+        appendLine("Enlaces analizados: ${alerts.size}")
+        appendLine("Sospechosos: ${alerts.count { it.analysis.risk.name == "SOSPECHOSO" }}")
+        appendLine("Peligrosos: ${alerts.count { it.analysis.risk.name == "PELIGROSO" }}")
     }
 
     private fun StringBuilder.appendTelemetry(t: DeviceTelemetrySnapshot) {

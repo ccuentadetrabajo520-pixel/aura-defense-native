@@ -30,7 +30,8 @@ fun AuraCenterDialog(
     onVisibilityToggle: () -> Unit,
     onTelemetry: () -> Unit,
     onItemClick: (String) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    notificationGuardStatus: String = "Desactivado · Acceso requerido"
 ) {
     val permissions = listOf("Permiso de VPN", "Permiso de ubicación", "Permiso de cámara", "Permiso de notificaciones", "Acceso a notificaciones", "Acceso al uso", "Optimización de batería")
     val privacy = listOf("Modo local prioritario", "No subir apps", "No subir ubicación", "No subir URLs", "Borrar historial local")
@@ -49,7 +50,11 @@ fun AuraCenterDialog(
                 CenterRow("Telemetría del dispositivo", "Ver datos", onTelemetry)
                 CenterSection("PERMISOS") { permissions.forEach { CenterRow(it, "No conectado", { onItemClick(it) }) } }
                 CenterSection("PRIVACIDAD") { privacy.forEach { CenterRow(it, "Ajuste local", { onItemClick(it) }) } }
-                CenterSection("HERRAMIENTAS") { tools.forEach { CenterRow(it, "Módulo", { onItemClick(it) }) } }
+                CenterSection("HERRAMIENTAS") {
+                    tools.forEach {
+                        CenterRow(it, if (it == "Protección de notificaciones") notificationGuardStatus else "Módulo", { onItemClick(it) })
+                    }
+                }
                 CenterSection("LEGAL") { legal.forEach { CenterRow(it, "Información", { onItemClick(it) }) } }
             }
         },
