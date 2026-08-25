@@ -10,10 +10,11 @@ import com.aura.defense.threats.ThreatIndicator
 import com.aura.defense.guardian.AuraGuardianAssessment
 import com.aura.defense.guardian.GuardianConfidence
 import com.aura.defense.guardian.GuardianLevel
+import com.aura.defense.files.AuraFileAnalysis
 import java.util.Locale
 
 class AuraReportBuilder {
-    fun text(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList(), indicators: List<ThreatIndicator> = emptyList(), guardian: AuraGuardianAssessment? = null): String = buildString {
+    fun text(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList(), indicators: List<ThreatIndicator> = emptyList(), guardian: AuraGuardianAssessment? = null, file: AuraFileAnalysis? = null, vaultAvailable: Boolean = false): String = buildString {
         appendLine("INFORME AURA DEFENS")
         appendLine("Fecha: ${posture.timestamp}")
         appendLine("Aura ID: $auraId")
@@ -41,11 +42,12 @@ class AuraReportBuilder {
         appendLine("Última actualización incluida: ${indicators.maxOfOrNull { it.updatedAt } ?: "No disponible"}")
         appendLine("Coincidencias recientes: ${countThreatMatches(links, notifications)}")
         appendGuardian(guardian)
+        appendFileSummary(file, vaultAvailable)
         appendLine()
         appendLine("Límites reales de Android sin root: las señales disponibles dependen de la versión, permisos y fabricante. Este informe no confirma malware.")
     }
 
-    fun json(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList(), indicators: List<ThreatIndicator> = emptyList(), guardian: AuraGuardianAssessment? = null): String {
+    fun json(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList(), indicators: List<ThreatIndicator> = emptyList(), guardian: AuraGuardianAssessment? = null, file: AuraFileAnalysis? = null, vaultAvailable: Boolean = false): String {
         fun quote(value: String) = "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
         return "{" + listOf(
             "\"fecha\":${quote(posture.timestamp)}",
@@ -67,6 +69,9 @@ class AuraReportBuilder {
             "\"guardianRazones\":${quote(guardian?.reasons?.joinToString("; ") ?: "No disponible")}",
             "\"guardianRecomendaciones\":${quote(guardian?.recommendations?.joinToString("; ") ?: "No disponible")}",
             "\"guardianFecha\":${quote(guardian?.timestamp ?: "No disponible")}",
+            "\"archivoAnalizado\":${quote(file?.name ?: "No disponible")}",
+            "\"archivoRiesgo\":${quote(file?.risk ?: "No disponible")}",
+            "\"bovedaDisponible\":$vaultAvailable",
             "\"auditoriaContrasena\":${password?.let { quote(it.strength.name) } ?: "null"}",
             "\"limitesAndroid\":${quote("Las señales dependen de la versión, permisos y fabricante; no confirma malware")}" 
         ).joinToString(",") + "}"
@@ -90,6 +95,14 @@ class AuraReportBuilder {
         appendLine("Razones: ${guardian?.reasons?.joinToString("; ") ?: "No disponible"}")
         appendLine("Recomendaciones: ${guardian?.recommendations?.joinToString("; ") ?: "No disponible"}")
         appendLine("Fecha: ${guardian?.timestamp ?: "No disponible"}")
+    }
+
+    private fun StringBuilder.appendFileSummary(file: AuraFileAnalysis?, vaultAvailable: Boolean) {
+        appendLine()
+        appendLine("ANÁLISIS DE ARCHIVOS")
+        appendLine("Archivo: ${file?.name ?: "No disponible"}")
+        appendLine("Riesgo potencial: ${file?.risk ?: "No disponible"}")
+        appendLine("Bóveda cifrada: ${if (vaultAvailable) "Disponible" else "No disponible"}")
     }
 
     private fun GuardianLevel.toSpanish() = when (this) {
