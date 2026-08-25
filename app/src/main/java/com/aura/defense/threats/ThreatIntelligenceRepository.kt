@@ -104,7 +104,7 @@ class ThreatIntelligenceRepository(private val context: Context) {
         const val FILE_NAME = "threats.json"
         const val CACHE_FILE = "threats-updated.json"
         const val MAX_BYTES = 1_048_576
-        const val REMOTE_UPDATE_URL: String? = null
+        val REMOTE_UPDATE_URL: String? = null
         const val INVALID_MESSAGE = "No se pudo validar la inteligencia de amenazas. Aura usará la base local incluida."
     }
 }
