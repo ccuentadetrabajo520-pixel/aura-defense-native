@@ -50,6 +50,7 @@ import com.aura.defense.data.DeviceTelemetryProvider
 import com.aura.defense.notifications.NotificationAlertStore
 import com.aura.defense.guardian.AuraGuardianAssessment
 import com.aura.defense.guardian.AuraGuardianEngine
+import com.aura.defense.guardian.GuardianLevel
 import com.aura.defense.threats.ThreatIntelligenceEngine
 import com.aura.defense.threats.ThreatCategory
 import com.aura.defense.ui.AuraBackground
@@ -247,7 +248,7 @@ private fun AuraDefenseApp(
                         lanSearchJob = scope.launch {
                             val success = AuraLanDiscovery(context).discover(
                                 auraId = auraId,
-                                guardianLevel = guardianAssessment.level.toSpanish(),
+                                guardianLevel = guardianAssessment.level.toLanSpanish(),
                                 visible = visibilityVisible,
                                 onPeer = { peer ->
                                     Handler(Looper.getMainLooper()).post {
@@ -498,6 +499,13 @@ private fun ThreatCategory.toSpanish() = when (this) {
     ThreatCategory.TRACKING -> "seguimiento"
     ThreatCategory.ADS -> "publicidad"
     ThreatCategory.CRYPTO_SCAM -> "estafa de activos digitales"
+}
+
+private fun GuardianLevel.toLanSpanish() = when (this) {
+    GuardianLevel.TRANQUILO -> "Tranquilo"
+    GuardianLevel.ATENCION -> "Atención"
+    GuardianLevel.RIESGO_ALTO -> "Riesgo alto"
+    GuardianLevel.CRITICO -> "Crítico"
 }
 
 private fun hasLocationPermission(context: Context): Boolean =

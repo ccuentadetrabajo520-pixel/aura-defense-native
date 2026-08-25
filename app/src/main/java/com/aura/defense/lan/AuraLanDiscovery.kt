@@ -55,7 +55,7 @@ class AuraLanDiscovery(private val context: Context) {
             when (message.optString("type")) {
                 TYPE_DISCOVERY -> {
                     if (visible && message.optString("auraId") != ownAuraId) {
-                        val response = responsePayload(ownAuraId, guardianLevel).toByteArray(Charsets.UTF_8)
+                        val response = responsePayload(ownAuraId, guardianLevel).toString().toByteArray(Charsets.UTF_8)
                         socket.send(DatagramPacket(response, response.size, packet.address, packet.port))
                     }
                 }
