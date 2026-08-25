@@ -17,7 +17,7 @@ class AuraLanDiscovery(private val context: Context) {
         onPeer: (AuraLanPeer) -> Unit
     ): Boolean = withContext(Dispatchers.IO) {
         runCatching {
-            DatagramSocket().use { socket ->
+            DatagramSocket(PORT).use { socket ->
                 socket.broadcast = true
                 socket.soTimeout = RECEIVE_TIMEOUT_MS
                 val discovery = JSONObject().apply {
