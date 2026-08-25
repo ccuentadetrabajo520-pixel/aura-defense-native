@@ -1,6 +1,6 @@
-# Aura Defense
+# AURA DEFENS
 
-Aura Defense is a native Android foundation for private, realistic mobile defense. Phase 1 establishes a stable Jetpack Compose and Material 3 app with a locally persisted Aura ID and a release build ready for Codemagic.
+AURA DEFENS is a native Android foundation for private, realistic mobile defense. Phase 1 establishes a stable Jetpack Compose and Material 3 app with a locally persisted Aura ID and a release build ready for Codemagic.
 
 ## Build locally
 

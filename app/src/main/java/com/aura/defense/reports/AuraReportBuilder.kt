@@ -10,7 +10,7 @@ import java.util.Locale
 
 class AuraReportBuilder {
     fun text(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList()): String = buildString {
-        appendLine("INFORME AURA DEFENSE")
+        appendLine("INFORME AURA DEFENS")
         appendLine("Fecha: ${posture.timestamp}")
         appendLine("Aura ID: $auraId")
         appendLine("Puntuación Aura: ${if (posture.score >= 0) posture.score else "No disponible"}")

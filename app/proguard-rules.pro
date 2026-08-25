@@ -1,1 +1,1 @@
-# Aura Defense release rules.
+# AURA DEFENS release rules.

@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -140,7 +142,7 @@ private fun AuraDefenseApp(
     }
 
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(1500)
+        kotlinx.coroutines.delay(6000)
         showIntro = false
     }
 
@@ -153,9 +155,10 @@ private fun AuraDefenseApp(
             }
     }
 
-    if (showIntro) {
-        com.aura.defense.ui.components.AuraCoreIntro()
-    } else Scaffold(
+    Crossfade(targetState = showIntro, animationSpec = tween(650), label = "aura-core-transition") { showingIntro ->
+        if (showingIntro) {
+            com.aura.defense.ui.components.AuraCoreIntro()
+        } else Scaffold(
         containerColor = AuraBackground,
         topBar = {
             androidx.compose.foundation.layout.Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
@@ -224,6 +227,7 @@ private fun AuraDefenseApp(
                     onModuleDialog = { title, message -> moduleDialog = title to message }
                 )
             }
+        }
         }
     }
 

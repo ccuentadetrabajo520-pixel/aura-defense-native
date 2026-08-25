@@ -6,6 +6,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aura.defense.ui.AuraCyan
+import com.aura.defense.ui.AuraBackground
 import com.aura.defense.ui.AuraGreen
 import com.aura.defense.ui.AuraMuted
 
@@ -34,7 +36,7 @@ fun AuraCoreIntro() {
         animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
         label = "aura-core-pulse"
     )
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(modifier = Modifier.fillMaxSize().background(AuraBackground), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val center = Offset(size.width / 2f, size.height / 2f - 28.dp.toPx())
             val base = size.minDimension * 0.18f

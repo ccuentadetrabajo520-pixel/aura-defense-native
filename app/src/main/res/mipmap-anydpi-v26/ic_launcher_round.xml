@@ -1,0 +1,4 @@
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/aura_core_background" />
+    <foreground android:drawable="@drawable/aura_core_foreground" />
+</adaptive-icon>
