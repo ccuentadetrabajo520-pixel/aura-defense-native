@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aura.defense.scheduler.AuraSchedule
 import com.aura.defense.scheduler.scheduleAuraChecks
+import com.aura.defense.history.AuraHistoryStore
 import com.aura.defense.vault.AuraVault
 import com.aura.defense.ui.AuraAmber
 import com.aura.defense.ui.AuraGreen
@@ -24,6 +25,7 @@ import com.aura.defense.ui.AuraMuted
 @Composable
 fun AuraVaultDialog(context: Context, onDismiss: () -> Unit) {
     val vault = remember { AuraVault(context) }
+    val historyStore = remember { AuraHistoryStore(context) }
     val available = remember { vault.isAvailable() }
     var message by remember { mutableStateOf<String?>(null) }
     AuraHudDialog(onDismissRequest = onDismiss, title = { Text("Bóveda cifrada") }, text = {
@@ -46,7 +48,14 @@ fun AuraVaultDialog(context: Context, onDismiss: () -> Unit) {
                 }
             }) { Text("Exportar historial") }
         }
-    }, confirmButton = { Button(onClick = { message = if (vault.saveSummary("Resumen guardado localmente")) "Reporte guardado en la bóveda." else "No se pudo acceder a la bóveda cifrada." }) { Text("Guardar reporte en bóveda") } }, dismissButton = { TextButton(onClick = { message = if (vault.clear()) "Historial borrado." else "No se pudo acceder a la bóveda cifrada." }) { Text("Borrar historial") } })
+    }, confirmButton = { Button(onClick = {
+        val content = historyStore.getEntries().joinToString("\n") { it.toJson() }
+        message = when {
+            content.isBlank() -> "No hay historial guardado."
+            vault.replaceSummary(content) -> "Reporte guardado en la bóveda."
+            else -> "No se pudo acceder a la bóveda cifrada."
+        }
+    }) { Text("Guardar reporte en bóveda") } }, dismissButton = { TextButton(onClick = { message = if (vault.clear()) "Historial borrado." else "No se pudo acceder a la bóveda cifrada." }) { Text("Borrar historial") } })
 }
 
 @Composable

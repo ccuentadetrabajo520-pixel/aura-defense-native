@@ -51,9 +51,8 @@ class AuraVpnService : VpnService() {
             tunnel = Builder()
                 .setSession("Aura Defense")
                 .addAddress("10.0.0.2", 32)
-                .addRoute("0.0.0.0", 0)
-                .addRoute("128.0.0.0", 1)
                 .addDnsServer(UPSTREAM_DNS)
+                .addRoute(UPSTREAM_DNS, 32)
                 .establish()
                 ?: error("No se pudo establecer el túnel VPN")
         }.onSuccess {
@@ -104,6 +103,9 @@ class AuraVpnService : VpnService() {
                         }
                         if (match != null) {
                             store.recordBlocked(DnsBlockedEvent(query.domain, match.category.name, match.severity.name, System.currentTimeMillis()))
+                            DnsPacketCodec.response(packet, length, DnsPacketCodec.blockedResponse(query))?.let {
+                                output.write(it)
+                            }
                             continue
                         }
                         forwardDnsQuery(packet, length, query, output)

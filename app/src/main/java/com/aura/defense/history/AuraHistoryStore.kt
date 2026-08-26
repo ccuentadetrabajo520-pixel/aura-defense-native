@@ -2,6 +2,7 @@ package com.aura.defense.history
 
 import android.content.Context
 import com.aura.defense.vault.AuraVault
+import com.aura.defense.vault.AuraVaultReadStatus
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -20,9 +21,17 @@ class AuraHistoryStore(context: Context) {
     }.getOrDefault(false)
 
     fun getEntries(): List<AuraHistoryEntry> = runCatching {
-        val encrypted = if (vault.isAvailable()) vault.readSummary().orEmpty() else null
-        val source = encrypted ?: preferences.getString(HISTORY_KEY, "").orEmpty()
-        source.lineSequence().mapNotNull(AuraHistoryEntry::fromJson).toList().takeLast(MAX_ENTRIES)
+        val encrypted = vault.readSummaryResult()
+        val encryptedEntries = if (encrypted.status == AuraVaultReadStatus.CONTENT) {
+            encrypted.content.orEmpty().lineSequence().mapNotNull(AuraHistoryEntry::fromJson).toList()
+        } else {
+            emptyList()
+        }
+        val entries = encryptedEntries.ifEmpty {
+            preferences.getString(HISTORY_KEY, "").orEmpty()
+                .lineSequence().mapNotNull(AuraHistoryEntry::fromJson).toList()
+        }
+        entries.takeLast(MAX_ENTRIES)
     }.getOrDefault(emptyList())
 
     fun addEntries(entries: List<AuraHistoryEntry>): Boolean = runCatching {

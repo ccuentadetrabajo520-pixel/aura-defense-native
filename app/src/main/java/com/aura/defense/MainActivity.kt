@@ -39,7 +39,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.aura.defense.apps.AppScanResult
@@ -235,7 +240,9 @@ private fun AuraDefenseApp(
     var allowlistedDomains by remember { mutableStateOf(dnsFirewallStore.allowlist()) }
     var dnsBlockPulse by remember { mutableStateOf(0) }
     val emergencySteps = listOf("Actualizando telemetría", "Escaneando aplicaciones", "Comprobando alertas del Guardián", "Revisando enlaces recientes", "Comprobando VPN y cortafuegos", "Generando informe")
-    val notificationAlerts = remember { NotificationAlertStore(context).getAll() }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val notificationAlertStore = remember { NotificationAlertStore(context) }
+    var notificationAlerts by remember { mutableStateOf(notificationAlertStore.getAll()) }
     val guardianAssessment: AuraGuardianAssessment = guardianEngine.assess(result, appScanResult, linkHistory, notificationAlerts, historyEntries, blockedDns)
     val locationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -265,6 +272,23 @@ private fun AuraDefenseApp(
             blockedDns = updatedBlockedDns
             blockedDnsCount = updatedBlockedDnsCount
             kotlinx.coroutines.delay(500)
+        }
+    }
+
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (isActive) {
+                val updatedAlerts = notificationAlertStore.getAll()
+                if (updatedAlerts != notificationAlerts) {
+                    val newAlertAdded = updatedAlerts.size > notificationAlerts.size
+                    notificationAlerts = updatedAlerts
+                    if (newAlertAdded && result.score >= 0 && historyStore.baseline() != null) {
+                        changeDetector.compare(result, appScanResult, linkHistory, updatedAlerts)
+                        historyEntries = historyStore.getEntries()
+                    }
+                }
+                delay(2000)
+            }
         }
     }
 

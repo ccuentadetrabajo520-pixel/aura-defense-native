@@ -1,6 +1,15 @@
 package com.aura.defense.vpn
 
-internal data class DnsQuery(val domain: String, val transactionId: Int, val dnsOffset: Int, val dnsLength: Int)
+internal data class DnsQuery(
+    val domain: String,
+    val transactionId: Int,
+    val flags: Int,
+    val questionType: Int,
+    val questionClass: Int,
+    val questionBytes: ByteArray,
+    val dnsOffset: Int,
+    val dnsLength: Int
+)
 
 internal object DnsPacketCodec {
     private const val IPV4_HEADER_SIZE = 20
@@ -22,11 +31,32 @@ internal object DnsPacketCodec {
         val questionCount = readUnsignedShort(packet, dnsOffset + 4)
         if ((flags and 0x8000) != 0 || questionCount < 1) return null
         val domain = readName(packet, dnsOffset + 12, length) ?: return null
-        return DnsQuery(domain, readUnsignedShort(packet, dnsOffset), dnsOffset, length - dnsOffset)
+        val questionEnd = questionEnd(packet, dnsOffset + 12, length) ?: return null
+        if (questionEnd + 4 > length) return null
+        val questionBytes = packet.copyOfRange(dnsOffset + 12, questionEnd + 4)
+        return DnsQuery(
+            domain = domain,
+            transactionId = readUnsignedShort(packet, dnsOffset),
+            flags = flags,
+            questionType = readUnsignedShort(packet, questionEnd),
+            questionClass = readUnsignedShort(packet, questionEnd + 2),
+            questionBytes = questionBytes,
+            dnsOffset = dnsOffset,
+            dnsLength = length - dnsOffset
+        )
     }
 
     fun dnsPayload(packet: ByteArray, query: DnsQuery): ByteArray =
         packet.copyOfRange(query.dnsOffset, query.dnsOffset + query.dnsLength)
+
+    fun blockedResponse(query: DnsQuery): ByteArray {
+        val response = ByteArray(12 + query.questionBytes.size)
+        writeUnsignedShort(response, 0, query.transactionId)
+        writeUnsignedShort(response, 2, 0x8000 or (query.flags and 0x7800) or (query.flags and 0x0100) or 0x0003)
+        writeUnsignedShort(response, 4, 1)
+        query.questionBytes.copyInto(response, 12)
+        return response
+    }
 
     fun response(queryPacket: ByteArray, length: Int, upstreamResponse: ByteArray): ByteArray? {
         if (length < IPV4_HEADER_SIZE + UDP_HEADER_SIZE || upstreamResponse.size < 12) return null
@@ -64,6 +94,18 @@ internal object DnsPacketCodec {
             if (labelLength == 0) return labels.joinToString(".").lowercase()
             if (labelLength > 63 || offset + labelLength > length) return null
             labels += String(packet, offset, labelLength, Charsets.US_ASCII)
+            offset += labelLength
+        }
+        return null
+    }
+
+    private fun questionEnd(packet: ByteArray, start: Int, length: Int): Int? {
+        var offset = start
+        repeat(128) {
+            if (offset >= length) return null
+            val labelLength = packet[offset++].toInt() and 0xff
+            if (labelLength == 0) return offset - 1
+            if (labelLength > 63 || offset + labelLength > length) return null
             offset += labelLength
         }
         return null

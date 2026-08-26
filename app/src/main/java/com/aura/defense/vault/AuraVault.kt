@@ -11,6 +11,10 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
+enum class AuraVaultReadStatus { CONTENT, EMPTY, UNAVAILABLE, FAILED }
+
+data class AuraVaultReadResult(val status: AuraVaultReadStatus, val content: String? = null)
+
 class AuraVault(context: Context) {
     private val preferences = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
 
@@ -37,7 +41,19 @@ class AuraVault(context: Context) {
         preferences.getString(KEY, null)?.let(::decrypt)?.takeIf { it.isNotBlank() }
     }.getOrNull()
 
-    fun clear(): Boolean = runCatching { preferences.edit().remove(KEY).apply(); true }.getOrDefault(false)
+    fun readSummaryResult(): AuraVaultReadResult = runCatching {
+        val stored = preferences.getString(KEY, null)
+            ?: return AuraVaultReadResult(AuraVaultReadStatus.EMPTY)
+        val content = decrypt(stored).takeIf { it.isNotBlank() }
+        if (content == null) AuraVaultReadResult(AuraVaultReadStatus.EMPTY)
+        else AuraVaultReadResult(AuraVaultReadStatus.CONTENT, content)
+    }.getOrElse {
+        AuraVaultReadResult(
+            if (isAvailable()) AuraVaultReadStatus.FAILED else AuraVaultReadStatus.UNAVAILABLE
+        )
+    }
+
+    fun clear(): Boolean = runCatching { preferences.edit().remove(KEY).commit() }.getOrDefault(false)
 
     private fun encrypt(value: String): String {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
