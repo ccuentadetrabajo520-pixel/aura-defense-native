@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.app.usage.UsageStatsManager
 import android.provider.Settings
 import android.net.Uri
+import android.net.VpnService
 import android.util.Log
 import android.os.Handler
 import android.os.Looper
@@ -90,8 +91,15 @@ import com.aura.defense.ui.screens.AppsScreen
 import com.aura.defense.ui.screens.AurasScreen
 import com.aura.defense.ui.screens.DefenseScreen
 import com.aura.defense.ui.screens.HomeScreen
+import com.aura.defense.vpn.AuraVpnService
 
 class MainActivity : ComponentActivity() {
+    private val vpnPermissionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) startAuraVpn(onFailure = { vpnPermissionDeniedCallback?.invoke() })
+        else vpnPermissionDeniedCallback?.invoke()
+    }
+    private var vpnPermissionDeniedCallback: (() -> Unit)? = null
+
     private var sharedText by mutableStateOf<String?>(null)
     private var sharedFile by mutableStateOf<Uri?>(null)
 
@@ -120,6 +128,29 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         sharedText = extractSharedText(intent)
         sharedFile = extractSharedFile(intent)
+    }
+
+    fun requestAuraVpn(onDenied: () -> Unit) {
+        vpnPermissionDeniedCallback = onDenied
+        runCatching {
+            VpnService.prepare(this)
+        }.onSuccess { preparationIntent ->
+            if (preparationIntent == null) startAuraVpn(onFailure = onDenied) else vpnPermissionLauncher.launch(preparationIntent)
+        }.onFailure {
+            onDenied()
+        }
+    }
+
+    private fun startAuraVpn(onFailure: () -> Unit) {
+        runCatching {
+            androidx.core.content.ContextCompat.startForegroundService(this, Intent(this, AuraVpnService::class.java))
+        }.onFailure {
+            onFailure()
+        }
+    }
+
+    fun stopAuraVpn() {
+        stopService(Intent(this, AuraVpnService::class.java))
     }
 }
 
@@ -180,6 +211,8 @@ private fun AuraDefenseApp(
     var emergencyRunning by remember { mutableStateOf(false) }
     var emergencyStep by remember { mutableStateOf(0) }
     var emergencyResult by remember { mutableStateOf<EmergencyModeResult?>(null) }
+    var vpnRunning by remember { mutableStateOf(AuraVpnService.isRunning) }
+    var vpnPermissionError by remember { mutableStateOf(false) }
     val emergencySteps = listOf("Actualizando telemetría", "Escaneando aplicaciones", "Comprobando alertas del Guardián", "Revisando enlaces recientes", "Comprobando VPN y cortafuegos", "Generando informe")
     val notificationAlerts = remember { NotificationAlertStore(context).getAll() }
     val guardianAssessment: AuraGuardianAssessment = guardianEngine.assess(result, appScanResult, linkHistory, notificationAlerts, historyEntries)
@@ -201,6 +234,13 @@ private fun AuraDefenseApp(
         }
     }
     LaunchedEffect(sharedFile) { if (sharedFile != null) showFileAnalyzer = true }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            vpnRunning = AuraVpnService.isRunning
+            kotlinx.coroutines.delay(500)
+        }
+    }
 
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(6000)
@@ -336,6 +376,19 @@ private fun AuraDefenseApp(
                     onModuleDialog = { title, message -> moduleDialog = title to message }
                 )
                 2 -> DefenseScreen(
+                    vpnStatus = when {
+                        vpnRunning -> "Protegido"
+                        vpnPermissionError -> "Error de permisos"
+                        else -> "VPN desactivada"
+                    },
+                    onVpnToggle = {
+                        if (vpnRunning) {
+                            (context as? MainActivity)?.stopAuraVpn()
+                        } else {
+                            vpnPermissionError = false
+                            (context as? MainActivity)?.requestAuraVpn { vpnPermissionError = true }
+                        }
+                    },
                     onModuleDialog = { title, message -> moduleDialog = title to message },
                     onEmergency = {
                         runEmergencyMode()

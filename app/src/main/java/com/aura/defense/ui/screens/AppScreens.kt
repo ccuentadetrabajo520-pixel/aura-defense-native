@@ -132,16 +132,21 @@ fun AurasScreen(
 }
 
 @Composable
-fun DefenseScreen(onModuleDialog: (String, String) -> Unit, onEmergency: () -> Unit) {
+fun DefenseScreen(
+    vpnStatus: String,
+    onVpnToggle: () -> Unit,
+    onModuleDialog: (String, String) -> Unit,
+    onEmergency: () -> Unit
+) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionTitle("DEFENSA", "Cortafuegos Centinela", "Superficie de control visual. No se simulan bloqueos.")
         Panel(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 SentinelCanvas(Modifier.fillMaxWidth().height(250.dp))
-                Text("LISTO / PARCIAL", color = AuraGreen, fontSize = 12.sp)
+                Text(vpnStatus, color = if (vpnStatus == "Protegido") AuraGreen else AuraAmber, fontSize = 12.sp)
             }
         }
-        ActionButton("Preparar VPN", onClick = { onModuleDialog("Preparar VPN", "El servicio VPN real se implementará en la fase de cortafuegos. Aura no mostrará protección VPN activa hasta que Android confirme el servicio.") })
+        ActionButton(vpnStatus, onClick = onVpnToggle)
         ActionButton("Perfiles del cortafuegos", onClick = { onModuleDialog("Perfiles del cortafuegos", "El cortafuegos VPN aún no está implementado. No se aplicarán bloqueos ni se guardarán perfiles activos.") }, outlined = true)
         ActionButton("Modo emergencia", onClick = onEmergency, outlined = true)
     }

@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.StatFs
 import android.provider.Settings
 import android.util.Log
+import com.aura.defense.vpn.AuraVpnService
 
 data class DeviceTelemetrySnapshot(
     val manufacturer: String,
@@ -66,7 +67,7 @@ class DeviceTelemetryProvider(private val context: Context) {
         }.onFailure { Log.e("AuraDefense", "No se pudo identificar la red activa", it) }
             .getOrDefault("No disponible")
         val vpn = runCatching {
-            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+            AuraVpnService.isRunning && capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
         }.onFailure { Log.e("AuraDefense", "No se pudo comprobar la VPN", it) }.getOrDefault(false)
 
         return DeviceTelemetrySnapshot(
