@@ -51,8 +51,9 @@ class AuraVpnService : VpnService() {
             tunnel = Builder()
                 .setSession("Aura Defense")
                 .addAddress("10.0.0.2", 32)
-                .addRoute(DNS_VIRTUAL_ADDRESS, 32)
-                .addDnsServer(DNS_VIRTUAL_ADDRESS)
+                .addRoute("0.0.0.0", 0)
+                .addRoute("128.0.0.0", 1)
+                .addDnsServer(UPSTREAM_DNS)
                 .establish()
                 ?: error("No se pudo establecer el túnel VPN")
         }.onSuccess {
@@ -93,8 +94,13 @@ class AuraVpnService : VpnService() {
                         val length = input.read(packet)
                         if (length <= 0) break
                         val query = DnsPacketCodec.query(packet, length) ?: continue
-                        val match = threatEngine.findMatches(query.domain).firstOrNull { indicator ->
-                            store.profile().categories.contains(indicator.category.name) && !store.isAllowed(query.domain)
+                        val profile = store.profile()
+                        val match = if (profile == DnsFirewallProfile.PERMITIR_TODO) {
+                            null
+                        } else {
+                            threatEngine.findMatches(query.domain).firstOrNull { indicator ->
+                                profile.categories.contains(indicator.category.name) && !store.isAllowed(query.domain)
+                            }
                         }
                         if (match != null) {
                             store.recordBlocked(DnsBlockedEvent(query.domain, match.category.name, match.severity.name, System.currentTimeMillis()))
@@ -112,7 +118,7 @@ class AuraVpnService : VpnService() {
     private fun forwardDnsQuery(queryPacket: ByteArray, length: Int, query: DnsQuery, output: FileOutputStream) {
         runCatching {
             DatagramSocket().use { socket ->
-                protect(socket)
+                check(protect(socket)) { "No se pudo proteger el socket DNS" }
                 socket.soTimeout = DNS_TIMEOUT_MS
                 val upstream = InetAddress.getByName(UPSTREAM_DNS)
                 val dnsPayload = DnsPacketCodec.dnsPayload(queryPacket, query)
@@ -145,7 +151,6 @@ class AuraVpnService : VpnService() {
 
     companion object {
         const val ACTION_STOP = "com.aura.defense.vpn.STOP"
-        private const val DNS_VIRTUAL_ADDRESS = "10.0.0.1"
         private const val UPSTREAM_DNS = "1.1.1.1"
         private const val DNS_PORT = 53
         private const val DNS_TIMEOUT_MS = 1500
