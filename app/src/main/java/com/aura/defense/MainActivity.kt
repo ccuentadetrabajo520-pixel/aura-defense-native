@@ -9,6 +9,8 @@ import android.app.usage.UsageStatsManager
 import android.provider.Settings
 import android.net.Uri
 import android.net.VpnService
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.util.Log
 import android.os.Handler
 import android.os.Looper
@@ -150,8 +152,17 @@ class MainActivity : ComponentActivity() {
     }
 
     fun stopAuraVpn() {
-        stopService(Intent(this, AuraVpnService::class.java))
+        startService(Intent(this, AuraVpnService::class.java).setAction(AuraVpnService.ACTION_STOP))
     }
+}
+
+private fun isAuraVpnActive(context: Context): Boolean {
+    return runCatching {
+        val connectivityManager = context.getSystemService(ConnectivityManager::class.java)
+        val activeNetwork = connectivityManager?.activeNetwork
+        val capabilities = activeNetwork?.let(connectivityManager::getNetworkCapabilities)
+        AuraVpnService.isRunning && capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+    }.getOrDefault(false)
 }
 
 @Composable
@@ -211,7 +222,7 @@ private fun AuraDefenseApp(
     var emergencyRunning by remember { mutableStateOf(false) }
     var emergencyStep by remember { mutableStateOf(0) }
     var emergencyResult by remember { mutableStateOf<EmergencyModeResult?>(null) }
-    var vpnRunning by remember { mutableStateOf(AuraVpnService.isRunning) }
+    var isVpnRunning by remember { mutableStateOf(isAuraVpnActive(context)) }
     var vpnPermissionError by remember { mutableStateOf(false) }
     val emergencySteps = listOf("Actualizando telemetría", "Escaneando aplicaciones", "Comprobando alertas del Guardián", "Revisando enlaces recientes", "Comprobando VPN y cortafuegos", "Generando informe")
     val notificationAlerts = remember { NotificationAlertStore(context).getAll() }
@@ -237,7 +248,7 @@ private fun AuraDefenseApp(
 
     LaunchedEffect(Unit) {
         while (true) {
-            vpnRunning = AuraVpnService.isRunning
+            isVpnRunning = isAuraVpnActive(context)
             kotlinx.coroutines.delay(500)
         }
     }
@@ -377,13 +388,16 @@ private fun AuraDefenseApp(
                 )
                 2 -> DefenseScreen(
                     vpnStatus = when {
-                        vpnRunning -> "Protegido"
+                        isVpnRunning -> "Protegido"
                         vpnPermissionError -> "Error de permisos"
                         else -> "VPN desactivada"
                     },
+                    vpnRunning = isVpnRunning,
                     onVpnToggle = {
-                        if (vpnRunning) {
+                        if (isVpnRunning) {
                             (context as? MainActivity)?.stopAuraVpn()
+                            isVpnRunning = false
+                            vpnPermissionError = false
                         } else {
                             vpnPermissionError = false
                             (context as? MainActivity)?.requestAuraVpn { vpnPermissionError = true }

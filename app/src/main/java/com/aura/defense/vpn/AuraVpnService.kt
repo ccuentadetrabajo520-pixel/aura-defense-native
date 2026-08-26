@@ -30,6 +30,11 @@ class AuraVpnService : VpnService() {
         super.onDestroy()
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        stopVpn()
+        super.onTaskRemoved(rootIntent)
+    }
+
     private fun establishVpn() {
         runCatching {
             tunnel?.close()
@@ -48,11 +53,11 @@ class AuraVpnService : VpnService() {
         }
     }
 
-    private fun stopVpn() {
+    fun stopVpn() {
         isRunning = false
         runCatching { tunnel?.close() }
         tunnel = null
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopForeground(true)
         stopSelf()
     }
 

@@ -134,6 +134,7 @@ fun AurasScreen(
 @Composable
 fun DefenseScreen(
     vpnStatus: String,
+    vpnRunning: Boolean,
     onVpnToggle: () -> Unit,
     onModuleDialog: (String, String) -> Unit,
     onEmergency: () -> Unit
@@ -146,7 +147,7 @@ fun DefenseScreen(
                 Text(vpnStatus, color = if (vpnStatus == "Protegido") AuraGreen else AuraAmber, fontSize = 12.sp)
             }
         }
-        ActionButton(vpnStatus, onClick = onVpnToggle)
+        ActionButton(if (vpnRunning) "Desactivar VPN" else "Activar defensa VPN", onClick = onVpnToggle)
         ActionButton("Perfiles del cortafuegos", onClick = { onModuleDialog("Perfiles del cortafuegos", "El cortafuegos VPN aún no está implementado. No se aplicarán bloqueos ni se guardarán perfiles activos.") }, outlined = true)
         ActionButton("Modo emergencia", onClick = onEmergency, outlined = true)
     }
