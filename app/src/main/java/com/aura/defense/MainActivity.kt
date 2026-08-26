@@ -94,6 +94,9 @@ import com.aura.defense.ui.screens.AurasScreen
 import com.aura.defense.ui.screens.DefenseScreen
 import com.aura.defense.ui.screens.HomeScreen
 import com.aura.defense.vpn.AuraVpnService
+import com.aura.defense.vpn.DnsBlockedEvent
+import com.aura.defense.vpn.DnsFirewallProfile
+import com.aura.defense.vpn.DnsFirewallStore
 
 class MainActivity : ComponentActivity() {
     private val vpnPermissionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -158,10 +161,11 @@ class MainActivity : ComponentActivity() {
 
 private fun isAuraVpnActive(context: Context): Boolean {
     return runCatching {
+        val firewallStore = DnsFirewallStore(context)
         val connectivityManager = context.getSystemService(ConnectivityManager::class.java)
         val activeNetwork = connectivityManager?.activeNetwork
         val capabilities = activeNetwork?.let(connectivityManager::getNetworkCapabilities)
-        AuraVpnService.isRunning && capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+        firewallStore.wasServiceActive() && capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
     }.getOrDefault(false)
 }
 
@@ -224,9 +228,15 @@ private fun AuraDefenseApp(
     var emergencyResult by remember { mutableStateOf<EmergencyModeResult?>(null) }
     var isVpnRunning by remember { mutableStateOf(isAuraVpnActive(context)) }
     var vpnPermissionError by remember { mutableStateOf(false) }
+    val dnsFirewallStore = remember { DnsFirewallStore(context) }
+    var dnsProfile by remember { mutableStateOf(dnsFirewallStore.profile()) }
+    var blockedDns by remember { mutableStateOf<List<DnsBlockedEvent>>(dnsFirewallStore.blockedEvents()) }
+    var blockedDnsCount by remember { mutableStateOf(dnsFirewallStore.blockedCount()) }
+    var allowlistedDomains by remember { mutableStateOf(dnsFirewallStore.allowlist()) }
+    var dnsBlockPulse by remember { mutableStateOf(0) }
     val emergencySteps = listOf("Actualizando telemetría", "Escaneando aplicaciones", "Comprobando alertas del Guardián", "Revisando enlaces recientes", "Comprobando VPN y cortafuegos", "Generando informe")
     val notificationAlerts = remember { NotificationAlertStore(context).getAll() }
-    val guardianAssessment: AuraGuardianAssessment = guardianEngine.assess(result, appScanResult, linkHistory, notificationAlerts, historyEntries)
+    val guardianAssessment: AuraGuardianAssessment = guardianEngine.assess(result, appScanResult, linkHistory, notificationAlerts, historyEntries, blockedDns)
     val locationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -249,6 +259,11 @@ private fun AuraDefenseApp(
     LaunchedEffect(Unit) {
         while (true) {
             isVpnRunning = isAuraVpnActive(context)
+            val updatedBlockedDns = dnsFirewallStore.blockedEvents()
+            val updatedBlockedDnsCount = dnsFirewallStore.blockedCount()
+            if (updatedBlockedDnsCount > blockedDnsCount) dnsBlockPulse++
+            blockedDns = updatedBlockedDns
+            blockedDnsCount = updatedBlockedDnsCount
             kotlinx.coroutines.delay(500)
         }
     }
@@ -289,7 +304,7 @@ private fun AuraDefenseApp(
                 changeDetector.compare(scannedPosture, scan, linkHistory, notificationAlerts)
                 historyEntries = historyStore.getEntries()
                 emergencyStep = 3
-                val assessment = guardianEngine.assess(scannedPosture, scan, linkHistory, notificationAlerts, historyEntries)
+                val assessment = guardianEngine.assess(scannedPosture, scan, linkHistory, notificationAlerts, historyEntries, blockedDns)
                 emergencyStep = 4
                 val vpnStatus = if (telemetry.vpnActive) "Activa" else "VPN no disponible en esta versión."
                 val recentLinks = linkHistory + notificationAlerts.map { it.analysis }
@@ -393,6 +408,22 @@ private fun AuraDefenseApp(
                         else -> "VPN desactivada"
                     },
                     vpnRunning = isVpnRunning,
+                    firewallProfile = dnsProfile,
+                    blockedDomains = blockedDns,
+                    blockedDomainCount = blockedDnsCount,
+                    allowlistedDomains = allowlistedDomains,
+                    blockPulse = dnsBlockPulse,
+                    onProfileChange = {
+                        dnsFirewallStore.saveProfile(it)
+                        dnsProfile = it
+                    },
+                    onAllowlistAdd = {
+                        if (dnsFirewallStore.addAllowlistedDomain(it)) allowlistedDomains = dnsFirewallStore.allowlist()
+                    },
+                    onAllowlistRemove = {
+                        dnsFirewallStore.removeAllowlistedDomain(it)
+                        allowlistedDomains = dnsFirewallStore.allowlist()
+                    },
                     onVpnToggle = {
                         if (isVpnRunning) {
                             (context as? MainActivity)?.stopAuraVpn()

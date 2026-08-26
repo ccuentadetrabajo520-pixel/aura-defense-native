@@ -1,9 +1,6 @@
 package com.aura.defense.ui.screens
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -21,9 +18,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -52,6 +56,11 @@ import com.aura.defense.apps.AppScanResult
 import com.aura.defense.apps.AppRiskSeverity
 import com.aura.defense.apps.InstalledAppInfo
 import com.aura.defense.lan.AuraLanPeer
+import com.aura.defense.vpn.DnsBlockedEvent
+import com.aura.defense.vpn.DnsFirewallProfile
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun HomeScreen(
@@ -87,7 +96,7 @@ fun HomeScreen(
             }
         }
         ActionButton("Iniciar escaneo", onClick = { onStartScan() })
-        ActionButton("Activar defensa VPN", onClick = { onModuleDialog("Defensa VPN", "El servicio VPN real se implementará en la fase de cortafuegos. Aura no mostrará protección VPN activa hasta que Android confirme el servicio.") }, outlined = true)
+        ActionButton("Abrir Defensa VPN", onClick = { onModuleDialog("Defensa VPN", "Activa la VPN desde la pestaña Defensa para aplicar el cortafuegos DNS local.") }, outlined = true)
         ActionButton("Modo emergencia", onClick = onEmergency, outlined = true)
     }
 }
@@ -135,6 +144,14 @@ fun AurasScreen(
 fun DefenseScreen(
     vpnStatus: String,
     vpnRunning: Boolean,
+    firewallProfile: DnsFirewallProfile,
+    blockedDomains: List<DnsBlockedEvent>,
+    blockedDomainCount: Int,
+    allowlistedDomains: List<String>,
+    blockPulse: Int,
+    onProfileChange: (DnsFirewallProfile) -> Unit,
+    onAllowlistAdd: (String) -> Unit,
+    onAllowlistRemove: (String) -> Unit,
     onVpnToggle: () -> Unit,
     onModuleDialog: (String, String) -> Unit,
     onEmergency: () -> Unit
@@ -143,34 +160,80 @@ fun DefenseScreen(
         SectionTitle("DEFENSA", "Cortafuegos Centinela", "Superficie de control visual. No se simulan bloqueos.")
         Panel(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                SentinelCanvas(Modifier.fillMaxWidth().height(250.dp))
+                SentinelCanvas(Modifier.fillMaxWidth().height(250.dp), blockPulse)
                 Text(vpnStatus, color = if (vpnStatus == "Protegido") AuraGreen else AuraAmber, fontSize = 12.sp)
             }
         }
         ActionButton(if (vpnRunning) "Desactivar VPN" else "Activar defensa VPN", onClick = onVpnToggle)
-        ActionButton("Perfiles del cortafuegos", onClick = { onModuleDialog("Perfiles del cortafuegos", "El cortafuegos VPN aún no está implementado. No se aplicarán bloqueos ni se guardarán perfiles activos.") }, outlined = true)
+        Panel(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("CORTAFUEGOS DNS", color = AuraCyan, fontSize = 11.sp)
+                Text("Perfil: ${firewallProfile.label}", color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp)
+                DnsFirewallProfile.entries.forEach { profile ->
+                    OutlinedButton(onClick = { onProfileChange(profile) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (profile == firewallProfile) "${profile.label} · Activo" else profile.label)
+                    }
+                }
+                Text("Dominios bloqueados en esta sesión: $blockedDomainCount", color = if (blockedDomainCount == 0) AuraMuted else AuraAmber, fontSize = 14.sp)
+                blockedDomains.takeLast(5).asReversed().forEach { event ->
+                    Text(
+                        "${event.domain} · ${event.category} · ${event.severity} · ${formatDnsTime(event.timestamp)}",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 12.sp
+                    )
+                }
+                if (blockedDomains.isEmpty()) Text("Todavía no se han bloqueado dominios.", color = AuraMuted, fontSize = 12.sp)
+                var allowlistInput by remember { mutableStateOf("") }
+                OutlinedTextField(
+                    value = allowlistInput,
+                    onValueChange = { allowlistInput = it },
+                    singleLine = true,
+                    label = { Text("Dominio permitido") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                TextButton(onClick = {
+                    onAllowlistAdd(allowlistInput)
+                    allowlistInput = ""
+                }) { Text("Añadir a la lista de permitidos") }
+                allowlistedDomains.forEach { domain ->
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(domain, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
+                        TextButton(onClick = { onAllowlistRemove(domain) }) { Text("Quitar") }
+                    }
+                }
+            }
+        }
         ActionButton("Modo emergencia", onClick = onEmergency, outlined = true)
     }
 }
 
 @Composable
-private fun SentinelCanvas(modifier: Modifier) {
-    val transition = rememberInfiniteTransition(label = "sentinel")
-    val rotation by transition.animateFloat(0f, 360f, infiniteRepeatable(tween(5000), RepeatMode.Restart), label = "orbit")
+private fun SentinelCanvas(modifier: Modifier, blockPulse: Int) {
+    var pulseActive by remember { mutableStateOf(false) }
+    LaunchedEffect(blockPulse) {
+        if (blockPulse > 0) {
+            pulseActive = true
+            kotlinx.coroutines.delay(350)
+            pulseActive = false
+        }
+    }
+    val pulse by animateFloatAsState(if (pulseActive) 1f else 0f, tween(350), label = "bloqueo")
     Canvas(modifier) {
         val center = Offset(size.width / 2f, size.height / 2f)
-        val radius = size.minDimension * 0.26f
-        drawCircle(AuraGreen.copy(alpha = 0.12f), radius * 1.55f, center)
+        val radius = size.minDimension * (0.26f + pulse * 0.04f)
+        drawCircle(AuraGreen.copy(alpha = 0.12f + pulse * 0.16f), radius * (1.55f + pulse * 0.2f), center)
         drawCircle(AuraGreen.copy(alpha = 0.35f), radius, center, style = Stroke(2.dp.toPx()))
         drawCircle(AuraGreen, radius * 0.32f, center)
         listOf(0f, 90f, 180f, 270f).forEachIndexed { index, angle ->
-            val radians = Math.toRadians((angle + rotation).toDouble())
+            val radians = Math.toRadians(angle.toDouble())
             val node = Offset(center.x + kotlin.math.cos(radians).toFloat() * radius * 1.48f, center.y + kotlin.math.sin(radians).toFloat() * radius * 1.48f)
             drawLine(AuraGreen.copy(alpha = 0.45f), center, node, 1.dp.toPx(), StrokeCap.Round)
             drawCircle(if (index == 2) AuraAmber else AuraGreen, 8.dp.toPx(), node)
         }
     }
 }
+
+private fun formatDnsTime(timestamp: Long): String = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
 
 @Composable
 fun AppsScreen(

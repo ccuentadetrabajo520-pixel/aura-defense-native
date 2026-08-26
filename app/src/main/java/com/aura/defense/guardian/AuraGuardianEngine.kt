@@ -9,6 +9,7 @@ import com.aura.defense.threats.ThreatIntelligenceEngine
 import com.aura.defense.tools.LinkAnalysis
 import com.aura.defense.tools.LinkRisk
 import com.aura.defense.history.AuraHistoryEntry
+import com.aura.defense.vpn.DnsBlockedEvent
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -19,7 +20,8 @@ class AuraGuardianEngine(private val threatEngine: ThreatIntelligenceEngine) {
         appScan: AppScanResult?,
         links: List<LinkAnalysis>,
         notificationAlerts: List<NotificationAlert>,
-        history: List<AuraHistoryEntry> = emptyList()
+        history: List<AuraHistoryEntry> = emptyList(),
+        blockedDns: List<DnsBlockedEvent> = emptyList()
     ): AuraGuardianAssessment {
         val reasons = mutableListOf<String>()
         val recommendations = mutableListOf<AuraGuardianRecommendation>()
@@ -82,6 +84,11 @@ class AuraGuardianEngine(private val threatEngine: ThreatIntelligenceEngine) {
         val recentHigh = history.count { it.severity == "HIGH" }
         val recentCritical = history.count { it.severity == "CRITICAL" }
         if (history.isEmpty()) missing.add("Historial pendiente")
+        if (blockedDns.isNotEmpty()) {
+            score++
+            reasons.add("El cortafuegos DNS bloqueó ${blockedDns.size} dominios en esta sesión")
+            recommendations.add(AuraGuardianRecommendation("Revisa los dominios bloqueados por el cortafuegos DNS", 1))
+        }
         if (recentHigh > 0) {
             score++
             reasons.add("Hay cambios recientes de severidad alta")
