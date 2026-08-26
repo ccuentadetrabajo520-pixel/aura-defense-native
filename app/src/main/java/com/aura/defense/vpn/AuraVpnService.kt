@@ -100,7 +100,7 @@ class AuraVpnService : VpnService() {
                             store.recordBlocked(DnsBlockedEvent(query.domain, match.category.name, match.severity.name, System.currentTimeMillis()))
                             continue
                         }
-                        forwardDnsQuery(packet, length, output)
+                        forwardDnsQuery(packet, length, query, output)
                     }
                 }
             }
@@ -109,13 +109,14 @@ class AuraVpnService : VpnService() {
         }
     }
 
-    private fun forwardDnsQuery(queryPacket: ByteArray, length: Int, output: FileOutputStream) {
+    private fun forwardDnsQuery(queryPacket: ByteArray, length: Int, query: DnsQuery, output: FileOutputStream) {
         runCatching {
             DatagramSocket().use { socket ->
                 protect(socket)
                 socket.soTimeout = DNS_TIMEOUT_MS
                 val upstream = InetAddress.getByName(UPSTREAM_DNS)
-                socket.send(DatagramPacket(queryPacket, length, upstream, DNS_PORT))
+                val dnsPayload = DnsPacketCodec.dnsPayload(queryPacket, query)
+                socket.send(DatagramPacket(dnsPayload, dnsPayload.size, upstream, DNS_PORT))
                 val responseBytes = ByteArray(MAX_DNS_PACKET_SIZE)
                 val response = DatagramPacket(responseBytes, responseBytes.size)
                 socket.receive(response)

@@ -1,6 +1,6 @@
 package com.aura.defense.vpn
 
-internal data class DnsQuery(val domain: String, val transactionId: Int)
+internal data class DnsQuery(val domain: String, val transactionId: Int, val dnsOffset: Int, val dnsLength: Int)
 
 internal object DnsPacketCodec {
     private const val IPV4_HEADER_SIZE = 20
@@ -22,8 +22,11 @@ internal object DnsPacketCodec {
         val questionCount = readUnsignedShort(packet, dnsOffset + 4)
         if ((flags and 0x8000) != 0 || questionCount < 1) return null
         val domain = readName(packet, dnsOffset + 12, length) ?: return null
-        return DnsQuery(domain, readUnsignedShort(packet, dnsOffset))
+        return DnsQuery(domain, readUnsignedShort(packet, dnsOffset), dnsOffset, length - dnsOffset)
     }
+
+    fun dnsPayload(packet: ByteArray, query: DnsQuery): ByteArray =
+        packet.copyOfRange(query.dnsOffset, query.dnsOffset + query.dnsLength)
 
     fun response(queryPacket: ByteArray, length: Int, upstreamResponse: ByteArray): ByteArray? {
         if (length < IPV4_HEADER_SIZE + UDP_HEADER_SIZE || upstreamResponse.size < 12) return null
