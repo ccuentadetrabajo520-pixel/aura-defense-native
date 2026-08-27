@@ -19,8 +19,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -34,7 +32,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -169,13 +166,7 @@ fun DefenseScreen(
     onModuleDialog: (String, String) -> Unit,
     onEmergency: () -> Unit
 ) {
-    val vpnLogs by VpnDebugger.logs.collectAsState()
-    val logListState = rememberLazyListState()
-
-    LaunchedEffect(vpnLogs.size) {
-        if (vpnLogs.isNotEmpty()) logListState.animateScrollToItem(vpnLogs.lastIndex)
-    }
-
+    val logs by VpnDebugger.logs.collectAsState()
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionTitle("DEFENSA", "Cortafuegos Centinela", "Superficie de control visual. No se simulan bloqueos.")
         Panel(modifier = Modifier.fillMaxWidth()) {
@@ -195,18 +186,14 @@ fun DefenseScreen(
                     }
                 }
                 Text("Dominios bloqueados en esta sesión: $blockedDomainCount", color = if (blockedDomainCount == 0) AuraMuted else AuraAmber, fontSize = 14.sp)
-                LazyColumn(
-                    state = logListState,
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(180.dp)
                         .background(Color.Black)
                         .padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    items(vpnLogs) { log ->
-                        Text(log, color = Color(0xFF00FF41), fontFamily = FontFamily.Monospace, fontSize = 11.sp)
-                    }
+                    Text(logs.joinToString("\n"), color = Color(0xFF00FF41), fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                 }
                 blockedDomains.takeLast(5).asReversed().forEach { event ->
                     Text(

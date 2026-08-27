@@ -33,6 +33,7 @@ class AuraVpnService : VpnService() {
 
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, notification())
+        VpnDebugger.log("✅ AURA VPN SERVICE INICIADO")
         establishVpn()
         return START_NOT_STICKY
     }
