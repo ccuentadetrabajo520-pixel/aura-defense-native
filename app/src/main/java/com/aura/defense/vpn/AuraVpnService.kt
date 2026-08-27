@@ -10,7 +10,6 @@ import android.os.ParcelFileDescriptor
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.aura.defense.R
-import com.aura.defense.threats.ThreatIntelligenceEngine
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.net.DatagramPacket
@@ -85,76 +84,99 @@ class AuraVpnService : VpnService() {
         stopSelf()
     }
 
+    private fun handleDnsPacket(packet: ByteArray, length: Int, vpnOutput: FileOutputStream): Boolean {
+        try {
+            if (length < 40 || (packet[9].toInt() and 0xFF) != 17) return false
+            val ipHdrLen = (packet[0].toInt() and 0x0F) * 4
+            val dstPort = ((packet[ipHdrLen + 2].toInt() and 0xFF) shl 8) or
+                (packet[ipHdrLen + 3].toInt() and 0xFF)
+            if (dstPort != 53) return false
+
+            var offset = ipHdrLen + 20
+            val domainBuilder = StringBuilder()
+            var qEnd = offset
+            while (offset < length) {
+                val labelLength = packet[offset++].toInt() and 0xFF
+                if (labelLength == 0) break
+                if (labelLength > 63 || offset + labelLength > length) return false
+                for (index in 0 until labelLength) {
+                    domainBuilder.append((packet[offset++].toInt() and 0xFF).toChar())
+                }
+                domainBuilder.append(".")
+            }
+            qEnd = offset
+            val domain = domainBuilder.toString().lowercase(Locale.ROOT).removeSuffix(".")
+            VpnDebugger.log("DNS: $domain")
+
+            val blockedList = DnsFirewallStore(this).blocklist()
+            if (blockedList.any { domain.contains(it) }) {
+                VpnDebugger.log("BLOCKED! $domain")
+                val qBytes = packet.copyOfRange(ipHdrLen + 20, qEnd + 4)
+                val udpLen = 8 + 12 + qBytes.size
+                val newPkt = ByteArray(20 + udpLen)
+                for (index in 0 until 20) newPkt[index] = packet[index]
+                for (index in 12 until 16) newPkt[index] = packet[index + 4]
+                for (index in 16 until 20) newPkt[index] = packet[index - 4]
+                for (index in 0 until 2) newPkt[20 + index] = packet[ipHdrLen + 2 + index]
+                for (index in 0 until 2) newPkt[22 + index] = packet[ipHdrLen + index]
+                newPkt[24] = ((udpLen shr 8) and 0xFF).toByte()
+                newPkt[25] = (udpLen and 0xFF).toByte()
+                for (index in 0 until 2) newPkt[28 + index] = packet[ipHdrLen + index]
+                newPkt[30] = 0x81.toByte()
+                newPkt[31] = 0x83.toByte()
+                newPkt[32] = 0
+                newPkt[33] = 1
+                qBytes.copyInto(newPkt, 40)
+
+                newPkt[10] = 0
+                newPkt[11] = 0
+                var sum = 0L
+                for (index in 0 until 20 step 2) {
+                    sum += ((newPkt[index].toInt() and 0xFF) shl 8) or
+                        (newPkt[index + 1].toInt() and 0xFF)
+                }
+                while ((sum ushr 16) != 0L) sum = (sum and 0xFFFF) + (sum ushr 16)
+                val checksum = sum.inv() and 0xFFFF
+                newPkt[10] = (checksum shr 8).toByte()
+                newPkt[11] = checksum.toByte()
+                vpnOutput.write(newPkt)
+                vpnOutput.flush()
+                DnsFirewallStore(this).recordBlocked(
+                    DnsBlockedEvent(domain, "MANUAL", "HIGH", System.currentTimeMillis())
+                )
+                return true
+            }
+        } catch (e: Exception) {
+            VpnDebugger.log("DNS Error: ${e.message}")
+        }
+        return false
+    }
+
     private fun runDnsProxy() {
         val activeTunnel = tunnel ?: return
-        val store = DnsFirewallStore(this)
-        val threatEngine = ThreatIntelligenceEngine(this)
         runCatching {
             FileInputStream(activeTunnel.fileDescriptor).use { input ->
                 FileOutputStream(activeTunnel.fileDescriptor).use { output ->
                     val packet = ByteArray(MAX_PACKET_SIZE)
                     while (!stopping.get()) {
                         val length = input.read(packet)
-                        if (length <= 0) break
-                        try {
-                            if (length > 28 && (packet[9].toInt() and 0xFF) == 17) {
-                                val ipHeaderLength = (packet[0].toInt() and 0x0F) * 4
-                                val sourcePort = readUnsignedShort(packet, ipHeaderLength)
-                                val destPort = readUnsignedShort(packet, ipHeaderLength + 2)
-                                if (destPort == DNS_PORT || sourcePort == DNS_PORT) {
-                                    val dnsOffset = ipHeaderLength + UDP_HEADER_SIZE
-                                    val questionStart = dnsOffset + DNS_HEADER_SIZE
-                                    val questionEnd = findQuestionEnd(packet, questionStart, length) ?: continue
-                                    if (questionEnd + 4 > length) continue
-                                    val domainBuilder = StringBuilder()
-                                    var offset = questionStart
-                                    while (offset < questionEnd) {
-                                        val labelLength = packet[offset].toInt() and 0xFF
-                                        if (labelLength == 0) break
-                                        offset++
-                                        for (index in 0 until labelLength) {
-                                            domainBuilder.append((packet[offset + index].toInt() and 0xFF).toChar())
-                                        }
-                                        domainBuilder.append('.')
-                                        offset += labelLength
-                                    }
-                                    val domain = domainBuilder.toString().lowercase(Locale.ROOT).removeSuffix(".")
-                                    if (domain.isBlank()) continue
-                                    val questionBytes = packet.copyOfRange(dnsOffset + DNS_HEADER_SIZE, questionEnd + 4)
-                                    val profile = store.profile()
-                                    val domainAllowed = store.isAllowed(domain)
-                                    val blockedList = store.blocklist()
-                                    val domainBlocked = blockedList.any { domain.contains(it) }
-                                    val match = if (profile == DnsFirewallProfile.PERMITIR_TODO) null else {
-                                        threatEngine.findMatches(domain).firstOrNull { indicator ->
-                                            profile.categories.contains(indicator.category.name) && !domainAllowed
+                        if (length > 0) {
+                            if (handleDnsPacket(packet, length, output)) {
+                                continue
+                            } else {
+                                try {
+                                    if (length > 28 && (packet[9].toInt() and 0xFF) == 17) {
+                                        val ipHeaderLength = (packet[0].toInt() and 0x0F) * 4
+                                        val destinationPort = readUnsignedShort(packet, ipHeaderLength + 2)
+                                        if (destinationPort == DNS_PORT) {
+                                            val dnsOffset = ipHeaderLength + UDP_HEADER_SIZE
+                                            forwardDnsQuery(packet, length, ipHeaderLength, dnsOffset, output, "consulta DNS")
                                         }
                                     }
-                                    val blocked = match != null ||
-                                        (profile == DnsFirewallProfile.ESTRICTO && domainBlocked && !domainAllowed)
-                                    VpnDebugger.log("DNS Detected -> $domain")
-                                    if (blocked) {
-                                        VpnDebugger.log("ALERT! $domain BLOCKED.")
-                                        val response = buildDnsResponsePacket(packet, length, ipHeaderLength, 0x8183, questionBytes)
-                                        output.write(response)
-                                        output.flush()
-                                        store.recordBlocked(
-                                            DnsBlockedEvent(
-                                                domain,
-                                                match?.category?.name ?: "MANUAL",
-                                                match?.severity?.name ?: "HIGH",
-                                                System.currentTimeMillis()
-                                            )
-                                        )
-                                        continue
-                                    } else {
-                                        VpnDebugger.log("Domain allowed, forwarding to upstream...")
-                                        forwardDnsQuery(packet, length, ipHeaderLength, dnsOffset, output, domain)
-                                    }
+                                } catch (e: Exception) {
+                                    VpnDebugger.log("FATAL LOOP ERROR: ${e.message}")
                                 }
                             }
-                        } catch (e: Exception) {
-                            VpnDebugger.log("FATAL LOOP ERROR: ${e.message}")
                         }
                     }
                 }
