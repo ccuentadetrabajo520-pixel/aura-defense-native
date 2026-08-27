@@ -98,10 +98,9 @@ class AuraVpnService : VpnService() {
                             VpnDebugger.log("Paquete recibido del TUN, largo: $length")
                             if (length <= 0) break
                             VpnDebugger.log("Analizando si es paquete DNS...")
-                            val domain = extractDomainFromRawPacket(packet, length)
-                            VpnDebugger.log("Dominio extraído: $domain")
                             val query = DnsPacketCodec.query(packet, length)
                             if (query == null) continue
+                            val domain = query.domain
                             val normalizedDomain = domain.trim().lowercase(Locale.ROOT).removeSuffix(".")
                             Log.d(TAG, "Consulta DNS: $normalizedDomain")
                             val profile = store.profile()
