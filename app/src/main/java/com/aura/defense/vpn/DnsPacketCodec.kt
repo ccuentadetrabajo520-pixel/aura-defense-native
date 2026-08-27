@@ -58,6 +58,15 @@ internal object DnsPacketCodec {
         return response
     }
 
+    fun servfailResponse(query: DnsQuery): ByteArray {
+        val response = ByteArray(12 + query.questionBytes.size)
+        writeUnsignedShort(response, 0, query.transactionId)
+        writeUnsignedShort(response, 2, 0x8000 or (query.flags and 0x7800) or (query.flags and 0x0100) or 0x0002)
+        writeUnsignedShort(response, 4, 1)
+        query.questionBytes.copyInto(response, 12)
+        return response
+    }
+
     fun response(queryPacket: ByteArray, length: Int, upstreamResponse: ByteArray): ByteArray? {
         if (length < IPV4_HEADER_SIZE + UDP_HEADER_SIZE || upstreamResponse.size < 12) return null
         val versionAndLength = queryPacket[0].toInt() and 0xff
@@ -104,7 +113,7 @@ internal object DnsPacketCodec {
         repeat(128) {
             if (offset >= length) return null
             val labelLength = packet[offset++].toInt() and 0xff
-            if (labelLength == 0) return offset - 1
+            if (labelLength == 0) return offset
             if (labelLength > 63 || offset + labelLength > length) return null
             offset += labelLength
         }

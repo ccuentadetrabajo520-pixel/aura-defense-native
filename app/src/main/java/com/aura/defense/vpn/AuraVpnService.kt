@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.aura.defense.R
 import com.aura.defense.threats.ThreatIntelligenceEngine
@@ -15,6 +16,8 @@ import java.io.FileOutputStream
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import java.net.SocketTimeoutException
+import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 
 class AuraVpnService : VpnService() {
@@ -50,9 +53,9 @@ class AuraVpnService : VpnService() {
             tunnel?.close()
             tunnel = Builder()
                 .setSession("Aura Defense")
-                .addAddress("10.0.0.2", 32)
-                .addDnsServer(UPSTREAM_DNS)
-                .addRoute(UPSTREAM_DNS, 32)
+                .addAddress(VPN_ADDRESS, 32)
+                .addDnsServer(VPN_DNS)
+                .addRoute(VPN_DNS, 32)
                 .establish()
                 ?: error("No se pudo establecer el túnel VPN")
         }.onSuccess {
@@ -93,21 +96,25 @@ class AuraVpnService : VpnService() {
                         val length = input.read(packet)
                         if (length <= 0) break
                         val query = DnsPacketCodec.query(packet, length) ?: continue
+                        val normalizedDomain = query.domain.trim().lowercase(Locale.ROOT).removeSuffix(".")
+                        Log.d(TAG, "Consulta DNS: $normalizedDomain")
                         val profile = store.profile()
                         val match = if (profile == DnsFirewallProfile.PERMITIR_TODO) {
                             null
                         } else {
-                            threatEngine.findMatches(query.domain).firstOrNull { indicator ->
-                                profile.categories.contains(indicator.category.name) && !store.isAllowed(query.domain)
+                            threatEngine.findMatches(normalizedDomain).firstOrNull { indicator ->
+                                profile.categories.contains(indicator.category.name) && !store.isAllowed(normalizedDomain)
                             }
                         }
                         if (match != null) {
-                            store.recordBlocked(DnsBlockedEvent(query.domain, match.category.name, match.severity.name, System.currentTimeMillis()))
+                            Log.i(TAG, "Dominio bloqueado: $normalizedDomain")
+                            store.recordBlocked(DnsBlockedEvent(normalizedDomain, match.category.name, match.severity.name, System.currentTimeMillis()))
                             DnsPacketCodec.response(packet, length, DnsPacketCodec.blockedResponse(query))?.let {
                                 output.write(it)
                             }
                             continue
                         }
+                        Log.i(TAG, "Dominio permitido: $normalizedDomain")
                         forwardDnsQuery(packet, length, query, output)
                     }
                 }
@@ -118,9 +125,13 @@ class AuraVpnService : VpnService() {
     }
 
     private fun forwardDnsQuery(queryPacket: ByteArray, length: Int, query: DnsQuery, output: FileOutputStream) {
+        var upstreamResponse: ByteArray? = null
         runCatching {
             DatagramSocket().use { socket ->
-                check(protect(socket)) { "No se pudo proteger el socket DNS" }
+                if (!protect(socket)) {
+                    Log.e(TAG, "No se pudo proteger el socket DNS")
+                    return@use
+                }
                 socket.soTimeout = DNS_TIMEOUT_MS
                 val upstream = InetAddress.getByName(UPSTREAM_DNS)
                 val dnsPayload = DnsPacketCodec.dnsPayload(queryPacket, query)
@@ -128,10 +139,21 @@ class AuraVpnService : VpnService() {
                 val responseBytes = ByteArray(MAX_DNS_PACKET_SIZE)
                 val response = DatagramPacket(responseBytes, responseBytes.size)
                 socket.receive(response)
-                DnsPacketCodec.response(queryPacket, length, response.data.copyOf(response.length))?.let {
-                    output.write(it)
-                }
+                upstreamResponse = response.data.copyOf(response.length)
             }
+        }.onFailure { error ->
+            if (error is SocketTimeoutException) {
+                Log.w(TAG, "Tiempo de espera agotado para upstream DNS: ${query.domain}")
+            } else {
+                Log.e(TAG, "Error de upstream DNS para ${query.domain}: ${error.message}", error)
+            }
+        }
+        val dnsResponse = upstreamResponse ?: run {
+            Log.w(TAG, "SERVFAIL generado para ${query.domain}")
+            DnsPacketCodec.servfailResponse(query)
+        }
+        DnsPacketCodec.response(queryPacket, length, dnsResponse)?.let {
+            output.write(it)
         }
     }
 
@@ -153,9 +175,12 @@ class AuraVpnService : VpnService() {
 
     companion object {
         const val ACTION_STOP = "com.aura.defense.vpn.STOP"
+        private const val TAG = "AuraVpnService"
+        private const val VPN_DNS = "10.0.0.1"
+        private const val VPN_ADDRESS = "10.0.0.2"
         private const val UPSTREAM_DNS = "1.1.1.1"
         private const val DNS_PORT = 53
-        private const val DNS_TIMEOUT_MS = 1500
+        private const val DNS_TIMEOUT_MS = 3000
         private const val MAX_PACKET_SIZE = 32767
         private const val MAX_DNS_PACKET_SIZE = 4096
         private const val CHANNEL_ID = "aura_vpn"
