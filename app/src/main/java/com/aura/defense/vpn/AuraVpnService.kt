@@ -99,28 +99,29 @@ class AuraVpnService : VpnService() {
                         val normalizedDomain = query.domain.trim().lowercase(Locale.ROOT).removeSuffix(".")
                         Log.d(TAG, "Consulta DNS: $normalizedDomain")
                         val profile = store.profile()
+                        val allowlist = store.allowlist()
+                        val blocklist = store.blocklist()
+                        val domainAllowed = allowlist.any { normalizedDomain == it || normalizedDomain.endsWith(".$it") }
+                        val domainBlocked = blocklist.any { normalizedDomain == it || normalizedDomain.endsWith(".$it") }
+                        Log.d(TAG, "Perfil DNS: ${profile.label}, blocklist: ${blocklist.size}, dominio en blocklist: $domainBlocked")
                         val match = if (profile == DnsFirewallProfile.PERMITIR_TODO) {
                             null
                         } else {
                             threatEngine.findMatches(normalizedDomain).firstOrNull { indicator ->
-                                profile.categories.contains(indicator.category.name) && !store.isAllowed(normalizedDomain)
+                                profile.categories.contains(indicator.category.name) && !domainAllowed
                             }
                         }
                         val manuallyBlocked = profile == DnsFirewallProfile.ESTRICTO &&
-                            store.isBlocked(normalizedDomain) && !store.isAllowed(normalizedDomain)
-                        if (match != null || manuallyBlocked) {
-                            Log.i(TAG, "Dominio bloqueado: $normalizedDomain")
-                            store.recordBlocked(
-                                DnsBlockedEvent(
-                                    normalizedDomain,
-                                    match?.category?.name ?: "MANUAL",
-                                    match?.severity?.name ?: "HIGH",
-                                    System.currentTimeMillis()
-                                )
-                            )
-                            DnsPacketCodec.response(packet, length, DnsPacketCodec.blockedResponse(query))?.let {
-                                output.write(it)
-                            }
+                            domainBlocked && !domainAllowed
+                        val blocked = match != null || manuallyBlocked
+                        Log.d(TAG, "Decisión DNS para $normalizedDomain: bloqueado=$blocked")
+                        if (blocked) {
+                            Log.i(TAG, "Dominio bloqueado por DNS Firewall: $normalizedDomain")
+                            val category = match?.category?.name ?: "MANUAL"
+                            val severity = match?.severity?.name ?: "HIGH"
+                            store.recordBlocked(DnsBlockedEvent(normalizedDomain, category, severity, System.currentTimeMillis()))
+                            sendVpnResponse(packet, length, DnsPacketCodec.blockedResponse(query), output, normalizedDomain)
+                            Log.d(TAG, "Contador actualizado: ${store.blockedCount()}")
                             continue
                         }
                         Log.i(TAG, "Dominio permitido: $normalizedDomain")
@@ -161,9 +162,24 @@ class AuraVpnService : VpnService() {
             Log.w(TAG, "SERVFAIL generado para ${query.domain}")
             DnsPacketCodec.servfailResponse(query)
         }
-        DnsPacketCodec.response(queryPacket, length, dnsResponse)?.let {
-            output.write(it)
+        sendVpnResponse(queryPacket, length, dnsResponse, output, query.domain)
+    }
+
+    private fun sendVpnResponse(
+        queryPacket: ByteArray,
+        length: Int,
+        dnsResponse: ByteArray,
+        output: FileOutputStream,
+        domain: String
+    ) {
+        val responsePacket = DnsPacketCodec.response(queryPacket, length, dnsResponse)
+        if (responsePacket == null) {
+            Log.e(TAG, "No se pudo construir la respuesta DNS para $domain")
+            return
         }
+        output.write(responsePacket)
+        output.flush()
+        Log.d(TAG, "Respuesta DNS enviada al túnel para $domain (${responsePacket.size} bytes)")
     }
 
     private fun notification(): Notification = NotificationCompat.Builder(this, CHANNEL_ID)
