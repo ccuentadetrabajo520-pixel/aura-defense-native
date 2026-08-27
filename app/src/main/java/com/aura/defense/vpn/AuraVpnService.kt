@@ -93,45 +93,56 @@ class AuraVpnService : VpnService() {
                 FileOutputStream(activeTunnel.fileDescriptor).use { output ->
                     val packet = ByteArray(MAX_PACKET_SIZE)
                     while (!stopping.get()) {
-                        val length = input.read(packet)
-                        if (length <= 0) break
-                        val query = DnsPacketCodec.query(packet, length) ?: continue
-                        val normalizedDomain = query.domain.trim().lowercase(Locale.ROOT).removeSuffix(".")
-                        Log.d(TAG, "Consulta DNS: $normalizedDomain")
-                        val profile = store.profile()
-                        val allowlist = store.allowlist()
-                        val blocklist = store.blocklist()
-                        val domainAllowed = allowlist.any { normalizedDomain == it || normalizedDomain.endsWith(".$it") }
-                        val domainBlocked = blocklist.any { normalizedDomain == it || normalizedDomain.endsWith(".$it") }
-                        Log.d(TAG, "Perfil DNS: ${profile.label}, blocklist: ${blocklist.size}, dominio en blocklist: $domainBlocked")
-                        val match = if (profile == DnsFirewallProfile.PERMITIR_TODO) {
-                            null
-                        } else {
-                            threatEngine.findMatches(normalizedDomain).firstOrNull { indicator ->
-                                profile.categories.contains(indicator.category.name) && !domainAllowed
+                        try {
+                            val length = input.read(packet)
+                            Log.e("AuraVPN", "Paquete recibido del TUN, largo: $length")
+                            if (length <= 0) break
+                            Log.e("AuraVPN", "Analizando si es paquete DNS...")
+                            val query = DnsPacketCodec.query(packet, length)
+                            Log.e("AuraVPN", "Dominio extraído: ${query?.domain}")
+                            if (query == null) continue
+                            val normalizedDomain = query.domain.trim().lowercase(Locale.ROOT).removeSuffix(".")
+                            Log.d(TAG, "Consulta DNS: $normalizedDomain")
+                            val profile = store.profile()
+                            val allowlist = store.allowlist()
+                            val blocklist = store.blocklist()
+                            val domainAllowed = allowlist.any { normalizedDomain == it || normalizedDomain.endsWith(".$it") }
+                            val domainBlocked = blocklist.any { normalizedDomain == it || normalizedDomain.endsWith(".$it") }
+                            Log.d(TAG, "Perfil DNS: ${profile.label}, blocklist: ${blocklist.size}, dominio en blocklist: $domainBlocked")
+                            val match = if (profile == DnsFirewallProfile.PERMITIR_TODO) {
+                                null
+                            } else {
+                                threatEngine.findMatches(normalizedDomain).firstOrNull { indicator ->
+                                    profile.categories.contains(indicator.category.name) && !domainAllowed
+                                }
                             }
-                        }
-                        val manuallyBlocked = profile == DnsFirewallProfile.ESTRICTO &&
-                            domainBlocked && !domainAllowed
-                        val blocked = match != null || manuallyBlocked
-                        Log.d(TAG, "Decisión DNS para $normalizedDomain: bloqueado=$blocked")
-                        if (blocked) {
-                            Log.i(TAG, "Dominio bloqueado por DNS Firewall: $normalizedDomain")
-                            val category = match?.category?.name ?: "MANUAL"
-                            val severity = match?.severity?.name ?: "HIGH"
-                            val responsePacket = DnsPacketCodec.blockedResponsePacket(packet, length, query)
-                            if (responsePacket == null) {
-                                Log.e(TAG, "No se pudo construir la respuesta NXDOMAIN para $normalizedDomain")
+                            val manuallyBlocked = profile == DnsFirewallProfile.ESTRICTO &&
+                                domainBlocked && !domainAllowed
+                            val blocked = match != null || manuallyBlocked
+                            Log.d(TAG, "Decisión DNS para $normalizedDomain: bloqueado=$blocked")
+                            if (blocked) {
+                                Log.e("AuraVPN", "¡ALERTA! Dominio $normalizedDomain ESTÁ BLOQUEADO. Preparando respuesta falsa.")
+                                Log.i(TAG, "Dominio bloqueado por DNS Firewall: $normalizedDomain")
+                                val category = match?.category?.name ?: "MANUAL"
+                                val severity = match?.severity?.name ?: "HIGH"
+                                val responsePacket = DnsPacketCodec.blockedResponsePacket(packet, length, query)
+                                if (responsePacket == null) {
+                                    Log.e(TAG, "No se pudo construir la respuesta NXDOMAIN para $normalizedDomain")
+                                    continue
+                                }
+                                output.write(responsePacket)
+                                output.flush()
+                                store.recordBlocked(DnsBlockedEvent(normalizedDomain, category, severity, System.currentTimeMillis()))
+                                Log.d(TAG, "Contador actualizado: ${store.blockedCount()}")
                                 continue
                             }
-                            output.write(responsePacket)
-                            output.flush()
-                            store.recordBlocked(DnsBlockedEvent(normalizedDomain, category, severity, System.currentTimeMillis()))
-                            Log.d(TAG, "Contador actualizado: ${store.blockedCount()}")
-                            continue
+                            Log.e("AuraVPN", "Dominio $normalizedDomain PERMITIDO. Reenviando a upstream...")
+                            Log.i(TAG, "Dominio permitido: $normalizedDomain")
+                            forwardDnsQuery(packet, length, query, output)
+                        } catch (e: Exception) {
+                            Log.e("AuraVPN", "¡¡ERROR FATAL EN EL HILO VPN!!: ${e.message}", e)
+                            throw e
                         }
-                        Log.i(TAG, "Dominio permitido: $normalizedDomain")
-                        forwardDnsQuery(packet, length, query, output)
                     }
                 }
             }
