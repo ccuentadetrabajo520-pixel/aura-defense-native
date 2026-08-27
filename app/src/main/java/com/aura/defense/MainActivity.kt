@@ -238,6 +238,7 @@ private fun AuraDefenseApp(
     var blockedDns by remember { mutableStateOf<List<DnsBlockedEvent>>(dnsFirewallStore.blockedEvents()) }
     var blockedDnsCount by remember { mutableStateOf(dnsFirewallStore.blockedCount()) }
     var allowlistedDomains by remember { mutableStateOf(dnsFirewallStore.allowlist()) }
+    var blockedManuallyDomains by remember { mutableStateOf(dnsFirewallStore.blocklist()) }
     var dnsBlockPulse by remember { mutableStateOf(0) }
     val emergencySteps = listOf("Actualizando telemetría", "Escaneando aplicaciones", "Comprobando alertas del Guardián", "Revisando enlaces recientes", "Comprobando VPN y cortafuegos", "Generando informe")
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -436,6 +437,7 @@ private fun AuraDefenseApp(
                     blockedDomains = blockedDns,
                     blockedDomainCount = blockedDnsCount,
                     allowlistedDomains = allowlistedDomains,
+                    blockedManuallyDomains = blockedManuallyDomains,
                     blockPulse = dnsBlockPulse,
                     onProfileChange = {
                         dnsFirewallStore.saveProfile(it)
@@ -447,6 +449,13 @@ private fun AuraDefenseApp(
                     onAllowlistRemove = {
                         dnsFirewallStore.removeAllowlistedDomain(it)
                         allowlistedDomains = dnsFirewallStore.allowlist()
+                    },
+                    onBlocklistAdd = {
+                        if (dnsFirewallStore.addBlockedDomain(it)) blockedManuallyDomains = dnsFirewallStore.blocklist()
+                    },
+                    onBlocklistRemove = {
+                        dnsFirewallStore.removeBlockedDomain(it)
+                        blockedManuallyDomains = dnsFirewallStore.blocklist()
                     },
                     onVpnToggle = {
                         if (isVpnRunning) {

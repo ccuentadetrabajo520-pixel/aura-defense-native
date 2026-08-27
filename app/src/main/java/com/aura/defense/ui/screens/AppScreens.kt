@@ -152,10 +152,13 @@ fun DefenseScreen(
     blockedDomains: List<DnsBlockedEvent>,
     blockedDomainCount: Int,
     allowlistedDomains: List<String>,
+    blockedManuallyDomains: List<String>,
     blockPulse: Int,
     onProfileChange: (DnsFirewallProfile) -> Unit,
     onAllowlistAdd: (String) -> Unit,
     onAllowlistRemove: (String) -> Unit,
+    onBlocklistAdd: (String) -> Unit,
+    onBlocklistRemove: (String) -> Unit,
     onVpnToggle: () -> Unit,
     onModuleDialog: (String, String) -> Unit,
     onEmergency: () -> Unit
@@ -203,6 +206,24 @@ fun DefenseScreen(
                     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(domain, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
                         TextButton(onClick = { onAllowlistRemove(domain) }) { Text("Quitar") }
+                    }
+                }
+                var blocklistInput by remember { mutableStateOf("") }
+                OutlinedTextField(
+                    value = blocklistInput,
+                    onValueChange = { blocklistInput = it },
+                    singleLine = true,
+                    label = { Text("Dominio bloqueado") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                TextButton(onClick = {
+                    onBlocklistAdd(blocklistInput)
+                    blocklistInput = ""
+                }) { Text("Añadir a la lista de bloqueados") }
+                blockedManuallyDomains.forEach { domain ->
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(domain, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
+                        TextButton(onClick = { onBlocklistRemove(domain) }) { Text("Quitar") }
                     }
                 }
             }

@@ -106,9 +106,18 @@ class AuraVpnService : VpnService() {
                                 profile.categories.contains(indicator.category.name) && !store.isAllowed(normalizedDomain)
                             }
                         }
-                        if (match != null) {
+                        val manuallyBlocked = profile == DnsFirewallProfile.ESTRICTO &&
+                            store.isBlocked(normalizedDomain) && !store.isAllowed(normalizedDomain)
+                        if (match != null || manuallyBlocked) {
                             Log.i(TAG, "Dominio bloqueado: $normalizedDomain")
-                            store.recordBlocked(DnsBlockedEvent(normalizedDomain, match.category.name, match.severity.name, System.currentTimeMillis()))
+                            store.recordBlocked(
+                                DnsBlockedEvent(
+                                    normalizedDomain,
+                                    match?.category?.name ?: "MANUAL",
+                                    match?.severity?.name ?: "HIGH",
+                                    System.currentTimeMillis()
+                                )
+                            )
                             DnsPacketCodec.response(packet, length, DnsPacketCodec.blockedResponse(query))?.let {
                                 output.write(it)
                             }

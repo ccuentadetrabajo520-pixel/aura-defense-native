@@ -33,6 +33,8 @@ class DnsFirewallStore(context: Context) {
 
     fun allowlist(): List<String> = readAllowlist()
 
+    fun blocklist(): List<String> = readBlocklist()
+
     fun addAllowlistedDomain(domain: String): Boolean {
         val normalized = normalizeDomain(domain) ?: return false
         val updated = (readAllowlist() + normalized).distinct().sorted()
@@ -41,7 +43,22 @@ class DnsFirewallStore(context: Context) {
     }
 
     fun removeAllowlistedDomain(domain: String) {
-        preferences.edit().putStringSet(ALLOWLIST_KEY, readAllowlist().filterNot { it == domain }.toSet()).apply()
+        normalizeDomain(domain)?.let { normalized ->
+            preferences.edit().putStringSet(ALLOWLIST_KEY, readAllowlist().filterNot { it == normalized }.toSet()).apply()
+        }
+    }
+
+    fun addBlockedDomain(domain: String): Boolean {
+        val normalized = normalizeDomain(domain) ?: return false
+        val updated = (readBlocklist() + normalized).distinct().sorted()
+        preferences.edit().putStringSet(BLOCKLIST_KEY, updated.toSet()).apply()
+        return true
+    }
+
+    fun removeBlockedDomain(domain: String) {
+        normalizeDomain(domain)?.let { normalized ->
+            preferences.edit().putStringSet(BLOCKLIST_KEY, readBlocklist().filterNot { it == normalized }.toSet()).apply()
+        }
     }
 
     fun clearSession() {
@@ -94,9 +111,15 @@ class DnsFirewallStore(context: Context) {
         return readAllowlist().any { normalized == it || normalized.endsWith(".$it") }
     }
 
-    private fun readAllowlist(): List<String> = preferences.getStringSet(ALLOWLIST_KEY, emptySet()).orEmpty().toList().sorted()
+    fun isBlocked(domain: String): Boolean {
+        val normalized = normalizeDomain(domain) ?: return false
+        return readBlocklist().any { normalized == it || normalized.endsWith(".$it") }
+    }
 
-    private fun normalizeDomain(value: String): String? = value.trim().lowercase(Locale.US)
+    private fun readAllowlist(): List<String> = preferences.getStringSet(ALLOWLIST_KEY, emptySet()).orEmpty().mapNotNull(::normalizeDomain).distinct().sorted()
+    private fun readBlocklist(): List<String> = preferences.getStringSet(BLOCKLIST_KEY, emptySet()).orEmpty().mapNotNull(::normalizeDomain).distinct().sorted()
+
+    private fun normalizeDomain(value: String): String? = value.trim().lowercase(Locale.ROOT)
         .removePrefix("https://")
         .removePrefix("http://")
         .substringBefore('/').substringBefore(':')
@@ -107,6 +130,7 @@ class DnsFirewallStore(context: Context) {
         const val NAME = "aura_dns_firewall"
         const val PROFILE_KEY = "profile"
         const val ALLOWLIST_KEY = "allowlist"
+        const val BLOCKLIST_KEY = "blocklist"
         const val EVENTS_KEY = "blocked_events"
         const val BLOCKED_COUNT_KEY = "blocked_count"
         const val SERVICE_ACTIVE_KEY = "service_active"
