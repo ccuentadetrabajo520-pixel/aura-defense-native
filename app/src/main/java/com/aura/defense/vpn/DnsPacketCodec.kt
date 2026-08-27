@@ -1,5 +1,7 @@
 package com.aura.defense.vpn
 
+import kotlin.math.min
+
 internal data class DnsQuery(
     val domain: String,
     val transactionId: Int,
@@ -14,6 +16,7 @@ internal data class DnsQuery(
 internal object DnsPacketCodec {
     private const val IPV4_HEADER_SIZE = 20
     private const val UDP_HEADER_SIZE = 8
+    private const val DNS_QUESTION_OFFSET = 40
     private const val DNS_PORT = 53
 
     fun query(packet: ByteArray, length: Int): DnsQuery? {
@@ -30,12 +33,13 @@ internal object DnsPacketCodec {
         val flags = readUnsignedShort(packet, dnsOffset + 2)
         val questionCount = readUnsignedShort(packet, dnsOffset + 4)
         if ((flags and 0x8000) != 0 || questionCount < 1) return null
-        val domain = readName(packet, dnsOffset + 12, length) ?: return null
-        val questionEnd = questionEnd(packet, dnsOffset + 12, length) ?: return null
+        val dominioExtraido = readName(packet, length) ?: return null
+        VpnDebugger.log("DOMINIO PARSEADO CORRECTAMENTE: $dominioExtraido")
+        val questionEnd = questionEnd(packet, DNS_QUESTION_OFFSET, length) ?: return null
         if (questionEnd + 4 > length) return null
-        val questionBytes = packet.copyOfRange(dnsOffset + 12, questionEnd + 4)
+        val questionBytes = packet.copyOfRange(DNS_QUESTION_OFFSET, questionEnd + 4)
         return DnsQuery(
-            domain = domain,
+            domain = dominioExtraido,
             transactionId = readUnsignedShort(packet, dnsOffset),
             flags = flags,
             questionType = readUnsignedShort(packet, questionEnd),
@@ -127,8 +131,10 @@ internal object DnsPacketCodec {
         return packet
     }
 
-    private fun readName(packet: ByteArray, start: Int, length: Int): String? {
-        var offset = start
+    private fun readName(packet: ByteArray, length: Int): String? {
+        val hexDump = packet.copyOfRange(DNS_QUESTION_OFFSET, min(55, packet.size)).joinToString(" ") { "%02x".format(it) }
+        VpnDebugger.log("HEX CRUDO DESDE BYTE 40: $hexDump")
+        var offset = DNS_QUESTION_OFFSET
         val labels = mutableListOf<String>()
         repeat(128) {
             if (offset >= length) return null
