@@ -58,6 +58,36 @@ internal object DnsPacketCodec {
         return response
     }
 
+    fun blockedResponsePacket(queryPacket: ByteArray, length: Int, query: DnsQuery): ByteArray? {
+        if (length < IPV4_HEADER_SIZE + UDP_HEADER_SIZE || query.dnsOffset != IPV4_HEADER_SIZE + UDP_HEADER_SIZE) return null
+
+        val dnsResponse = blockedResponse(query)
+        val packet = ByteArray(IPV4_HEADER_SIZE + UDP_HEADER_SIZE + dnsResponse.size)
+        queryPacket.copyInto(packet, 0, 0, IPV4_HEADER_SIZE)
+
+        val sourceAddress = queryPacket.copyOfRange(12, 16)
+        val destinationAddress = queryPacket.copyOfRange(16, 20)
+        destinationAddress.copyInto(packet, 12)
+        sourceAddress.copyInto(packet, 16)
+        val sourcePort = queryPacket.copyOfRange(20, 22)
+        val destinationPort = queryPacket.copyOfRange(22, 24)
+        destinationPort.copyInto(packet, 20)
+        sourcePort.copyInto(packet, 22)
+        writeUnsignedShort(packet, 24, UDP_HEADER_SIZE + dnsResponse.size)
+        packet[26] = 0
+        packet[27] = 0
+
+        dnsResponse.copyInto(packet, IPV4_HEADER_SIZE + UDP_HEADER_SIZE)
+        packet[30] = 0x81.toByte()
+        packet[31] = 0x83.toByte()
+
+        writeUnsignedShort(packet, 2, packet.size)
+        packet[10] = 0
+        packet[11] = 0
+        writeUnsignedShort(packet, 10, checksum(packet, 0, IPV4_HEADER_SIZE))
+        return packet
+    }
+
     fun servfailResponse(query: DnsQuery): ByteArray {
         val response = ByteArray(12 + query.questionBytes.size)
         writeUnsignedShort(response, 0, query.transactionId)

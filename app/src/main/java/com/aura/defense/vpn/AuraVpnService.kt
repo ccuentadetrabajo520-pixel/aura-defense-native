@@ -119,8 +119,14 @@ class AuraVpnService : VpnService() {
                             Log.i(TAG, "Dominio bloqueado por DNS Firewall: $normalizedDomain")
                             val category = match?.category?.name ?: "MANUAL"
                             val severity = match?.severity?.name ?: "HIGH"
+                            val responsePacket = DnsPacketCodec.blockedResponsePacket(packet, length, query)
+                            if (responsePacket == null) {
+                                Log.e(TAG, "No se pudo construir la respuesta NXDOMAIN para $normalizedDomain")
+                                continue
+                            }
+                            output.write(responsePacket)
+                            output.flush()
                             store.recordBlocked(DnsBlockedEvent(normalizedDomain, category, severity, System.currentTimeMillis()))
-                            sendVpnResponse(packet, length, DnsPacketCodec.blockedResponse(query), output, normalizedDomain)
                             Log.d(TAG, "Contador actualizado: ${store.blockedCount()}")
                             continue
                         }
