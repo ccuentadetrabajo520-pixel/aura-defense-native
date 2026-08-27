@@ -1,7 +1,5 @@
 package com.aura.defense.vpn
 
-import kotlin.math.min
-
 internal data class DnsQuery(
     val domain: String,
     val transactionId: Int,
@@ -12,6 +10,33 @@ internal data class DnsQuery(
     val dnsOffset: Int,
     val dnsLength: Int
 )
+
+fun extractDomainFromRawPacket(packet: ByteArray, length: Int): String {
+    if (length < 50) return ""
+    var offset = 40 // IP(20) + UDP(8) + DNS Header(12)
+    val domainBuilder = StringBuilder()
+    try {
+        while (offset < length) {
+            val labelLength = packet[offset].toInt() and 0xFF
+            if (labelLength == 0) break
+            if ((labelLength and 0xC0) == 0xC0) break // Seguridad por si hay compresión
+            offset++
+            if (offset + labelLength > length) break
+            for (i in 0 until labelLength) {
+                domainBuilder.append(packet[offset + i].toInt().toChar())
+            }
+            domainBuilder.append(".")
+            offset += labelLength
+        }
+    } catch (e: Exception) {
+        VpnDebugger.log("Error parseando dominio: ${e.message}")
+        return ""
+    }
+    if (domainBuilder.endsWith(".")) {
+        domainBuilder.deleteCharAt(domainBuilder.length - 1)
+    }
+    return domainBuilder.toString().lowercase()
+}
 
 internal object DnsPacketCodec {
     private const val IPV4_HEADER_SIZE = 20
@@ -33,8 +58,8 @@ internal object DnsPacketCodec {
         val flags = readUnsignedShort(packet, dnsOffset + 2)
         val questionCount = readUnsignedShort(packet, dnsOffset + 4)
         if ((flags and 0x8000) != 0 || questionCount < 1) return null
-        val dominioExtraido = readName(packet, length) ?: return null
-        VpnDebugger.log("DOMINIO PARSEADO CORRECTAMENTE: $dominioExtraido")
+        val dominioExtraido = extractDomainFromRawPacket(packet, length)
+        if (dominioExtraido.isEmpty()) return null
         val questionEnd = questionEnd(packet, DNS_QUESTION_OFFSET, length) ?: return null
         if (questionEnd + 4 > length) return null
         val questionBytes = packet.copyOfRange(DNS_QUESTION_OFFSET, questionEnd + 4)
@@ -129,22 +154,6 @@ internal object DnsPacketCodec {
         val udpChecksum = pseudoHeaderChecksum(packet, ipHeaderLength, upstreamResponse.size)
         writeUnsignedShort(packet, ipHeaderLength + 6, udpChecksum)
         return packet
-    }
-
-    private fun readName(packet: ByteArray, length: Int): String? {
-        val hexDump = packet.copyOfRange(DNS_QUESTION_OFFSET, min(55, packet.size)).joinToString(" ") { "%02x".format(it) }
-        VpnDebugger.log("HEX CRUDO DESDE BYTE 40: $hexDump")
-        var offset = DNS_QUESTION_OFFSET
-        val labels = mutableListOf<String>()
-        repeat(128) {
-            if (offset >= length) return null
-            val labelLength = packet[offset++].toInt() and 0xff
-            if (labelLength == 0) return labels.joinToString(".").lowercase()
-            if (labelLength > 63 || offset + labelLength > length) return null
-            labels += String(packet, offset, labelLength, Charsets.US_ASCII)
-            offset += labelLength
-        }
-        return null
     }
 
     private fun questionEnd(packet: ByteArray, start: Int, length: Int): Int? {

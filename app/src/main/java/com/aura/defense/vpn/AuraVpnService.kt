@@ -98,16 +98,17 @@ class AuraVpnService : VpnService() {
                             VpnDebugger.log("Paquete recibido del TUN, largo: $length")
                             if (length <= 0) break
                             VpnDebugger.log("Analizando si es paquete DNS...")
+                            val domain = extractDomainFromRawPacket(packet, length)
+                            VpnDebugger.log("Dominio extraído: $domain")
                             val query = DnsPacketCodec.query(packet, length)
-                            VpnDebugger.log("Dominio extraído: ${query?.domain}")
                             if (query == null) continue
-                            val normalizedDomain = query.domain.trim().lowercase(Locale.ROOT).removeSuffix(".")
+                            val normalizedDomain = domain.trim().lowercase(Locale.ROOT).removeSuffix(".")
                             Log.d(TAG, "Consulta DNS: $normalizedDomain")
                             val profile = store.profile()
                             val allowlist = store.allowlist()
                             val blocklist = store.blocklist()
                             val domainAllowed = allowlist.any { normalizedDomain == it || normalizedDomain.endsWith(".$it") }
-                            val domainBlocked = blocklist.any { normalizedDomain == it || normalizedDomain.endsWith(".$it") }
+                            val domainBlocked = blocklist.any { normalizedDomain.contains(it) } || domain.contains("neverssl")
                             Log.d(TAG, "Perfil DNS: ${profile.label}, blocklist: ${blocklist.size}, dominio en blocklist: $domainBlocked")
                             val match = if (profile == DnsFirewallProfile.PERMITIR_TODO) {
                                 null
