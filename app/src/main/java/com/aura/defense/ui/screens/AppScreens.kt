@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -28,9 +30,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +42,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aura.defense.ui.AuraAmber
@@ -62,6 +67,7 @@ import com.aura.defense.apps.InstalledAppInfo
 import com.aura.defense.lan.AuraLanPeer
 import com.aura.defense.vpn.DnsBlockedEvent
 import com.aura.defense.vpn.DnsFirewallProfile
+import com.aura.defense.vpn.VpnDebugger
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -163,6 +169,13 @@ fun DefenseScreen(
     onModuleDialog: (String, String) -> Unit,
     onEmergency: () -> Unit
 ) {
+    val vpnLogs by VpnDebugger.logs.collectAsState()
+    val logListState = rememberLazyListState()
+
+    LaunchedEffect(vpnLogs.size) {
+        if (vpnLogs.isNotEmpty()) logListState.animateScrollToItem(vpnLogs.lastIndex)
+    }
+
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionTitle("DEFENSA", "Cortafuegos Centinela", "Superficie de control visual. No se simulan bloqueos.")
         Panel(modifier = Modifier.fillMaxWidth()) {
@@ -182,6 +195,19 @@ fun DefenseScreen(
                     }
                 }
                 Text("Dominios bloqueados en esta sesión: $blockedDomainCount", color = if (blockedDomainCount == 0) AuraMuted else AuraAmber, fontSize = 14.sp)
+                LazyColumn(
+                    state = logListState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .background(Color.Black)
+                        .padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    items(vpnLogs) { log ->
+                        Text(log, color = Color(0xFF00FF41), fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                    }
+                }
                 blockedDomains.takeLast(5).asReversed().forEach { event ->
                     Text(
                         "${event.domain} · ${event.category} · ${event.severity} · ${formatDnsTime(event.timestamp)}",

@@ -95,11 +95,11 @@ class AuraVpnService : VpnService() {
                     while (!stopping.get()) {
                         try {
                             val length = input.read(packet)
-                            Log.e("AuraVPN", "Paquete recibido del TUN, largo: $length")
+                            VpnDebugger.log("Paquete recibido del TUN, largo: $length")
                             if (length <= 0) break
-                            Log.e("AuraVPN", "Analizando si es paquete DNS...")
+                            VpnDebugger.log("Analizando si es paquete DNS...")
                             val query = DnsPacketCodec.query(packet, length)
-                            Log.e("AuraVPN", "Dominio extraído: ${query?.domain}")
+                            VpnDebugger.log("Dominio extraído: ${query?.domain}")
                             if (query == null) continue
                             val normalizedDomain = query.domain.trim().lowercase(Locale.ROOT).removeSuffix(".")
                             Log.d(TAG, "Consulta DNS: $normalizedDomain")
@@ -121,7 +121,7 @@ class AuraVpnService : VpnService() {
                             val blocked = match != null || manuallyBlocked
                             Log.d(TAG, "Decisión DNS para $normalizedDomain: bloqueado=$blocked")
                             if (blocked) {
-                                Log.e("AuraVPN", "¡ALERTA! Dominio $normalizedDomain ESTÁ BLOQUEADO. Preparando respuesta falsa.")
+                                VpnDebugger.log("¡ALERTA! Dominio $normalizedDomain ESTÁ BLOQUEADO. Preparando respuesta falsa.")
                                 Log.i(TAG, "Dominio bloqueado por DNS Firewall: $normalizedDomain")
                                 val category = match?.category?.name ?: "MANUAL"
                                 val severity = match?.severity?.name ?: "HIGH"
@@ -136,11 +136,11 @@ class AuraVpnService : VpnService() {
                                 Log.d(TAG, "Contador actualizado: ${store.blockedCount()}")
                                 continue
                             }
-                            Log.e("AuraVPN", "Dominio $normalizedDomain PERMITIDO. Reenviando a upstream...")
+                            VpnDebugger.log("Dominio $normalizedDomain PERMITIDO. Reenviando a upstream...")
                             Log.i(TAG, "Dominio permitido: $normalizedDomain")
                             forwardDnsQuery(packet, length, query, output)
                         } catch (e: Exception) {
-                            Log.e("AuraVPN", "¡¡ERROR FATAL EN EL HILO VPN!!: ${e.message}", e)
+                            VpnDebugger.log("¡¡ERROR FATAL EN EL HILO VPN!!: ${e.message}")
                             throw e
                         }
                     }
