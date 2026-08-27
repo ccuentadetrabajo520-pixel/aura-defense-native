@@ -93,55 +93,67 @@ class AuraVpnService : VpnService() {
                 FileOutputStream(activeTunnel.fileDescriptor).use { output ->
                     val packet = ByteArray(MAX_PACKET_SIZE)
                     while (!stopping.get()) {
+                        val length = input.read(packet)
+                        if (length <= 0) break
                         try {
-                            val length = input.read(packet)
-                            VpnDebugger.log("Paquete recibido del TUN, largo: $length")
-                            if (length <= 0) break
-                            VpnDebugger.log("Analizando si es paquete DNS...")
-                            val query = DnsPacketCodec.query(packet, length)
-                            if (query == null) continue
-                            val domain = query.domain
-                            val normalizedDomain = domain.trim().lowercase(Locale.ROOT).removeSuffix(".")
-                            Log.d(TAG, "Consulta DNS: $normalizedDomain")
-                            val profile = store.profile()
-                            val allowlist = store.allowlist()
-                            val blocklist = store.blocklist()
-                            val domainAllowed = allowlist.any { normalizedDomain == it || normalizedDomain.endsWith(".$it") }
-                            val domainBlocked = blocklist.any { normalizedDomain.contains(it) } || domain.contains("neverssl")
-                            Log.d(TAG, "Perfil DNS: ${profile.label}, blocklist: ${blocklist.size}, dominio en blocklist: $domainBlocked")
-                            val match = if (profile == DnsFirewallProfile.PERMITIR_TODO) {
-                                null
-                            } else {
-                                threatEngine.findMatches(normalizedDomain).firstOrNull { indicator ->
-                                    profile.categories.contains(indicator.category.name) && !domainAllowed
+                            if (length > 28 && (packet[9].toInt() and 0xFF) == 17) {
+                                val ipHeaderLength = (packet[0].toInt() and 0x0F) * 4
+                                val sourcePort = readUnsignedShort(packet, ipHeaderLength)
+                                val destPort = readUnsignedShort(packet, ipHeaderLength + 2)
+                                if (destPort == DNS_PORT || sourcePort == DNS_PORT) {
+                                    val dnsOffset = ipHeaderLength + UDP_HEADER_SIZE
+                                    val questionStart = dnsOffset + DNS_HEADER_SIZE
+                                    val questionEnd = findQuestionEnd(packet, questionStart, length) ?: continue
+                                    if (questionEnd + 4 > length) continue
+                                    val domainBuilder = StringBuilder()
+                                    var offset = questionStart
+                                    while (offset < questionEnd) {
+                                        val labelLength = packet[offset].toInt() and 0xFF
+                                        if (labelLength == 0) break
+                                        offset++
+                                        for (index in 0 until labelLength) {
+                                            domainBuilder.append((packet[offset + index].toInt() and 0xFF).toChar())
+                                        }
+                                        domainBuilder.append('.')
+                                        offset += labelLength
+                                    }
+                                    val domain = domainBuilder.toString().lowercase(Locale.ROOT).removeSuffix(".")
+                                    if (domain.isBlank()) continue
+                                    val questionBytes = packet.copyOfRange(dnsOffset + DNS_HEADER_SIZE, questionEnd + 4)
+                                    val profile = store.profile()
+                                    val domainAllowed = store.isAllowed(domain)
+                                    val blockedList = store.blocklist()
+                                    val domainBlocked = blockedList.any { domain.contains(it) }
+                                    val match = if (profile == DnsFirewallProfile.PERMITIR_TODO) null else {
+                                        threatEngine.findMatches(domain).firstOrNull { indicator ->
+                                            profile.categories.contains(indicator.category.name) && !domainAllowed
+                                        }
+                                    }
+                                    val blocked = match != null ||
+                                        (profile == DnsFirewallProfile.ESTRICTO && domainBlocked && !domainAllowed)
+                                    VpnDebugger.log("DNS Detected -> $domain")
+                                    if (blocked) {
+                                        VpnDebugger.log("ALERT! $domain BLOCKED.")
+                                        val response = buildDnsResponsePacket(packet, length, ipHeaderLength, 0x8183, questionBytes)
+                                        output.write(response)
+                                        output.flush()
+                                        store.recordBlocked(
+                                            DnsBlockedEvent(
+                                                domain,
+                                                match?.category?.name ?: "MANUAL",
+                                                match?.severity?.name ?: "HIGH",
+                                                System.currentTimeMillis()
+                                            )
+                                        )
+                                        continue
+                                    } else {
+                                        VpnDebugger.log("Domain allowed, forwarding to upstream...")
+                                        forwardDnsQuery(packet, length, ipHeaderLength, dnsOffset, output, domain)
+                                    }
                                 }
                             }
-                            val manuallyBlocked = profile == DnsFirewallProfile.ESTRICTO &&
-                                domainBlocked && !domainAllowed
-                            val blocked = match != null || manuallyBlocked
-                            Log.d(TAG, "Decisión DNS para $normalizedDomain: bloqueado=$blocked")
-                            if (blocked) {
-                                VpnDebugger.log("¡ALERTA! Dominio $normalizedDomain ESTÁ BLOQUEADO. Preparando respuesta falsa.")
-                                Log.i(TAG, "Dominio bloqueado por DNS Firewall: $normalizedDomain")
-                                val category = match?.category?.name ?: "MANUAL"
-                                val severity = match?.severity?.name ?: "HIGH"
-                                val responsePacket = DnsPacketCodec.blockedResponsePacket(packet, length, query)
-                                if (responsePacket == null) {
-                                    Log.e(TAG, "No se pudo construir la respuesta NXDOMAIN para $normalizedDomain")
-                                    continue
-                                }
-                                output.write(responsePacket)
-                                output.flush()
-                                store.recordBlocked(DnsBlockedEvent(normalizedDomain, category, severity, System.currentTimeMillis()))
-                                Log.d(TAG, "Contador actualizado: ${store.blockedCount()}")
-                                continue
-                            }
-                            VpnDebugger.log("Dominio $normalizedDomain PERMITIDO. Reenviando a upstream...")
-                            Log.i(TAG, "Dominio permitido: $normalizedDomain")
-                            forwardDnsQuery(packet, length, query, output)
                         } catch (e: Exception) {
-                            VpnDebugger.log("¡¡ERROR FATAL EN EL HILO VPN!!: ${e.message}")
-                            throw e
+                            VpnDebugger.log("FATAL LOOP ERROR: ${e.message}")
                         }
                     }
                 }
@@ -151,7 +163,14 @@ class AuraVpnService : VpnService() {
         }
     }
 
-    private fun forwardDnsQuery(queryPacket: ByteArray, length: Int, query: DnsQuery, output: FileOutputStream) {
+    private fun forwardDnsQuery(
+        queryPacket: ByteArray,
+        length: Int,
+        ipHeaderLength: Int,
+        dnsOffset: Int,
+        output: FileOutputStream,
+        domain: String
+    ) {
         var upstreamResponse: ByteArray? = null
         runCatching {
             DatagramSocket().use { socket ->
@@ -161,7 +180,7 @@ class AuraVpnService : VpnService() {
                 }
                 socket.soTimeout = DNS_TIMEOUT_MS
                 val upstream = InetAddress.getByName(UPSTREAM_DNS)
-                val dnsPayload = DnsPacketCodec.dnsPayload(queryPacket, query)
+                val dnsPayload = queryPacket.copyOfRange(dnsOffset, length)
                 socket.send(DatagramPacket(dnsPayload, dnsPayload.size, upstream, DNS_PORT))
                 val responseBytes = ByteArray(MAX_DNS_PACKET_SIZE)
                 val response = DatagramPacket(responseBytes, responseBytes.size)
@@ -170,33 +189,73 @@ class AuraVpnService : VpnService() {
             }
         }.onFailure { error ->
             if (error is SocketTimeoutException) {
-                Log.w(TAG, "Tiempo de espera agotado para upstream DNS: ${query.domain}")
+                Log.w(TAG, "Tiempo de espera agotado para upstream DNS: $domain")
             } else {
-                Log.e(TAG, "Error de upstream DNS para ${query.domain}: ${error.message}", error)
+                Log.e(TAG, "Error de upstream DNS para $domain: ${error.message}", error)
             }
         }
-        val dnsResponse = upstreamResponse ?: run {
-            Log.w(TAG, "SERVFAIL generado para ${query.domain}")
-            DnsPacketCodec.servfailResponse(query)
-        }
-        sendVpnResponse(queryPacket, length, dnsResponse, output, query.domain)
-    }
-
-    private fun sendVpnResponse(
-        queryPacket: ByteArray,
-        length: Int,
-        dnsResponse: ByteArray,
-        output: FileOutputStream,
-        domain: String
-    ) {
-        val responsePacket = DnsPacketCodec.response(queryPacket, length, dnsResponse)
-        if (responsePacket == null) {
-            Log.e(TAG, "No se pudo construir la respuesta DNS para $domain")
-            return
-        }
+        val dnsResponse = upstreamResponse ?: return
+        val responsePacket = buildDnsResponsePacket(queryPacket, length, ipHeaderLength, null, dnsResponse)
         output.write(responsePacket)
         output.flush()
-        Log.d(TAG, "Respuesta DNS enviada al túnel para $domain (${responsePacket.size} bytes)")
+    }
+
+    private fun buildDnsResponsePacket(
+        queryPacket: ByteArray,
+        length: Int,
+        ipHeaderLength: Int,
+        flags: Int?,
+        dnsPayload: ByteArray
+    ): ByteArray {
+        val sourcePort = readUnsignedShort(queryPacket, ipHeaderLength)
+        val destinationPort = readUnsignedShort(queryPacket, ipHeaderLength + 2)
+        val packet = ByteArray(ipHeaderLength + UDP_HEADER_SIZE + dnsPayload.size)
+        queryPacket.copyInto(packet, 0, 0, ipHeaderLength)
+        queryPacket.copyInto(packet, 12, 16, 20)
+        queryPacket.copyInto(packet, 16, 12, 16)
+        writeUnsignedShort(packet, ipHeaderLength, destinationPort)
+        writeUnsignedShort(packet, ipHeaderLength + 2, sourcePort)
+        writeUnsignedShort(packet, ipHeaderLength + 4, UDP_HEADER_SIZE + dnsPayload.size)
+        writeUnsignedShort(packet, ipHeaderLength + 6, 0)
+        dnsPayload.copyInto(packet, ipHeaderLength + UDP_HEADER_SIZE)
+        flags?.let { writeUnsignedShort(packet, ipHeaderLength + UDP_HEADER_SIZE + 2, it) }
+        writeUnsignedShort(packet, 2, packet.size)
+        packet[10] = 0
+        packet[11] = 0
+        writeUnsignedShort(packet, 10, checksum(packet, 0, ipHeaderLength))
+        return packet
+    }
+
+    private fun findQuestionEnd(packet: ByteArray, start: Int, length: Int): Int? {
+        var offset = start
+        repeat(MAX_DNS_LABELS) {
+            if (offset >= length) return null
+            val labelLength = packet[offset++].toInt() and 0xFF
+            if (labelLength == 0) return offset
+            if (labelLength > 63 || offset + labelLength > length) return null
+            offset += labelLength
+        }
+        return null
+    }
+
+    private fun readUnsignedShort(bytes: ByteArray, offset: Int): Int =
+        ((bytes[offset].toInt() and 0xFF) shl 8) or (bytes[offset + 1].toInt() and 0xFF)
+
+    private fun writeUnsignedShort(bytes: ByteArray, offset: Int, value: Int) {
+        bytes[offset] = (value ushr 8).toByte()
+        bytes[offset + 1] = value.toByte()
+    }
+
+    private fun checksum(bytes: ByteArray, offset: Int, length: Int): Int {
+        var sum = 0L
+        var index = offset
+        while (index + 1 < offset + length) {
+            sum += readUnsignedShort(bytes, index)
+            index += 2
+        }
+        if (index < offset + length) sum += (bytes[index].toInt() and 0xFF) shl 8
+        while (sum ushr 16 != 0L) sum = (sum and 0xFFFF) + (sum ushr 16)
+        return sum.inv().toInt() and 0xFFFF
     }
 
     private fun notification(): Notification = NotificationCompat.Builder(this, CHANNEL_ID)
@@ -222,6 +281,9 @@ class AuraVpnService : VpnService() {
         private const val VPN_ADDRESS = "10.0.0.2"
         private const val UPSTREAM_DNS = "1.1.1.1"
         private const val DNS_PORT = 53
+        private const val UDP_HEADER_SIZE = 8
+        private const val DNS_HEADER_SIZE = 12
+        private const val MAX_DNS_LABELS = 128
         private const val DNS_TIMEOUT_MS = 3000
         private const val MAX_PACKET_SIZE = 32767
         private const val MAX_DNS_PACKET_SIZE = 4096
