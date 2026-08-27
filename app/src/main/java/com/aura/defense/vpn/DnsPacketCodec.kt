@@ -52,8 +52,11 @@ internal object DnsPacketCodec {
     fun blockedResponse(query: DnsQuery): ByteArray {
         val response = ByteArray(12 + query.questionBytes.size)
         writeUnsignedShort(response, 0, query.transactionId)
-        writeUnsignedShort(response, 2, 0x8000 or (query.flags and 0x7800) or (query.flags and 0x0100) or 0x0003)
+        writeUnsignedShort(response, 2, 0x8183)
         writeUnsignedShort(response, 4, 1)
+        writeUnsignedShort(response, 6, 0)
+        writeUnsignedShort(response, 8, 0)
+        writeUnsignedShort(response, 10, 0)
         query.questionBytes.copyInto(response, 12)
         return response
     }
