@@ -11,9 +11,9 @@ internal data class DnsQuery(
     val dnsLength: Int
 )
 
-fun extractDomainFromRawPacket(packet: ByteArray, length: Int): String {
+fun extractDomainFromRawPacket(packet: ByteArray, length: Int, ipHeaderLength: Int): String {
     if (length < 50) return ""
-    var offset = 40 // IP(20) + UDP(8) + DNS Header(12)
+    var offset = ipHeaderLength + 28 // IP(dinámico) + UDP(8) + DNS Header(12)
     val domainBuilder = StringBuilder()
     try {
         while (offset < length) {
@@ -58,9 +58,9 @@ internal object DnsPacketCodec {
         val flags = readUnsignedShort(packet, dnsOffset + 2)
         val questionCount = readUnsignedShort(packet, dnsOffset + 4)
         if ((flags and 0x8000) != 0 || questionCount < 1) return null
-        val dominioExtraido = extractDomainFromRawPacket(packet, length)
+        val dominioExtraido = extractDomainFromRawPacket(packet, length, ipHeaderLength)
         if (dominioExtraido.isEmpty()) return null
-        val questionEnd = questionEnd(packet, DNS_QUESTION_OFFSET, length) ?: return null
+        val questionEnd = questionEnd(packet, ipHeaderLength + 28, length) ?: return null
         if (questionEnd + 4 > length) return null
         val questionBytes = packet.copyOfRange(DNS_QUESTION_OFFSET, questionEnd + 4)
         return DnsQuery(
