@@ -119,6 +119,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         sharedText = extractSharedText(intent)
         sharedFile = extractSharedFile(intent)
+        ProfileManager.initialize(this)
         val preferences = AuraPreferences(this)
         setContent {
             AuraTheme {
