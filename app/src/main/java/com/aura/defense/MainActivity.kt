@@ -195,6 +195,7 @@ private fun AuraDefenseApp(
     val historyStore = remember { AuraHistoryStore(context) }
     val changeDetector = remember { SuspiciousChangeDetector(historyStore) }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) { ProfileManager.loadProfile(context) }
     var result by remember { mutableStateOf(com.aura.defense.security.PostureResult.pending()) }
     var selectedTab by remember { mutableStateOf(0) }
     var auraId by remember { mutableStateOf(preferences.getAuraId()) }
@@ -235,8 +236,8 @@ private fun AuraDefenseApp(
     var emergencyResult by remember { mutableStateOf<EmergencyModeResult?>(null) }
     var isVpnRunning by remember { mutableStateOf(isAuraVpnActive(context)) }
     var vpnPermissionError by remember { mutableStateOf(false) }
-    var familyModeEnabled by remember { mutableStateOf(ProfileManager.isFamilyModeEnabled) }
-    var cellularDataBlocked by remember { mutableStateOf(ProfileManager.blockCellularData) }
+    var familyModeEnabled by remember { mutableStateOf(false) }
+    var cellularDataBlocked by remember { mutableStateOf(false) }
     val dnsFirewallStore = remember { DnsFirewallStore(context) }
     var dnsProfile by remember { mutableStateOf(dnsFirewallStore.profile()) }
     var blockedDns by remember { mutableStateOf<List<DnsBlockedEvent>>(dnsFirewallStore.blockedEvents()) }
