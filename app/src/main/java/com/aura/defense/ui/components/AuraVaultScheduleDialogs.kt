@@ -27,15 +27,20 @@ fun AuraVaultDialog(context: Context, onDismiss: () -> Unit) {
     val vault = remember { AuraVault(context) }
     val historyStore = remember { AuraHistoryStore(context) }
     val available = remember { vault.isAvailable() }
+    var vaultContent by remember { mutableStateOf(vault.readSummary()) }
     var message by remember { mutableStateOf<String?>(null) }
     AuraHudDialog(onDismissRequest = onDismiss, title = { Text("Bóveda cifrada") }, text = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(if (available) "Bóveda disponible en este dispositivo." else "Bóveda no disponible en este dispositivo.", color = if (available) AuraGreen else AuraAmber)
-            if (available) vault.readSummary()?.let { Text("Último resumen guardado: $it", color = AuraMuted, fontSize = 12.sp) }
+            if (available) vaultContent?.let { Text("Último resumen guardado: $it", color = AuraMuted, fontSize = 12.sp) }
                 ?: Text("No hay historial guardado.", color = AuraMuted, fontSize = 12.sp)
             message?.let { Text(it, color = AuraMuted, fontSize = 12.sp) }
             TextButton(onClick = {
-                val summary = vault.readSummary()
+                vaultContent = vault.readSummary()
+                message = if (vaultContent == null) "No hay historial guardado." else "Contenido leído de la bóveda."
+            }) { Text("Leer bóveda") }
+            TextButton(onClick = {
+                val summary = vaultContent ?: vault.readSummary()
                 if (summary == null) {
                     message = "No hay historial guardado."
                 } else {
@@ -52,10 +57,17 @@ fun AuraVaultDialog(context: Context, onDismiss: () -> Unit) {
         val content = historyStore.getEntries().joinToString("\n") { it.toJson() }
         message = when {
             content.isBlank() -> "No hay historial guardado."
-            vault.replaceSummary(content) -> "Reporte guardado en la bóveda."
+                vault.replaceSummary(content).also { if (it) vaultContent = content } -> "Reporte guardado en la bóveda."
             else -> "No se pudo acceder a la bóveda cifrada."
         }
-    }) { Text("Guardar reporte en bóveda") } }, dismissButton = { TextButton(onClick = { message = if (vault.clear()) "Historial borrado." else "No se pudo acceder a la bóveda cifrada." }) { Text("Borrar historial") } })
+    }) { Text("Guardar reporte en bóveda") } }, dismissButton = { TextButton(onClick = {
+        message = if (vault.clear()) {
+            vaultContent = null
+            "Historial borrado."
+        } else {
+            "No se pudo acceder a la bóveda cifrada."
+        }
+    }) { Text("Borrar historial") } })
 }
 
 @Composable
