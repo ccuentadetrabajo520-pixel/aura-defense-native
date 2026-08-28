@@ -1,13 +1,15 @@
 package com.aura.defense.ui.screens
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,10 +26,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,10 +46,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aura.defense.ui.AuraAmber
+import com.aura.defense.ui.AuraBackground
 import com.aura.defense.ui.AuraCyan
 import com.aura.defense.ui.AuraGreen
 import com.aura.defense.ui.AuraMuted
 import com.aura.defense.ui.AuraRed
+import com.aura.defense.ui.AuraSpacing
 import com.aura.defense.ui.AuraSurface
 import com.aura.defense.ui.components.ActionButton
 import com.aura.defense.ui.components.Metric
@@ -80,16 +85,16 @@ fun HomeScreen(
     onModuleDialog: (String, String) -> Unit,
     onEmergency: () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AuraSpacing.lg)) {
         SectionTitle("PANEL PRINCIPAL", "Centro de defensa Aura", "Diagnóstico local del dispositivo y sus señales disponibles.")
         AuraGuardianPanel(assessment = guardianAssessment, onViewAnalysis = onGuardianAnalysis)
         if (historyCount > 0) Text("Cambios recientes: $historyCount", color = AuraMuted, fontSize = 12.sp)
         Panel(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(modifier = Modifier.padding(AuraSpacing.xl), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
-                        Text("PUNTUACIÓN AURA", color = AuraMuted, fontSize = 11.sp)
-                        Text(if (result.score >= 0) "${result.score}/100" else "No disponible", color = AuraCyan, fontSize = 24.sp)
+                        Text("PUNTUACIÓN AURA", color = AuraMuted, style = MaterialTheme.typography.labelSmall)
+                        Text(if (result.score >= 0) "${result.score}/100" else "No disponible", color = AuraCyan, style = MaterialTheme.typography.displayLarge)
                     }
                         StatusDot(if (result.score >= 85) AuraGreen else if (result.score >= 60) AuraAmber else AuraRed, "ESTADO", result.status)
                 }
@@ -122,21 +127,23 @@ fun AurasScreen(
     onStopLanSearch: () -> Unit,
     onModuleDialog: (String, String) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AuraSpacing.lg)) {
         SectionTitle("AURAS", "Campo táctico", if (locationActive) "Ubicación activa. No se muestran coordenadas." else "Vista privada sin ubicación ni datos LAN activos.")
         TacticalMap(Modifier.fillMaxWidth().height(250.dp))
         Panel(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(modifier = Modifier.padding(AuraSpacing.xl), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(if (locationActive) "Ubicación activa" else "Ubicación no activada", color = if (locationActive) AuraGreen else AuraAmber, fontSize = 17.sp)
                 Text(if (lanSearching) "Buscando en la red local..." else "El descubrimiento LAN está listo", color = AuraMuted, fontSize = 13.sp)
                 Text("La búsqueda se realiza solo en esta red local. No se comparte ubicación ni datos privados.", color = AuraMuted, fontSize = 12.sp)
                 if (lanPeers.isEmpty() && !lanSearching) Text("No se encontraron Auras cercanas", color = AuraAmber, fontSize = 14.sp)
                 lanPeers.forEach { peer ->
-                    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("Aura encontrada", color = AuraCyan, fontSize = 13.sp)
-                        Text("${peer.name} · ${peer.auraId}", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
-                        Text("Nivel: ${peer.guardianLevel}", color = AuraMuted, fontSize = 11.sp)
-                        Text("Última señal: ${peer.timestamp}", color = AuraMuted, fontSize = 11.sp)
+                    Panel {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text("Aura encontrada", color = AuraCyan, fontSize = 13.sp)
+                            Text("${peer.name} · ${peer.auraId}", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
+                            Text("Nivel: ${peer.guardianLevel}", color = AuraMuted, fontSize = 11.sp)
+                            Text("Última señal: ${peer.timestamp}", color = AuraMuted, fontSize = 11.sp)
+                        }
                     }
                 }
                 lastLanScan?.let { Text("Última comprobación: $it", color = AuraMuted, fontSize = 11.sp) }
@@ -168,22 +175,22 @@ fun DefenseScreen(
     onEmergency: () -> Unit
 ) {
     val logs by VpnDebugger.logs.collectAsState()
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AuraSpacing.lg)) {
         SectionTitle("DEFENSA", "Cortafuegos Centinela", "Superficie de control visual. No se simulan bloqueos.")
         Panel(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(modifier = Modifier.padding(AuraSpacing.xl), horizontalAlignment = Alignment.CenterHorizontally) {
                 SentinelCanvas(Modifier.fillMaxWidth().height(250.dp), blockPulse)
                 Text(vpnStatus, color = if (vpnStatus == "Protegido") AuraGreen else AuraAmber, fontSize = 12.sp)
             }
         }
         ActionButton(if (vpnRunning) "Desactivar VPN" else "Activar defensa VPN", onClick = onVpnToggle)
         Panel(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(modifier = Modifier.padding(AuraSpacing.xl), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("CORTAFUEGOS DNS", color = AuraCyan, fontSize = 11.sp)
                 Text("Perfil: ${firewallProfile.label}", color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp)
                 DnsFirewallProfile.entries.forEach { profile ->
-                    OutlinedButton(onClick = { onProfileChange(profile) }, modifier = Modifier.fillMaxWidth()) {
-                        Text(if (profile == firewallProfile) "${profile.label} · Activo" else profile.label)
+                    Surface(onClick = { onProfileChange(profile) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = if (profile == firewallProfile) AuraCyan.copy(alpha = 0.12f) else AuraSurface, border = BorderStroke(if (profile == firewallProfile) 1.dp else 0.5.dp, AuraCyan.copy(alpha = if (profile == firewallProfile) 0.4f else 0.1f))) {
+                        Text(if (profile == firewallProfile) "${profile.label} · Activo" else profile.label, modifier = Modifier.padding(vertical = 12.dp), color = if (profile == firewallProfile) AuraCyan else AuraMuted, style = MaterialTheme.typography.labelLarge)
                     }
                 }
                 Text("Dominios bloqueados en esta sesión: $blockedDomainCount", color = if (blockedDomainCount == 0) AuraMuted else AuraAmber, fontSize = 14.sp)
@@ -191,8 +198,9 @@ fun DefenseScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(180.dp)
-                        .background(Color.Black)
-                        .padding(8.dp),
+                        .background(AuraBackground)
+                        .border(BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.15f)), RoundedCornerShape(8.dp))
+                        .padding(AuraSpacing.sm),
                 ) {
                     Text(logs.joinToString("\n"), color = Color(0xFF00FF41), fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                 }
@@ -285,18 +293,18 @@ fun AppsScreen(
     onExport: () -> Unit,
     onModuleDialog: (String, String) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AuraSpacing.lg)) {
         SectionTitle("APPS", "Escáner genómico de apps", "Interfaz visual del escáner. No se inventan resultados del gestor de paquetes.")
         Panel(modifier = Modifier.fillMaxWidth()) { ScannerCanvas(Modifier.fillMaxWidth().height(190.dp), scanning) }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("RED", "SENSORES", "IDENTIDAD").forEach { label ->
-                Box(modifier = Modifier.weight(1f).background(AuraSurface, RoundedCornerShape(8.dp)).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.weight(1f).background(if (true) AuraCyan.copy(alpha = 0.08f) else AuraSurface, RoundedCornerShape(12.dp)).border(BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.2f)), RoundedCornerShape(12.dp)).padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
                     Text(label, color = AuraMuted, fontSize = 10.sp)
                 }
             }
         }
         Panel(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Column(modifier = Modifier.padding(AuraSpacing.xl), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text("RESUMEN DE RIESGOS", color = AuraCyan, fontSize = 11.sp)
                 Text(scanResult?.let { "${it.apps.size} apps visibles por Android" } ?: "Sin escaneo ejecutado", color = AuraMuted, fontSize = 14.sp)
                 scanResult?.let {
