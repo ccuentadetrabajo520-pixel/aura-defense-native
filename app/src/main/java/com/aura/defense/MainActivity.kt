@@ -334,7 +334,7 @@ private fun AuraDefenseApp(
                 val vpnStatus = if (telemetry.vpnActive) "Activa" else "VPN no disponible en esta versión."
                 val recentLinks = linkHistory + notificationAlerts.map { it.analysis }
                 emergencyStep = 5
-                val vaultAvailable = com.aura.defense.vault.AuraVault(context).isAvailable()
+                val vaultAvailable = com.aura.defense.vault.AuraVault.isAvailable()
                 val reportText = AuraReportBuilder().text(auraId, scannedPosture, scan, recentLinks, passwordAudit, notificationAlerts, threatEngine.indicators, assessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp(), threatSnapshot)
                 val reportJson = AuraReportBuilder().json(auraId, scannedPosture, scan, recentLinks, passwordAudit, notificationAlerts, threatEngine.indicators, assessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp(), threatSnapshot)
                 val reportSaved = withContext(Dispatchers.IO) {
@@ -674,7 +674,7 @@ private fun AuraDefenseApp(
     if (showReports) {
         ReportDialog(
             onExport = { json ->
-                val vaultAvailable = com.aura.defense.vault.AuraVault(context).isAvailable()
+                val vaultAvailable = com.aura.defense.vault.AuraVault.isAvailable()
                 val content = if (json) AuraReportBuilder().json(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp(), threatSnapshot)
                 else AuraReportBuilder().text(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp(), threatSnapshot)
                 shareReport(content, json, context)

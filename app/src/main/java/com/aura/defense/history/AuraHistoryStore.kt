@@ -2,13 +2,12 @@ package com.aura.defense.history
 
 import android.content.Context
 import com.aura.defense.vault.AuraVault
-import com.aura.defense.vault.AuraVaultReadStatus
 import org.json.JSONArray
 import org.json.JSONObject
 
 class AuraHistoryStore(context: Context) {
+    private val appContext = context.applicationContext
     private val preferences = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
-    private val vault = AuraVault(context)
 
     fun baseline(): AuraBaseline? = runCatching {
         preferences.getString(BASELINE_KEY, null)?.let(::baselineFromJson)
@@ -21,9 +20,9 @@ class AuraHistoryStore(context: Context) {
     }.getOrDefault(false)
 
     fun getEntries(): List<AuraHistoryEntry> = runCatching {
-        val encrypted = vault.readSummaryResult()
-        val encryptedEntries = if (encrypted.status == AuraVaultReadStatus.CONTENT) {
-            encrypted.content.orEmpty().lineSequence().mapNotNull(AuraHistoryEntry::fromJson).toList()
+        val encrypted = AuraVault.readReport(appContext)
+        val encryptedEntries = if (!encrypted.startsWith("Error") && encrypted != "No saved history.") {
+            encrypted.lineSequence().mapNotNull(AuraHistoryEntry::fromJson).toList()
         } else {
             emptyList()
         }
@@ -38,7 +37,7 @@ class AuraHistoryStore(context: Context) {
         if (entries.isEmpty()) return@runCatching true
         val all = (getEntries() + entries).takeLast(MAX_ENTRIES)
         val serialized = all.joinToString("\n") { it.toJson() }
-        if (vault.isAvailable() && vault.replaceSummary(serialized)) {
+        if (AuraVault.isAvailable() && AuraVault.saveReport(appContext, serialized) == "Successfully saved") {
             preferences.edit().remove(HISTORY_KEY).apply()
         } else {
             preferences.edit().putString(HISTORY_KEY, serialized).commit()
@@ -47,8 +46,8 @@ class AuraHistoryStore(context: Context) {
     }.getOrDefault(false)
 
     fun clear(): Boolean = runCatching {
-        vault.clear()
-        preferences.edit().remove(HISTORY_KEY).remove(BASELINE_KEY).commit()
+        AuraVault.clearHistory(appContext) == "History cleared" &&
+            preferences.edit().remove(HISTORY_KEY).remove(BASELINE_KEY).commit()
     }.getOrDefault(false)
 
     private fun baselineToJson(value: AuraBaseline) = JSONObject().apply {
