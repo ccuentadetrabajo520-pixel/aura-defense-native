@@ -18,11 +18,13 @@ import java.net.InetAddress
 import java.net.SocketTimeoutException
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
+import com.aura.defense.threats.ThreatIntelligenceEngine
 
 class AuraVpnService : VpnService() {
     private var tunnel: ParcelFileDescriptor? = null
     private var packetThread: Thread? = null
     private val stopping = AtomicBoolean(false)
+    private var ThreatEngine: ThreatIntelligenceEngine? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
@@ -34,6 +36,7 @@ class AuraVpnService : VpnService() {
         startForeground(NOTIFICATION_ID, notification())
         VpnDebugger.log("✅ AURA VPN SERVICE INICIADO")
         ThreatFeedManager.init(this)
+        ThreatEngine = ThreatIntelligenceEngine(this)
         establishVpn()
         return START_NOT_STICKY
     }
@@ -80,6 +83,7 @@ class AuraVpnService : VpnService() {
         runCatching { tunnel?.close() }
         tunnel = null
         packetThread?.interrupt()
+        ThreatFeedManager.shutdown()
         packetThread = null
         stopForeground(true)
         stopSelf()
@@ -110,8 +114,9 @@ class AuraVpnService : VpnService() {
             val domain = domainBuilder.toString().lowercase(Locale.ROOT).removeSuffix(".")
             VpnDebugger.log("DNS: $domain")
 
-            if (ThreatFeedManager.isBlocked(domain)) {
-                VpnDebugger.log("BLOCKED! $domain")
+            val bridgeResult = ThreatBridge.enrichDomainCheck(domain, ThreatEngine)
+            if (bridgeResult.blocked) {
+                VpnDebugger.log("BLOCKED! domain [${bridgeResult.source}${bridgeResult.category?.let { " / $it" } ?: ""}]")
                 val qBytes = packet.copyOfRange(ipHdrLen + 20, qEnd + 4)
                 val udpLen = 8 + 12 + qBytes.size
                 val newPkt = ByteArray(20 + udpLen)
@@ -143,7 +148,7 @@ class AuraVpnService : VpnService() {
                 vpnOutput.write(newPkt)
                 vpnOutput.flush()
                 DnsFirewallStore(this).recordBlocked(
-                    DnsBlockedEvent(domain, "MANUAL", "HIGH", System.currentTimeMillis())
+                    DnsBlockedEvent(domain, bridgeResult.source ?: "MANUAL", bridgeResult.severity ?: "HIGH", System.currentTimeMillis())
                 )
                 return true
             }
