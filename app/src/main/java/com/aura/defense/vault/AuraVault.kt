@@ -11,7 +11,7 @@ class AuraVault(context: Context) {
     private val cryptoHelper = CryptoHelper()
 
     fun isAvailable(): Boolean = runCatching {
-        encrypt("comprobación local")
+        cryptoHelper.getOrCreateMasterKey()
         true
     }.getOrDefault(false)
 

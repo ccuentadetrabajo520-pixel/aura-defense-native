@@ -57,7 +57,7 @@ fun AuraVaultDialog(context: Context, onDismiss: () -> Unit) {
         val content = historyStore.getEntries().joinToString("\n") { it.toJson() }
         message = when {
             content.isBlank() -> "No hay historial guardado."
-                vault.replaceSummary(content).also { if (it) vaultContent = content } -> "Reporte guardado en la bóveda."
+            vault.replaceSummary(content).also { if (it) vaultContent = content } -> "Reporte guardado en la bóveda."
             else -> "No se pudo acceder a la bóveda cifrada."
         }
     }) { Text("Guardar reporte en bóveda") } }, dismissButton = { TextButton(onClick = {
