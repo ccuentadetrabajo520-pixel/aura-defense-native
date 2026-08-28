@@ -87,6 +87,7 @@ class AuraVpnService : VpnService() {
 
     private fun handleDnsPacket(packet: ByteArray, length: Int, vpnOutput: FileOutputStream): Boolean {
         try {
+            if (ProfileManager.shouldBlockDueToProfile(this)) return false
             if (length < 40 || (packet[9].toInt() and 0xFF) != 17) return false
             val ipHdrLen = (packet[0].toInt() and 0x0F) * 4
             val dstPort = ((packet[ipHdrLen + 2].toInt() and 0xFF) shl 8) or

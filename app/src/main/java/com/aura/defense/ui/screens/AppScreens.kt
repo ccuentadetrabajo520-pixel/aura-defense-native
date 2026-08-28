@@ -65,6 +65,7 @@ import com.aura.defense.lan.AuraLanPeer
 import com.aura.defense.vpn.DnsBlockedEvent
 import com.aura.defense.vpn.DnsFirewallProfile
 import com.aura.defense.vpn.VpnDebugger
+import com.aura.defense.vpn.ProfileManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -203,40 +204,42 @@ fun DefenseScreen(
                     )
                 }
                 if (blockedDomains.isEmpty()) Text("Todavía no se han bloqueado dominios.", color = AuraMuted, fontSize = 12.sp)
-                var allowlistInput by remember { mutableStateOf("") }
-                OutlinedTextField(
+                if (!ProfileManager.isFamilyModeEnabled) {
+                    var allowlistInput by remember { mutableStateOf("") }
+                    OutlinedTextField(
                     value = allowlistInput,
                     onValueChange = { allowlistInput = it },
                     singleLine = true,
                     label = { Text("Dominio permitido") },
                     modifier = Modifier.fillMaxWidth()
                 )
-                TextButton(onClick = {
+                    TextButton(onClick = {
                     onAllowlistAdd(allowlistInput)
                     allowlistInput = ""
-                }) { Text("Añadir a la lista de permitidos") }
-                allowlistedDomains.forEach { domain ->
-                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(domain, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
-                        TextButton(onClick = { onAllowlistRemove(domain) }) { Text("Quitar") }
+                    }) { Text("Añadir a la lista de permitidos") }
+                    allowlistedDomains.forEach { domain ->
+                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(domain, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
+                            TextButton(onClick = { onAllowlistRemove(domain) }) { Text("Quitar") }
+                        }
                     }
-                }
-                var blocklistInput by remember { mutableStateOf("") }
-                OutlinedTextField(
+                    var blocklistInput by remember { mutableStateOf("") }
+                    OutlinedTextField(
                     value = blocklistInput,
                     onValueChange = { blocklistInput = it },
                     singleLine = true,
                     label = { Text("Dominio bloqueado") },
                     modifier = Modifier.fillMaxWidth()
                 )
-                TextButton(onClick = {
+                    TextButton(onClick = {
                     onBlocklistAdd(blocklistInput)
                     blocklistInput = ""
-                }) { Text("Añadir a la lista de bloqueados") }
-                blockedManuallyDomains.forEach { domain ->
-                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(domain, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
-                        TextButton(onClick = { onBlocklistRemove(domain) }) { Text("Quitar") }
+                    }) { Text("Añadir a la lista de bloqueados") }
+                    blockedManuallyDomains.forEach { domain ->
+                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(domain, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
+                            TextButton(onClick = { onBlocklistRemove(domain) }) { Text("Quitar") }
+                        }
                     }
                 }
             }

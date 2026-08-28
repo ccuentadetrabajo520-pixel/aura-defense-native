@@ -102,6 +102,7 @@ import com.aura.defense.vpn.AuraVpnService
 import com.aura.defense.vpn.DnsBlockedEvent
 import com.aura.defense.vpn.DnsFirewallProfile
 import com.aura.defense.vpn.DnsFirewallStore
+import com.aura.defense.vpn.ProfileManager
 
 class MainActivity : ComponentActivity() {
     private val vpnPermissionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -233,6 +234,8 @@ private fun AuraDefenseApp(
     var emergencyResult by remember { mutableStateOf<EmergencyModeResult?>(null) }
     var isVpnRunning by remember { mutableStateOf(isAuraVpnActive(context)) }
     var vpnPermissionError by remember { mutableStateOf(false) }
+    var familyModeEnabled by remember { mutableStateOf(ProfileManager.isFamilyModeEnabled) }
+    var cellularDataBlocked by remember { mutableStateOf(ProfileManager.blockCellularData) }
     val dnsFirewallStore = remember { DnsFirewallStore(context) }
     var dnsProfile by remember { mutableStateOf(dnsFirewallStore.profile()) }
     var blockedDns by remember { mutableStateOf<List<DnsBlockedEvent>>(dnsFirewallStore.blockedEvents()) }
@@ -363,7 +366,17 @@ private fun AuraDefenseApp(
                 AuraTopBar(
                     auraId = auraId,
                     onAuraIdClick = { showAuraIdDialog = true },
-                    onSettingsClick = { showAuraCenter = true }
+                    onSettingsClick = { showAuraCenter = true },
+                    familyModeEnabled = familyModeEnabled,
+                    cellularDataBlocked = cellularDataBlocked,
+                    onFamilyModeToggle = {
+                        familyModeEnabled = !familyModeEnabled
+                        ProfileManager.isFamilyModeEnabled = familyModeEnabled
+                    },
+                    onCellularDataToggle = {
+                        cellularDataBlocked = !cellularDataBlocked
+                        ProfileManager.blockCellularData = cellularDataBlocked
+                    }
                 )
             }
         },

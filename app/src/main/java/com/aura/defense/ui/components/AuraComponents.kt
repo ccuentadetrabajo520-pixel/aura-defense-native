@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -50,7 +51,15 @@ import com.aura.defense.ui.AuraSurfaceRaised
 import com.aura.defense.util.formatBytes
 
 @Composable
-fun AuraTopBar(auraId: String, onAuraIdClick: () -> Unit, onSettingsClick: () -> Unit) {
+fun AuraTopBar(
+    auraId: String,
+    onAuraIdClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    familyModeEnabled: Boolean,
+    cellularDataBlocked: Boolean,
+    onFamilyModeToggle: () -> Unit,
+    onCellularDataToggle: () -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -60,7 +69,18 @@ fun AuraTopBar(auraId: String, onAuraIdClick: () -> Unit, onSettingsClick: () ->
             Text("AURA / DEFENSA", color = AuraCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
             Text("Defensa móvil privada", color = AuraMuted, fontSize = 12.sp)
         }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(horizontalAlignment = Alignment.End) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Familia", color = AuraMuted, fontSize = 11.sp)
+                Switch(checked = familyModeEnabled, onCheckedChange = { onFamilyModeToggle() })
+            }
+            if (!familyModeEnabled) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Bloquear móvil", color = AuraMuted, fontSize = 11.sp)
+                    Switch(checked = cellularDataBlocked, onCheckedChange = { onCellularDataToggle() })
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Surface(
                 modifier = Modifier.clickable(onClick = onAuraIdClick),
                 shape = RoundedCornerShape(50),
@@ -71,6 +91,7 @@ fun AuraTopBar(auraId: String, onAuraIdClick: () -> Unit, onSettingsClick: () ->
             }
             IconButton(onClick = onSettingsClick, modifier = Modifier.size(44.dp)) {
                 Text("⚙", color = AuraCyan, fontSize = 20.sp, maxLines = 1)
+            }
             }
         }
     }
