@@ -17,15 +17,24 @@ object ProfileManager {
             .getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
     }
 
+    private var familyModeValue: Boolean? = null
+    private var cellularDataValue: Boolean? = null
+
     var isFamilyModeEnabled: Boolean
-        get() = preferences.getBoolean(FAMILY_MODE_KEY, false)
+        get() = familyModeValue ?: preferences.getBoolean(FAMILY_MODE_KEY, false).also {
+            familyModeValue = it
+        }
         set(value) {
+            familyModeValue = value
             preferences.edit().putBoolean(FAMILY_MODE_KEY, value).apply()
         }
 
     var blockCellularData: Boolean
-        get() = preferences.getBoolean(BLOCK_CELLULAR_DATA_KEY, false)
+        get() = cellularDataValue ?: preferences.getBoolean(BLOCK_CELLULAR_DATA_KEY, false).also {
+            cellularDataValue = it
+        }
         set(value) {
+            cellularDataValue = value
             preferences.edit().putBoolean(BLOCK_CELLULAR_DATA_KEY, value).apply()
         }
 
@@ -37,6 +46,8 @@ object ProfileManager {
 
     fun reset() {
         preferences.edit().clear().apply()
+        familyModeValue = false
+        cellularDataValue = false
     }
 
     @android.annotation.SuppressLint("DEPRECATION")
