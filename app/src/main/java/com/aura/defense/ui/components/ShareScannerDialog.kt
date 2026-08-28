@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.aura.defense.tools.LinkAnalysis
 import com.aura.defense.tools.LinkAnalyzer
 import com.aura.defense.tools.LinkRisk
+import com.aura.defense.security.SocialEngineDetector
 
 @Composable
 fun ShareScannerDialog(text: String, onAnalyses: (List<LinkAnalysis>) -> Unit, onDismiss: () -> Unit) {
@@ -39,8 +40,9 @@ fun ShareScannerDialog(text: String, onAnalyses: (List<LinkAnalysis>) -> Unit, o
                     Text("Enlaces detectados", color = Color(0xFF62E6D5), fontSize = 15.sp)
                     analyses.forEach { analysis ->
                         Text(analysis.url, color = Color(0xFFA9C2C0), fontSize = 12.sp)
-                        Text("Resultado: ${analysis.risk.toSpanish()}", color = analysis.risk.color(), fontSize = 14.sp)
-                        analysis.reasons.forEach { Text("• $it", color = Color(0xFF8BA6A4), fontSize = 12.sp) }
+                        val result = SocialEngineDetector.analyze(analysis.url)
+                        Text("Resultado: ${result.level} (${result.score}/100)", color = result.level.color(), fontSize = 14.sp)
+                        Text(result.reason, color = Color(0xFF8BA6A4), fontSize = 12.sp)
                     }
                 }
             }
@@ -55,14 +57,8 @@ private fun extractUrls(text: String): List<String> = Regex("https?://[^\\s<>\\\
     .distinct()
     .toList()
 
-private fun LinkRisk.toSpanish() = when (this) {
-    LinkRisk.SEGURO -> "Seguro"
-    LinkRisk.SOSPECHOSO -> "Sospechoso"
-    LinkRisk.PELIGROSO -> "Peligroso"
-}
-
-private fun LinkRisk.color() = when (this) {
-    LinkRisk.SEGURO -> Color(0xFF8CE6A0)
-    LinkRisk.SOSPECHOSO -> Color(0xFFFFC66D)
-    LinkRisk.PELIGROSO -> Color(0xFFFF8A86)
+private fun String.color() = when (this) {
+    "Critical", "High" -> Color(0xFFFF8A86)
+    "Medium" -> Color(0xFFFFC66D)
+    else -> Color(0xFF8CE6A0)
 }

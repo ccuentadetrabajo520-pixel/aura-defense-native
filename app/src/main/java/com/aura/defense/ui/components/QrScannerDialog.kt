@@ -53,6 +53,8 @@ import androidx.core.content.ContextCompat
 import com.aura.defense.tools.LinkAnalysis
 import com.aura.defense.tools.LinkAnalyzer
 import com.aura.defense.tools.LinkRisk
+import com.aura.defense.security.SocialEngineDetector
+import com.aura.defense.security.ThreatAnalysis
 import com.aura.defense.ui.AuraAmber
 import com.aura.defense.ui.AuraGreen
 import com.aura.defense.ui.AuraMuted
@@ -105,24 +107,25 @@ fun QrScannerDialog(onAnalysis: (LinkAnalysis) -> Unit, onDismiss: () -> Unit) {
                 } else {
                     val value = detectedValue.orEmpty()
                     val url = value.takeIf(::isUrl)
+                    var analysis by remember(value) { mutableStateOf<ThreatAnalysis?>(null) }
                     Text("Código detectado", color = Color(0xFF00E5FF), fontSize = 12.sp)
                     ResultCard(if (url != null) "Enlace detectado" else "Texto detectado", Color(0xFF00E5FF)) {
                         Text(value, maxLines = 3, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
                     }
                     if (url != null) {
-                        var analysis by remember(url) { mutableStateOf<LinkAnalysis?>(null) }
                         TextButton(onClick = {
-                            analysis = LinkAnalyzer(context).analyze(url)
-                            analysis?.let(onAnalysis)
+                            analysis = SocialEngineDetector.analyze(value)
+                            onAnalysis(LinkAnalyzer(context).analyze(url))
                         }) { Text("Analizar enlace") }
+                    } else {
+                        TextButton(onClick = { analysis = SocialEngineDetector.analyze(value) }) { Text("Analizar contenido") }
+                    }
                         analysis?.let { result ->
-                            ResultCard("Resultado: ${result.risk.toSpanish()}", result.risk.color()) {
-                                Text("Razones", color = AuraMuted, fontSize = 11.sp)
-                                result.reasons.forEach { Text("• $it", color = AuraMuted, fontSize = 12.sp) }
+                            ResultCard("Resultado: ${result.level} (${result.score}/100)", socialLevelColor(result.level)) {
+                                Text(result.reason, color = AuraMuted, fontSize = 12.sp)
                                 Text("No abrir automáticamente", color = AuraMuted, fontSize = 11.sp)
                             }
                         }
-                    }
                 }
             }
         },
@@ -255,4 +258,10 @@ private fun LinkRisk.color() = when (this) {
     LinkRisk.SEGURO -> AuraGreen
     LinkRisk.SOSPECHOSO -> AuraAmber
     LinkRisk.PELIGROSO -> AuraRed
+}
+
+private fun socialLevelColor(level: String) = when (level) {
+    "Critical", "High" -> AuraRed
+    "Medium" -> AuraAmber
+    else -> AuraGreen
 }

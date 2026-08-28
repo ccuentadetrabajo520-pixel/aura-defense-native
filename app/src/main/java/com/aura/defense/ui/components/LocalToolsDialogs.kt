@@ -26,6 +26,7 @@ import com.aura.defense.tools.LinkAnalysis
 import com.aura.defense.tools.LinkRisk
 import com.aura.defense.tools.PasswordAudit
 import com.aura.defense.tools.PasswordStrength
+import com.aura.defense.security.SocialEngineDetector
 import com.aura.defense.ui.AuraCyan
 import com.aura.defense.ui.AuraMuted
 
@@ -39,8 +40,9 @@ fun LinkAnalyzerDialog(onAnalysis: (LinkAnalysis) -> Unit, onDismiss: () -> Unit
             Text("El análisis se realiza solo en este dispositivo. No se envía la URL.", color = AuraMuted, fontSize = 12.sp)
             OutlinedTextField(value = value, onValueChange = { value = it }, label = { Text("URL") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             analysis?.let { result ->
-                Text("Resultado: ${result.risk.toSpanish()}", color = when (result.risk) { LinkRisk.SEGURO -> Color(0xFF8CE6A0); LinkRisk.SOSPECHOSO -> Color(0xFFFFC66D); LinkRisk.PELIGROSO -> Color(0xFFFF8A86) }, fontSize = 17.sp)
-                result.reasons.forEach { Text("• $it", color = AuraMuted, fontSize = 12.sp) }
+                val socialResult = SocialEngineDetector.analyze(result.url)
+                Text("Resultado: ${socialResult.level} (${socialResult.score}/100)", color = when (socialResult.level) { "Critical", "High" -> Color(0xFFFF8A86); "Medium" -> Color(0xFFFFC66D); else -> Color(0xFF8CE6A0) }, fontSize = 17.sp)
+                Text(socialResult.reason, color = AuraMuted, fontSize = 12.sp)
             }
         }
     }, confirmButton = { TextButton(onClick = { val result = com.aura.defense.tools.LinkAnalyzer(context).analyze(value); analysis = result; onAnalysis(result) }) { Text("Analizar") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } })
