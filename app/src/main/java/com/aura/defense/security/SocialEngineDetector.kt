@@ -1,6 +1,7 @@
 package com.aura.defense.security
 
 import com.aura.defense.vpn.ThreatFeedManager
+import com.aura.defense.vpn.VpnDebugger
 import java.net.URL
 import java.net.URLDecoder
 
@@ -12,7 +13,7 @@ data class ThreatAnalysis(
 
 object SocialEngineDetector {
     private val manipulationKeywords = listOf(
-        "urgent", "verify your account", "account suspended", "blocked",
+        "urgent", "urgente", "verify your account", "account suspended", "suspendida", "blocked",
         "negative balance", "prize", "win", "click here", "download now",
         "secure", "mandatory update", "confidential information", "fraud",
         "recover access", "last chance", "expires", "verification required",
@@ -51,6 +52,7 @@ object SocialEngineDetector {
         var matchCount = 0
         for (keyword in manipulationKeywords) {
             if (text.contains(keyword)) {
+                VpnDebugger.log("🎯 Manipulación detectada: $keyword")
                 matchCount++
                 if (matchCount <= 2) reasons.add("Contains urgency/manipulation language: '$keyword'")
             }

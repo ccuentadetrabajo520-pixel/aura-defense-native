@@ -26,6 +26,7 @@ fun ShareScannerDialog(text: String, onAnalyses: (List<LinkAnalysis>) -> Unit, o
     val analyses = remember(text) {
         extractUrls(text).map { LinkAnalyzer(context).analyze(it) }
     }
+    val socialAnalysis = remember(text) { SocialEngineDetector.analyze(text) }
     androidx.compose.runtime.LaunchedEffect(analyses) { onAnalyses(analyses) }
     AuraHudDialog(
         onDismissRequest = onDismiss,
@@ -40,9 +41,8 @@ fun ShareScannerDialog(text: String, onAnalyses: (List<LinkAnalysis>) -> Unit, o
                     Text("Enlaces detectados", color = Color(0xFF62E6D5), fontSize = 15.sp)
                     analyses.forEach { analysis ->
                         Text(analysis.url, color = Color(0xFFA9C2C0), fontSize = 12.sp)
-                        val result = SocialEngineDetector.analyze(analysis.url)
-                        Text("Resultado: ${result.level} (${result.score}/100)", color = result.level.color(), fontSize = 14.sp)
-                        Text(result.reason, color = Color(0xFF8BA6A4), fontSize = 12.sp)
+                        Text("Resultado: ${socialAnalysis.level} (${socialAnalysis.score}/100)", color = socialAnalysis.level.color(), fontSize = 14.sp)
+                        Text(socialAnalysis.reason, color = Color(0xFF8BA6A4), fontSize = 12.sp)
                     }
                 }
             }
