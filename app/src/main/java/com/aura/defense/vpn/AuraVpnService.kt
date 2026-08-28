@@ -33,6 +33,7 @@ class AuraVpnService : VpnService() {
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, notification())
         VpnDebugger.log("✅ AURA VPN SERVICE INICIADO")
+        ThreatFeedManager.init(this)
         establishVpn()
         return START_NOT_STICKY
     }
@@ -108,8 +109,7 @@ class AuraVpnService : VpnService() {
             val domain = domainBuilder.toString().lowercase(Locale.ROOT).removeSuffix(".")
             VpnDebugger.log("DNS: $domain")
 
-            val blockedList = DnsFirewallStore(this).blocklist()
-            if (blockedList.any { domain.contains(it) }) {
+            if (ThreatFeedManager.isBlocked(domain)) {
                 VpnDebugger.log("BLOCKED! $domain")
                 val qBytes = packet.copyOfRange(ipHdrLen + 20, qEnd + 4)
                 val udpLen = 8 + 12 + qBytes.size
