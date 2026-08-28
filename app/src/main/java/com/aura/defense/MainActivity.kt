@@ -119,7 +119,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         sharedText = extractSharedText(intent)
         sharedFile = extractSharedFile(intent)
-        ProfileManager.initialize(this)
+        ProfileManager.loadProfile(this)
         val preferences = AuraPreferences(this)
         setContent {
             AuraTheme {
@@ -372,11 +372,11 @@ private fun AuraDefenseApp(
                     cellularDataBlocked = cellularDataBlocked,
                     onFamilyModeToggle = {
                         familyModeEnabled = !familyModeEnabled
-                        ProfileManager.isFamilyModeEnabled = familyModeEnabled
+                        ProfileManager.setFamilyModeEnabled(context, familyModeEnabled)
                     },
                     onCellularDataToggle = {
                         cellularDataBlocked = !cellularDataBlocked
-                        ProfileManager.blockCellularData = cellularDataBlocked
+                        ProfileManager.setCellularDataBlocked(context, cellularDataBlocked)
                     }
                 )
             }

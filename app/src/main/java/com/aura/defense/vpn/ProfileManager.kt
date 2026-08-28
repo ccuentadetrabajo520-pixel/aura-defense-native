@@ -10,49 +10,46 @@ object ProfileManager {
     private const val FAMILY_MODE_KEY = "is_family_mode_enabled"
     private const val BLOCK_CELLULAR_DATA_KEY = "block_cellular_data"
 
-    private var appContext: Context? = null
+    private lateinit var appContext: Context
 
     private val preferences by lazy {
-        requireNotNull(appContext) { "ProfileManager must be initialized with a Context" }
-            .getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+        appContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
     }
 
-    private var familyModeValue: Boolean? = null
-    private var cellularDataValue: Boolean? = null
+    var isFamilyModeEnabled: Boolean = false
+        private set
 
-    var isFamilyModeEnabled: Boolean
-        get() = familyModeValue ?: preferences.getBoolean(FAMILY_MODE_KEY, false).also {
-            familyModeValue = it
-        }
-        set(value) {
-            familyModeValue = value
-            preferences.edit().putBoolean(FAMILY_MODE_KEY, value).apply()
-        }
+    var blockCellularData: Boolean = false
+        private set
 
-    var blockCellularData: Boolean
-        get() = cellularDataValue ?: preferences.getBoolean(BLOCK_CELLULAR_DATA_KEY, false).also {
-            cellularDataValue = it
-        }
-        set(value) {
-            cellularDataValue = value
-            preferences.edit().putBoolean(BLOCK_CELLULAR_DATA_KEY, value).apply()
-        }
-
-    fun initialize(context: Context) {
-        if (appContext == null) {
-            appContext = context.applicationContext
-        }
+    fun loadProfile(context: Context) {
+        appContext = context.applicationContext
+        isFamilyModeEnabled = preferences.getBoolean(FAMILY_MODE_KEY, false)
+        blockCellularData = preferences.getBoolean(BLOCK_CELLULAR_DATA_KEY, false)
     }
 
-    fun reset() {
+    fun setFamilyModeEnabled(context: Context, value: Boolean) {
+        loadProfile(context)
+        isFamilyModeEnabled = value
+        preferences.edit().putBoolean(FAMILY_MODE_KEY, value).apply()
+    }
+
+    fun setCellularDataBlocked(context: Context, value: Boolean) {
+        loadProfile(context)
+        blockCellularData = value
+        preferences.edit().putBoolean(BLOCK_CELLULAR_DATA_KEY, value).apply()
+    }
+
+    fun reset(context: Context) {
+        loadProfile(context)
         preferences.edit().clear().apply()
-        familyModeValue = false
-        cellularDataValue = false
+        isFamilyModeEnabled = false
+        blockCellularData = false
     }
 
     @android.annotation.SuppressLint("DEPRECATION")
     fun shouldBlockDueToProfile(context: Context): Boolean {
-        initialize(context)
+        loadProfile(context)
         if (!blockCellularData) return false
 
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
