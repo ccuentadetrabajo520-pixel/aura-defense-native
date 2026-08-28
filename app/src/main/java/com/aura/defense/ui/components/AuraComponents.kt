@@ -36,7 +36,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
@@ -46,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import com.aura.defense.ui.AuraAmber
 import com.aura.defense.ui.AuraCyan
 import com.aura.defense.ui.AuraMuted
+import com.aura.defense.ui.AuraSpacing
 import com.aura.defense.ui.AuraSurface
 import com.aura.defense.ui.AuraSurfaceRaised
 import com.aura.defense.util.formatBytes
@@ -118,17 +122,30 @@ fun AuraBottomNav(selected: Int, onSelected: (Int) -> Unit) {
 
 @Composable
 fun Panel(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Surface(modifier = modifier, color = AuraSurface, shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, Color.White.copy(alpha = 0.06f))) {
-        content()
+    Surface(
+        modifier = modifier,
+        color = AuraSurface,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.1f))
+    ) {
+        Box {
+            content()
+            Canvas(Modifier.fillMaxSize().align(Alignment.TopStart)) {
+                drawRect(
+                    Brush.verticalGradient(listOf(AuraCyan.copy(alpha = 0.06f), Color.Transparent)),
+                    size = Size(size.width, 1.dp.toPx())
+                )
+            }
+        }
     }
 }
 
 @Composable
 fun SectionTitle(eyebrow: String, title: String, detail: String? = null) {
-    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        Text(eyebrow, color = AuraCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
-        Text(title, color = MaterialTheme.colorScheme.onBackground, fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
-        detail?.let { Text(it, color = AuraMuted, fontSize = 13.sp) }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(eyebrow, color = AuraCyan, style = MaterialTheme.typography.labelSmall)
+        Text(title, style = MaterialTheme.typography.headlineMedium)
+        if (detail != null) Text(detail, color = AuraMuted, style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -145,18 +162,47 @@ fun StatusDot(color: Color, label: String, value: String) {
 
 @Composable
 fun Metric(label: String, value: String, color: Color = AuraCyan) {
-    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        Text(label, color = AuraMuted, fontSize = 11.sp)
-        Text(value, color = color, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    Surface(
+        color = Color.Transparent,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(0.5.dp, color.copy(alpha = 0.15f)),
+        modifier = Modifier.padding(AuraSpacing.sm)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(label, color = AuraMuted, style = MaterialTheme.typography.bodySmall)
+            Text(value, color = color, style = MaterialTheme.typography.headlineLarge)
+        }
     }
 }
 
 @Composable
-fun ActionButton(label: String, onClick: () -> Unit, outlined: Boolean = false) {
+fun ActionButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, outlined: Boolean = false) {
     if (outlined) {
-        OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(10.dp)) { Text(label) }
+        OutlinedButton(
+            onClick = onClick,
+            modifier = modifier.height(50.dp).fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, AuraCyan.copy(alpha = 0.3f)),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = AuraCyan)
+        ) {
+            Text(label, style = MaterialTheme.typography.labelLarge)
+        }
     } else {
-        Button(onClick = onClick, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = AuraCyan)) { Text(label, fontWeight = FontWeight.Bold) }
+        Button(
+            onClick = onClick,
+            modifier = modifier.height(50.dp).fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = AuraCyan.copy(alpha = 0.12f),
+                contentColor = AuraCyan
+            ),
+            border = BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.35f))
+        ) {
+            Text(label, style = MaterialTheme.typography.labelLarge)
+        }
     }
 }
 
@@ -243,30 +289,63 @@ fun PostureSummaryDialog(result: com.aura.defense.security.PostureResult, onFind
 }
 
 @Composable
-fun RadarCanvas(modifier: Modifier = Modifier, score: Int = 60) {
-    val pulse = remember { androidx.compose.animation.core.Animatable(0.82f) }
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        pulse.animateTo(1.12f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1600), androidx.compose.animation.core.RepeatMode.Reverse))
-    }
-    Canvas(modifier) {
-        val center = Offset(size.width / 2f, size.height / 2f)
-        val radius = size.minDimension * 0.36f
-        listOf(0.38f, 0.68f, 1f).forEach { factor -> drawCircle(AuraCyan.copy(alpha = 0.16f), radius * factor, center, style = Stroke(1.dp.toPx())) }
-        drawLine(AuraCyan.copy(alpha = 0.25f), Offset(center.x - radius, center.y), Offset(center.x + radius, center.y), strokeWidth = 1.dp.toPx())
-        drawLine(AuraCyan.copy(alpha = 0.25f), Offset(center.x, center.y - radius), Offset(center.x, center.y + radius), strokeWidth = 1.dp.toPx())
-        val tone = if (score >= 85) com.aura.defense.ui.AuraGreen else if (score >= 60) AuraAmber else com.aura.defense.ui.AuraRed
-        drawCircle(tone.copy(alpha = 0.16f), radius * pulse.value, center, style = Stroke(2.dp.toPx()))
-        drawCircle(tone, radius * 0.11f, center)
+fun RadarCanvas(score: Int, modifier: Modifier = Modifier) {
+    val blink = rememberInfiniteTransition(label = "blink").animateFloat(
+        0.3f,
+        1f,
+        infiniteRepeatable(tween(1200), RepeatMode.Reverse),
+        label = "b"
+    )
+    val scoreColor = if (score >= 85) com.aura.defense.ui.AuraGreen else if (score >= 60) AuraAmber else com.aura.defense.ui.AuraRed
+    Canvas(modifier = modifier) {
+        val c = Offset(size.width / 2f, size.height / 2f)
+        val br = size.minDimension * 0.42f
+        listOf(0.4f, 0.7f, 1f).zip(listOf(0.16f, 0.1f, 0.06f)).forEach { (f, a) ->
+            drawCircle(scoreColor.copy(alpha = a), br * f, c, style = Stroke(0.8.dp.toPx()))
+        }
+        drawLine(AuraCyan.copy(alpha = 0.06f), Offset(c.x - br, c.y), Offset(c.x + br, c.y), 0.5.dp.toPx())
+        drawLine(AuraCyan.copy(alpha = 0.06f), Offset(c.x, c.y - br), Offset(c.x, c.y + br), 0.5.dp.toPx())
+        drawCircle(scoreColor.copy(alpha = 0.15f), br * 0.18f, c)
+        drawCircle(scoreColor.copy(alpha = blink.value * 0.9f), br * 0.08f, c)
+        listOf(
+            Offset(c.x + br * 0.55f, c.y - br * 0.3f),
+            Offset(c.x - br * 0.4f, c.y + br * 0.5f),
+            Offset(c.x + br * 0.2f, c.y + br * 0.6f)
+        ).forEach { point ->
+            drawCircle(AuraCyan.copy(alpha = blink.value * 0.4f), 2.dp.toPx(), point)
+        }
     }
 }
 
 @Composable
 fun TacticalMap(modifier: Modifier = Modifier) {
-    Canvas(modifier.border(1.dp, AuraCyan.copy(alpha = 0.18f), RoundedCornerShape(16.dp))) {
-        val step = 34.dp.toPx()
+    val pulse = rememberInfiniteTransition(label = "tp").animateFloat(
+        0.3f,
+        1f,
+        infiniteRepeatable(tween(2000), RepeatMode.Reverse),
+        label = "t"
+    )
+    Canvas(modifier) {
+        val sp = 34.dp.toPx()
+        val dash = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 6.dp.toPx()))
+        val gc = AuraCyan.copy(alpha = 0.06f)
         var x = 0f
-        while (x < size.width) { drawLine(Color(0xFF1E4A50).copy(alpha = 0.45f), Offset(x, 0f), Offset(x, size.height)); x += step }
+        while (x < size.width) {
+            drawLine(gc, Offset(x, 0f), Offset(x, size.height), 0.5.dp.toPx(), pathEffect = dash)
+            x += sp
+        }
         var y = 0f
-        while (y < size.height) { drawLine(Color(0xFF1E4A50).copy(alpha = 0.45f), Offset(0f, y), Offset(size.width, y)); y += step }
+        while (y < size.height) {
+            drawLine(gc, Offset(0f, y), Offset(size.width, y), 0.5.dp.toPx(), pathEffect = dash)
+            y += sp
+        }
+        listOf(
+            Offset(size.width * 0.3f, size.height * 0.4f),
+            Offset(size.width * 0.7f, size.height * 0.3f),
+            Offset(size.width * 0.5f, size.height * 0.7f)
+        ).forEach { point ->
+            drawCircle(AuraGreen.copy(alpha = pulse.value * 0.5f), 5.dp.toPx(), point)
+            drawCircle(AuraGreen.copy(alpha = pulse.value * 0.15f), 12.dp.toPx(), point)
+        }
     }
 }
