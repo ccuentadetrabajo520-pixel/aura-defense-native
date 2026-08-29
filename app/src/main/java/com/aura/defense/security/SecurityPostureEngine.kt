@@ -81,8 +81,8 @@ class SecurityPostureEngine {
     }
 
     private fun patchAgeInDays(value: String): Long? = runCatching {
-        if (value == "No disponible") return null
-        val date = LocalDate.parse(value, DateTimeFormatter.ISO_DATE)
-        Period.between(date, LocalDate.now()).days.toLong() + Period.between(date, LocalDate.now()).months * 30L + Period.between(date, LocalDate.now()).years * 365L
+                if (value == "No disponible") return null
+                        val date = LocalDate.parse(value, DateTimeFormatter.ISO_DATE)
+                                java.time.temporal.ChronoUnit.DAYS.between(date, LocalDate.now())
     }.getOrNull()
-}
+
