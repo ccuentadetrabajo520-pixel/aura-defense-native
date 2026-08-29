@@ -3,6 +3,7 @@ package com.aura.defense.vault
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.security.keystore.UserNotAuthenticatedException
 import android.util.Base64
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -22,7 +23,8 @@ object AuraVault {
             keyGenerator.init(KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                .setUserAuthenticationRequired(false)
+                .setUserAuthenticationRequired(true)
+                .setUserAuthenticationValidityDurationSeconds(300)
                 .build())
             keyGenerator.generateKey()
         }
@@ -45,6 +47,8 @@ object AuraVault {
             check(context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
                 .putString(KEY_DATA, combined).commit())
             "Successfully saved"
+        } catch (e: UserNotAuthenticatedException) {
+            "Autenticación requerida. Desbloquea tu dispositivo."
         } catch (e: Exception) {
             "Error saving: ${e.message}"
         }
@@ -61,6 +65,8 @@ object AuraVault {
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.DECRYPT_MODE, keyStore.getKey(ALIAS, null), GCMParameterSpec(128, Base64.decode(parts[0], Base64.NO_WRAP)))
             String(cipher.doFinal(Base64.decode(parts[1], Base64.NO_WRAP)), Charsets.UTF_8)
+        } catch (e: UserNotAuthenticatedException) {
+            "Autenticación requerida. Desbloquea tu dispositivo."
         } catch (e: Exception) {
             "Error reading: ${e.message}"
         }
