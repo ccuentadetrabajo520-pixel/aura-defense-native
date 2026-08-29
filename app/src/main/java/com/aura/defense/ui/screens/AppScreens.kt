@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -155,13 +156,13 @@ fun AurasScreen(
                 Column(modifier = Modifier.padding(AuraSpacing.lg), verticalArrangement = Arrangement.spacedBy(AuraSpacing.sm)) {
                     SectionTitle("TENDENCIA", "Evolución del score", "Últimos ${historyEntries.takeLast(10).size} diagnósticos")
                     historyEntries.takeLast(10).forEach { entry ->
-                        val scoreColor = if (entry.score >= 85) AuraGreen else if (entry.score >= 60) AuraAmber else AuraRed
-                        Row(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.Center, horizontalArrangement = Arrangement.spacedBy(AuraSpacing.sm)) {
+                        val scoreColor = if (entry.postureResult.score >= 85) AuraGreen else if (entry.postureResult.score >= 60) AuraAmber else AuraRed
+                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AuraSpacing.sm)) {
                             Text(entry.timestamp.takeLast(5), color = AuraMuted, fontSize = 10.sp, modifier = Modifier.width(40.dp))
                             Surface(modifier = Modifier.height(14.dp).weight(1f), color = AuraSurfaceRaised, shape = RoundedCornerShape(3.dp)) {
-                                Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(entry.score / 100f).background(scoreColor.copy(alpha = 0.5f), RoundedCornerShape(3.dp)))
+                                Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(entry.postureResult.score / 100f).background(scoreColor.copy(alpha = 0.5f), RoundedCornerShape(3.dp)))
                             }
-                            Text("${entry.score}", color = scoreColor, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(28.dp))
+                            Text("${entry.postureResult.score}", color = scoreColor, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(28.dp))
                         }
                     }
                 }
@@ -379,7 +380,7 @@ private fun ScannerCanvas(modifier: Modifier, scanning: Boolean) {
 }
 
 @Composable
-private fun QuickAction(label: String, icon: String, onClick: () -> Unit) {
+private fun RowScope.QuickAction(label: String, icon: String, onClick: () -> Unit) {
     Surface(
         modifier = Modifier.weight(1f).fillMaxWidth(),
         color = AuraSurfaceRaised,

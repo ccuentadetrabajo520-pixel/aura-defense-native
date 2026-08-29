@@ -211,7 +211,7 @@ class AppScanner(private val context: Context) {
     private fun detectCloneApps(packageManager: PackageManager): List<String> {
         val installed = runCatching {
             val packages = runCatching {
-                packageManager.getInstalledPackages(PackageManager.GET_MATCH_DEFAULT_ONLY)
+                packageManager.getInstalledPackages(PackageManager.GET_PERMISSIONS)
             }.getOrElse {
                 @Suppress("DEPRECATION")
                 packageManager.getInstalledPackages(0)

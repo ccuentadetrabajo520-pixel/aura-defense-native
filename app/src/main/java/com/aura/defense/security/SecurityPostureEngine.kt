@@ -84,4 +84,5 @@ class SecurityPostureEngine {
                         val date = LocalDate.parse(value, DateTimeFormatter.ISO_DATE)
                                 java.time.temporal.ChronoUnit.DAYS.between(date, LocalDate.now())
     }.getOrNull()
+}
 

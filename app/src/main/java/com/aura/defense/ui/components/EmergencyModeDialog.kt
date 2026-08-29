@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import com.aura.defense.apps.AppScanResult
 import com.aura.defense.apps.InstalledAppInfo
 import com.aura.defense.guardian.AuraGuardianAssessment
+import com.aura.defense.guardian.toSpanish
 import com.aura.defense.security.PostureResult
 import com.aura.defense.ui.AuraCyan
 import com.aura.defense.ui.AuraMuted
