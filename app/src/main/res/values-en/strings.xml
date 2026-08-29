@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Aura Defense</string>
+    <string name="tagline">Private mobile defense</string>
+    <string name="tab_home">Home</string>
+    <string name="tab_auras">Auras</string>
+    <string name="tab_defense">Defense</string>
+    <string name="tab_apps">Apps</string>
+    <string name="panel_main">MAIN PANEL</string>
+    <string name="defense_center">Aura Defense Center</string>
+    <string name="panel_main_desc">Local device diagnosis and available signals.</string>
+    <string name="aura_score">AURA SCORE</string>
+    <string name="status">STATUS</string>
+    <string name="recent_changes">Recent changes: %1$d</string>
+    <string name="start_scan">Start scan</string>
+    <string name="open_vpn">Open Defense VPN</string>
+    <string name="emergency_mode">Emergency mode</string>
+    <string name="vpn">VPN</string>
+    <string name="dns">DNS</string>
+    <string name="risks">RISKS</string>
+    <string name="active">Active</string>
+    <string name="inactive">Inactive</string>
+    <string name="not_available">Not available</string>
+    <string name="protected">Protected</string>
+    <string name="partial">Partial</string>
+    <string name="high_risk">High risk</string>
+    <string name="close">Close</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="edit_aura_id">Edit Aura ID</string>
+    <string name="device_telemetry">Device Telemetry</string>
+    <string name="real_diagnosis">Real Diagnosis</string>
+    <string name="main_findings">Main findings</string>
+    <string name="no_risks_detected">No risk signals detected in the available checks.</string>
+    <string name="family_mode">Family</string>
+    <string name="block_mobile">Block mobile</string>
+    <string name="auth_required">Authentication required. Unlock your device.</string>
+    <string name="vpn_disconnected">VPN disconnected unexpectedly. Your traffic may not be protected. Reactivate it from the Defense tab.</string>
+    <string name="quick_qr">QR Anti-Phishing</string>
+    <string name="quick_link">Analyze link</string>
+    <string name="quick_history">History</string>
+    <string name="quick_firewall">DNS Firewall</string>
+</resources>
