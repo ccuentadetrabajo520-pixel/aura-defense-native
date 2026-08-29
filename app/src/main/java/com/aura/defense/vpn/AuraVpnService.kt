@@ -7,8 +7,8 @@ import android.content.Intent
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
-import android.util.Log
 import androidx.core.app.NotificationCompat
+import timber.log.Timber
 import com.aura.defense.R
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -206,7 +206,7 @@ class AuraVpnService : VpnService() {
         runCatching {
             DatagramSocket().use { socket ->
                 if (!protect(socket)) {
-                    Log.e(TAG, "No se pudo proteger el socket DNS")
+                    Timber.e("No se pudo proteger el socket DNS")
                     return@use
                 }
                 socket.soTimeout = DNS_TIMEOUT_MS
@@ -220,9 +220,9 @@ class AuraVpnService : VpnService() {
             }
         }.onFailure { error ->
             if (error is SocketTimeoutException) {
-                Log.w(TAG, "Tiempo de espera agotado para upstream DNS: $domain")
+                Timber.w("Tiempo de espera agotado para upstream DNS: $domain")
             } else {
-                Log.e(TAG, "Error de upstream DNS para $domain: ${error.message}", error)
+                Timber.e(error, "Error de upstream DNS para $domain: ${error.message}")
             }
         }
         val dnsResponse = upstreamResponse ?: return
