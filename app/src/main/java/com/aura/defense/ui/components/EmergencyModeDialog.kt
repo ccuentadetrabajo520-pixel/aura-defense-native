@@ -106,9 +106,3 @@ fun EmergencyModeDialog(
     )
 }
 
-private fun com.aura.defense.guardian.GuardianLevel.toSpanish() = when (this) {
-    com.aura.defense.guardian.GuardianLevel.TRANQUILO -> "Tranquilo"
-    com.aura.defense.guardian.GuardianLevel.ATENCION -> "Atención"
-    com.aura.defense.guardian.GuardianLevel.RIESGO_ALTO -> "Riesgo alto"
-    com.aura.defense.guardian.GuardianLevel.CRITICO -> "Crítico"
-}
