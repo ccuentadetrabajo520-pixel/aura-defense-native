@@ -159,7 +159,14 @@ class AppScanner(private val context: Context) {
     private fun isDangerous(permission: String): Boolean = permission in setOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS, Manifest.permission.READ_SMS, Manifest.permission.SEND_SMS, Manifest.permission.READ_PHONE_STATE, Manifest.permission.CALL_PHONE)
 
     private fun detectStalkerware(packageManager: PackageManager): List<String> {
+        val alerts = mutableListOf<String>()
         val flags = PackageManager.GET_PERMISSIONS
+        val suspiciousNames = listOf(
+            "spynote", "spy", "mspy", "mobistealth", "hoverwatch", "flexispy",
+            "thetruthspy", "stealthgenie", "xnspy", "kidlogger", "cocospy",
+            "neatspy", "spyzie", "trackview", "monitor", "stalker"
+        )
+
         val installed = runCatching {
             val packages = runCatching {
                 packageManager.getInstalledPackages(flags)
@@ -167,32 +174,38 @@ class AppScanner(private val context: Context) {
                 @Suppress("DEPRECATION")
                 packageManager.getInstalledPackages(0)
             }
-            packages.map { info ->
-                val pkg = info.packageName.lowercase(Locale.getDefault())
-                val label = info.applicationInfo?.loadLabel(packageManager)?.toString()?.lowercase(Locale.getDefault()).orEmpty()
-                pkg to label
-            }
+            packages
         }.getOrDefault(emptyList())
 
-        val suspiciousNames = listOf(
-            "spynote", "spy", "mspy", "mobistealth", "hoverwatch", "flexispy",
-            "thetruthspy", "stealthgenie", "xnspy", "kidlogger", "cocospy",
-            "neatspy", "spyzie", "trackview", "monitor", "stalker"
-        )
-
-        return installed.mapNotNull { (pkg, label) ->
-            val isStalkerware = suspiciousNames.any { token ->
-                pkg.contains(token) || label.contains(token)
+        installed.forEach { info ->
+            val appInfo = info.applicationInfo ?: return@forEach
+            val pkg = info.packageName
+            val label = appInfo.loadLabel(packageManager).toString()
+            val normalizedPkg = pkg.lowercase(Locale.getDefault())
+            val normalizedLabel = label.lowercase(Locale.getDefault())
+            val isUserApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0
+            val matchesHiddenName = suspiciousNames.any { token ->
+                normalizedPkg.contains(token) || normalizedLabel.contains(token)
             }
+            val isStalkerware = suspiciousNames.any { token ->
+                normalizedPkg.contains(token) || normalizedLabel.contains(token)
+            }
+
             if (isStalkerware) {
                 val appLabel = runCatching {
-                    packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString()
+                    appInfo.loadLabel(packageManager).toString()
                 }.getOrDefault(pkg)
-                "$appLabel ($pkg)"
-            } else {
-                null
+                alerts.add("$appLabel ($pkg)")
+            }
+
+            val noIcon = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0 && appInfo.icon == 0
+            val noLabel = appInfo.loadLabel(packageManager).toString().isBlank()
+            if (isUserApp && (noIcon && !matchesHiddenName)) {
+                alerts.add("${pkg} no tiene ícono ni nombre visible — patrón de app oculta")
             }
         }
+
+        return alerts.distinct()
     }
 
     private fun detectCloneApps(packageManager: PackageManager): List<String> {
