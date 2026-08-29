@@ -26,21 +26,24 @@ class HaveIBeenPwnedChecker(private val context: Context) {
                                             val sha1 = sha1Hash(password)
                                                         val prefix = sha1.substring(0, 5).uppercase()
                                                                     val suffix = sha1.substring(5).uppercase()
-                                                                                val url = URL("https://api.pwnedpasswords.com/range/$prefix")
-                                                                                            val connection = (url.openConnection() as HttpURLConnection).apply {
-                                                                                                                connectTimeout = 10_000
-                                                                                                                                readTimeout = 10_000
-                                                                                                                                                requestMethod = "GET"
-                                                                                                                                                                setRequestProperty("Add-Padding", "true")
-                                                                                                                                                                                setRequestProperty("User-Agent", "AuraDefense-Android")
-                                                                                            }
-                                                                                                        val response = connection.inputStream.bufferedReader().readText()
-                                                                                                                    connection.disconnect()
-                                                                                                                                val count = response.lineSequence().mapNotNull { line ->
-                                                                                                                                                val parts = line.split(":", limit = 2)
-                                                                                                                                                                if (parts.size == 2 && parts[0].trim() == suffix) parts[1].trim().toLongOrNull() ?: 0L else null
-                                                                                                                                                                            }.firstOrNull() ?: 0L
-                                                                                                                                                                                        BreachCheckResult(passwordMasked = maskPassword(password), breachCount = count, checkedAt = timestamp)
+                                                                                val urlObj = URL("https://api.pwnedpasswords.com/range/$prefix")
+                                                                                            val conn = urlObj.openConnection() as HttpURLConnection
+                                                                                                        conn.connectTimeout = 10000
+                                                                                                                    conn.readTimeout = 10000
+                                                                                                                                conn.requestMethod = "GET"
+                                                                                                                                            conn.setRequestProperty("Add-Padding", "true")
+                                                                                                                                                        conn.setRequestProperty("User-Agent", "AuraDefense-Android")
+                                                                                                                                                                    val response = conn.inputStream.bufferedReader().readText()
+                                                                                                                                                                                conn.disconnect()
+                                                                                                                                                                                            var count = 0L
+                                                                                                                                                                                                        for (line in response.lineSequence()) {
+                                                                                                                                                                                                                            val parts = line.split(":", limit = 2)
+                                                                                                                                                                                                                                            if (parts.size == 2 && parts[0].trim() == suffix) {
+                                                                                                                                                                                                                                                                    count = parts[1].trim().toLongOrNull() ?: 0L
+                                                                                                                                                                                                                                                                                        break
+                                                                                                                                                                                                                                            }
+                                                                                                                                                                                                        }
+                                                                                                                                                                                                                    BreachCheckResult(passwordMasked = maskPassword(password), breachCount = count, checkedAt = timestamp)
                             } catch (e: Exception) {
                                             Timber.e(e, "HIBP check failed")
                                                         BreachCheckResult(passwordMasked = maskPassword(password), breachCount = -1, checkedAt = timestamp, error = e.message)
@@ -49,18 +52,12 @@ class HaveIBeenPwnedChecker(private val context: Context) {
 
             private fun sha1Hash(input: String): String {
                         val digest = MessageDigest.getInstance("SHA-1")
-                                val hash = digest.digest(input.toByteArray(Charsets.UTF_8))
-                                        return hash.joinToString("") { "%02x".format(it) }
+                                val bytes = digest.digest(input.toByteArray(Charsets.UTF_8))
+                                        return bytes.joinToString("") { "%02x".format(it) }
             }
 
-                private fun maskPassword(password: String): String =
-                        if (password.length <= 2) "***" else password.first() + "*".repeat(password.length - 2) + password.last()
+                private fun maskPassword(password: String): String {
+                            if (password.length <= 2) return "***"
+                                    return password.first() + "*".repeat(password.length - 2) + password.last()
+                }
 }
-            }
-                            }
-                                                                                            }
-                            }
-        }
-}
-}
-)
