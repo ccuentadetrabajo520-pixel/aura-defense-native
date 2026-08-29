@@ -69,7 +69,6 @@ import com.aura.defense.ui.AuraBackground
 import com.aura.defense.ui.AuraTheme
 import com.aura.defense.ui.components.AuraBottomNav
 import com.aura.defense.ui.components.AuraCenterDialog
-import com.aura.defense.ui.components.AuraToolsHubDialog
 import com.aura.defense.ui.components.ThreatIntelligenceDialog
 import com.aura.defense.ui.components.AuraIdDialog
 import com.aura.defense.ui.components.AuraTopBar
@@ -208,7 +207,6 @@ private fun AuraDefenseApp(
     var showAuraIdDialog by remember { mutableStateOf(false) }
     var showTelemetry by remember { mutableStateOf(false) }
     var showSummary by remember { mutableStateOf(false) }
-    var showToolsHub by remember { mutableStateOf(false) }
     var moduleDialog by remember { mutableStateOf<Pair<String, String>?>(null) }
     var appScanResult by remember { mutableStateOf<AppScanResult?>(null) }
     var scanningApps by remember { mutableStateOf(false) }
@@ -418,8 +416,7 @@ private fun AuraDefenseApp(
                     onModuleDialog = { title, message -> moduleDialog = title to message },
                     onEmergency = {
                         runEmergencyMode()
-                    },
-                    onToolsHub = { showToolsHub = true }
+                    }
                 )
                 1 -> AurasScreen(
                     locationActive = locationActive,
@@ -730,15 +727,6 @@ private fun AuraDefenseApp(
             }
         )
     }
-    if (showToolsHub) {
-                       AuraToolsHubDialog(
-                                   onDismiss = { showToolsHub = false },
-                                              onIntegrityCheck = { showToolsHub = false },
-                                                         onSecurityCert = { showToolsHub = false },
-                                                                    onHibpCheck = { showToolsHub = false },
-                                                                               onPermissionAudit = { showToolsHub = false }
-                       )
-            }
     if (showSummary) {
         PostureSummaryDialog(
             result,
