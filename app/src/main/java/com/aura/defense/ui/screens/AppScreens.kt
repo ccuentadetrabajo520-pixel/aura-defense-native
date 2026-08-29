@@ -361,7 +361,7 @@ private fun ScannerCanvas(modifier: Modifier, scanning: Boolean) {
 }
 
 @Composable
-private fun QuickAction(label: String, icon: String, onClick: () -> Unit) {
+private fun RowScope.QuickAction(label: String, icon: String, onClick: () -> Unit) {
     Surface(
         modifier = Modifier.weight(1f).fillMaxWidth(),
         color = AuraSurfaceRaised,
