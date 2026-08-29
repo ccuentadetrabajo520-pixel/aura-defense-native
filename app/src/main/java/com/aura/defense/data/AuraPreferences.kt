@@ -23,6 +23,10 @@ class AuraPreferences(context: Context) {
             .onFailure { Log.e("AuraDefense", "No se pudo guardar el Aura ID", it) }
     }
 
+    fun hasCompletedOnboarding(): Boolean = prefs.getBoolean("onboarding_completed", false)
+
+    fun setOnboardingCompleted() = prefs.edit().putBoolean("onboarding_completed", true).apply()
+
     private companion object {
         const val NAME = "aura_defense_preferences"
         const val AURA_ID_KEY = "aura_id"
