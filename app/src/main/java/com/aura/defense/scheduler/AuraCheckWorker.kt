@@ -26,7 +26,7 @@ class AuraCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
             emptyList(),
             NotificationAlertStore(applicationContext).getAll()
         )
-        check(AuraVault.saveReport(applicationContext, "Fecha: ${finalPosture.timestamp}; Estado: ${finalPosture.status}; Puntuación: ${finalPosture.score}") == "Successfully saved")
+        runCatching { AuraVault.saveReport(applicationContext, "Fecha: ${finalPosture.timestamp}; Estado: ${finalPosture.status}; Puntuación: ${finalPosture.score}") }
         Result.success()
     }.getOrElse { Result.failure() }
 }
