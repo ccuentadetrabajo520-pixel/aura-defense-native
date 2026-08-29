@@ -53,7 +53,7 @@ fun AuraCoreIntro() {
                         val scan = tr.animateFloat(0f, 1f, infiniteRepeatable(tween(4000, easing = LinearEasing), RepeatMode.Restart), label = "l")
                             val titleA = remember { Animatable(0f) }
                                 val subA = remember { Animatable(0f) }
-                                    val ls = remember { Animatable(12.sp) }
+                                    val ls = remember { Animatable(12f) }
                                         val prog = remember { Animatable(0f) }
                                             LaunchedEffect(Unit) { delay(800); titleA.animateTo(1f, tween(2000)); ls.animateTo(6.sp, tween(2000)); delay(600); subA.animateTo(1f, tween(1500)); prog.animateTo(1f, tween(3000, easing = LinearEasing)) }
                                                 val particles = remember { List(25) { Particle(Random.nextFloat(), Random.nextFloat(), 0.0003f + Random.nextFloat() * 0.0008f, 1f + Random.nextFloat() * 2f, 0.2f + Random.nextFloat() * 0.5f) } }
@@ -65,7 +65,7 @@ fun AuraCoreIntro() {
                                                                 }
                                                                         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.align(Alignment.Center), verticalArrangement = Arrangement.Center) {
                                                                                         Spacer(Modifier.height(220.dp))
-                                                                                                    Text("AURA DEFENSE", style = MaterialTheme.typography.displayLarge, color = AuraCyan.copy(alpha = titleA.value), letterSpacing = ls.value, textAlign = TextAlign.Center)
+                                                                                                    Text("AURA DEFENSE", style = MaterialTheme.typography.displayLarge, color = AuraCyan.copy(alpha = titleA.value), letterSpacing = ls.value.sp, textAlign = TextAlign.Center)
                                                                                                                 Spacer(Modifier.height(10.dp))
                                                                                                                             Text("DEFENSA MÓVIL PRIVADA", style = MaterialTheme.typography.labelSmall, color = AuraTextSecondary.copy(alpha = subA.value), textAlign = TextAlign.Center)
                                                                         }
@@ -113,7 +113,7 @@ private fun DrawScope.drawRadar(cx: Float, cy: Float, r: Float, rot: Float, puls
                 drawLine(cc, Offset(cx - cl, cy), Offset(cx + cl, cy), 0.5.dp.toPx()); drawLine(cc, Offset(cx, cy - cl), Offset(cx, cy + cl), 0.5.dp.toPx())
                     val sr = Math.toRadians(rot.toDouble()); val ex = cx + r * cos(sr).toFloat(); val ey = cy + r * sin(sr).toFloat()
                         drawLine(AuraCyan.copy(alpha = 0.7f), Offset(cx, cy), Offset(ex, ey), 1.5.dp.toPx())
-                            drawArc(Brush.sweepGradient(listOf(AuraCyan.copy(alpha = 0.18f), AuraCyan.copy(alpha = 0f)), Offset(cx, cy)), rot - 45f, 90f, true, Offset(cx - r, cy - r), Size(r * 2, r * 2), alpha = 0.5f, blendMode = BlendMode.Add)
+                            drawArc(Brush.sweepGradient(listOf(AuraCyan.copy(alpha = 0.18f), AuraCyan.copy(alpha = 0f)), Offset(cx, cy)), rot - 45f, 90f, true, Offset(cx - r, cy - r), Size(r * 2, r * 2), alpha = 0.5f, blendMode = BlendMode.Plus)
                                 floatArrayOf(0f, 90f, 180f, 270f).forEach { ang ->
                                         val rd = Math.toRadians((ang + rot * 0.5).toDouble()); val nr = r * 0.35f
                                                 val np = (sin(System.currentTimeMillis() * 0.003 + ang) + 1f) / 2f
