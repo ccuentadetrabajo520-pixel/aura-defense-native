@@ -423,6 +423,7 @@ private fun AuraDefenseApp(
                     lanSearching = lanSearching,
                     lanPeers = lanPeers,
                     lastLanScan = lastLanScan,
+                    historyEntries = historyEntries,
                     visible = visibilityVisible,
                     onActivateLocation = {
                         if (hasLocationPermission(context)) locationActive = true

@@ -140,6 +140,7 @@ fun AurasScreen(
     lanSearching: Boolean,
     lanPeers: List<AuraLanPeer>,
     lastLanScan: String?,
+    historyEntries: List<com.aura.defense.history.AuraHistoryEntry> = emptyList(),
     visible: Boolean,
     onActivateLocation: () -> Unit,
     onVisibilityToggle: () -> Unit,
@@ -148,6 +149,23 @@ fun AurasScreen(
     onModuleDialog: (String, String) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AuraSpacing.lg)) {
+        if (historyEntries.isNotEmpty()) {
+            Panel(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(AuraSpacing.lg), verticalArrangement = Arrangement.spacedBy(AuraSpacing.sm)) {
+                    SectionTitle("TENDENCIA", "Evolución del score", "Últimos ${historyEntries.takeLast(10).size} diagnósticos")
+                    historyEntries.takeLast(10).forEach { entry ->
+                        val scoreColor = if (entry.score >= 85) AuraGreen else if (entry.score >= 60) AuraAmber else AuraRed
+                        Row(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.Center, horizontalArrangement = Arrangement.spacedBy(AuraSpacing.sm)) {
+                            Text(entry.timestamp.takeLast(5), color = AuraMuted, fontSize = 10.sp, modifier = Modifier.width(40.dp))
+                            Surface(modifier = Modifier.height(14.dp).weight(1f), color = AuraSurfaceRaised, shape = RoundedCornerShape(3.dp)) {
+                                Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(entry.score / 100f).background(scoreColor.copy(alpha = 0.5f), RoundedCornerShape(3.dp)))
+                            }
+                            Text("${entry.score}", color = scoreColor, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(28.dp))
+                        }
+                    }
+                }
+            }
+        }
         SectionTitle("AURAS", "Campo táctico", if (locationActive) "Ubicación activa. No se muestran coordenadas." else "Vista privada sin ubicación ni datos LAN activos.")
         TacticalMap(Modifier.fillMaxWidth().height(250.dp))
         Panel(modifier = Modifier.fillMaxWidth()) {
