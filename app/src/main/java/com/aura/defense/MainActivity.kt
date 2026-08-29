@@ -72,6 +72,7 @@ import com.aura.defense.ui.components.AuraCenterDialog
 import com.aura.defense.ui.components.ThreatIntelligenceDialog
 import com.aura.defense.ui.components.AuraIdDialog
 import com.aura.defense.ui.components.AuraTopBar
+import com.aura.defense.ui.components.AuraOnboarding
 import com.aura.defense.ui.components.ModuleDialog
 import com.aura.defense.ui.components.PostureSummaryDialog
 import com.aura.defense.ui.components.TelemetryDialog
@@ -228,6 +229,7 @@ private fun AuraDefenseApp(
     var lastLanScan by remember { mutableStateOf<String?>(null) }
     var lanSearchJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     var showIntro by remember { mutableStateOf(true) }
+    var hasCompletedOnboarding by remember { mutableStateOf(preferences.hasCompletedOnboarding()) }
     var locationActive by remember { mutableStateOf(hasLocationPermission(context)) }
     var linkHistory by remember { mutableStateOf<List<LinkAnalysis>>(emptyList()) }
     var passwordAudit by remember { mutableStateOf<PasswordAudit?>(null) }
@@ -368,6 +370,8 @@ private fun AuraDefenseApp(
     Crossfade(targetState = showIntro, animationSpec = tween(650), label = "aura-core-transition") { showingIntro ->
         if (showingIntro) {
             com.aura.defense.ui.components.AuraCoreIntro()
+        } else if (!hasCompletedOnboarding) {
+            AuraOnboarding(onComplete = { hasCompletedOnboarding = true; preferences.setOnboardingCompleted() })
         } else Scaffold(
         containerColor = AuraBackground,
         topBar = {
