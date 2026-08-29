@@ -55,7 +55,7 @@ fun AuraCoreIntro() {
                                 val subA = remember { Animatable(0f) }
                                     val ls = remember { Animatable(12f) }
                                         val prog = remember { Animatable(0f) }
-                                            LaunchedEffect(Unit) { delay(800); titleA.animateTo(1f, tween(2000)); ls.animateTo(6.sp, tween(2000)); delay(600); subA.animateTo(1f, tween(1500)); prog.animateTo(1f, tween(3000, easing = LinearEasing)) }
+                                            LaunchedEffect(Unit) { delay(800); titleA.animateTo(1f, tween(2000)); ls.animateTo(6f, tween(2000)); delay(600); subA.animateTo(1f, tween(1500)); prog.animateTo(1f, tween(3000, easing = LinearEasing)) }
                                                 val particles = remember { List(25) { Particle(Random.nextFloat(), Random.nextFloat(), 0.0003f + Random.nextFloat() * 0.0008f, 1f + Random.nextFloat() * 2f, 0.2f + Random.nextFloat() * 0.5f) } }
                                                     Box(Modifier.fillMaxSize(), Alignment.Center) {
                                                                 Canvas(Modifier.fillMaxSize()) {
@@ -116,7 +116,7 @@ private fun DrawScope.drawRadar(cx: Float, cy: Float, r: Float, rot: Float, puls
                             drawArc(Brush.sweepGradient(listOf(AuraCyan.copy(alpha = 0.18f), AuraCyan.copy(alpha = 0f)), Offset(cx, cy)), rot - 45f, 90f, true, Offset(cx - r, cy - r), Size(r * 2, r * 2), alpha = 0.5f, blendMode = BlendMode.Plus)
                                 floatArrayOf(0f, 90f, 180f, 270f).forEach { ang ->
                                         val rd = Math.toRadians((ang + rot * 0.5).toDouble()); val nr = r * 0.35f
-                                                val np = (sin(System.currentTimeMillis() * 0.003 + ang) + 1f) / 2f
+                                                val np = ((sin(System.currentTimeMillis() * 0.003 + ang) + 1f) / 2f).toFloat()
                                                         drawCircle(AuraGreen.copy(alpha = 0.3f + np * 0.5f), 3.dp.toPx(), Offset(cx + nr * cos(rd).toFloat(), cy + nr * sin(rd).toFloat()))
                                                             }
                                                                 drawCircle(AuraCyanGlow, 26.dp.toPx(), Offset(cx, cy)); drawCircle(AuraCyan.copy(alpha = pulse * 0.2f), 18.dp.toPx(), Offset(cx, cy))
