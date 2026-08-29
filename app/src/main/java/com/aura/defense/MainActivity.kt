@@ -11,8 +11,8 @@ import android.net.Uri
 import android.net.VpnService
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import android.util.Log
 import android.os.Handler
+import timber.log.Timber
 import android.os.Looper
 import java.io.File
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -119,6 +119,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         sharedText = extractSharedText(intent)
         sharedFile = extractSharedFile(intent)
+        Timber.plant(Timber.DebugTree())
         ProfileManager.loadProfile(this)
         val preferences = AuraPreferences(this)
         setContent {
@@ -307,7 +308,7 @@ private fun AuraDefenseApp(
         runCatching { engine.evaluate(telemetryProvider.read()) }
             .onSuccess { result = it }
             .onFailure {
-                Log.e("AuraDefense", "No se pudo completar el diagnóstico inicial", it)
+                Timber.e(it, "No se pudo completar el diagnóstico inicial")
                 moduleDialog = "Diagnóstico no disponible" to "No se pudo completar el diagnóstico en este dispositivo. Aura seguirá funcionando con los datos disponibles."
             }
     }
@@ -351,7 +352,7 @@ private fun AuraDefenseApp(
                 }
                 emergencyResult = EmergencyModeResult(scannedPosture, scan, assessment, recentLinks.size, vpnStatus, reportText, reportJson, reportSaved)
             }.onFailure {
-                Log.e("AuraDefense", "No se pudo completar el modo emergencia", it)
+                Timber.e(it, "No se pudo completar el modo emergencia")
                 moduleDialog = "Modo emergencia" to "El proceso no pudo completar todas las comprobaciones. No se ha simulado ningún resultado."
             }
             emergencyRunning = false
@@ -398,7 +399,7 @@ private fun AuraDefenseApp(
                         runCatching { engine.evaluate(telemetryProvider.read()) }
                             .onSuccess { result = it; showSummary = true }
                             .onFailure {
-                                Log.e("AuraDefense", "No se pudo completar el diagnóstico solicitado", it)
+                                Timber.e(it, "No se pudo completar el diagnóstico solicitado")
                                 moduleDialog = "Diagnóstico no disponible" to "No se pudo completar el diagnóstico en este dispositivo. Aura seguirá funcionando con los datos disponibles."
                             }
                     },
@@ -738,7 +739,7 @@ private fun AuraDefenseApp(
 private fun extractSharedText(intent: Intent?): String? = runCatching {
     if (intent?.action != Intent.ACTION_SEND || intent.type != "text/plain") return null
     intent.getStringExtra(Intent.EXTRA_TEXT)?.takeIf { it.isNotBlank() }
-}.onFailure { Log.e("AuraDefense", "No se pudo leer el contenido compartido", it) }.getOrNull()
+}.onFailure { Timber.e(it, "No se pudo leer el contenido compartido") }.getOrNull()
 
 private fun extractSharedFile(intent: Intent?): Uri? = runCatching {
     when (intent?.action) {
@@ -797,13 +798,13 @@ private fun openAndroidSettings(action: SettingsAction, context: Context) {
         SettingsAction.NOTIFICACIONES -> Settings.ACTION_APP_NOTIFICATION_SETTINGS
     }
     runCatching { context.startActivity(Intent(intentAction)) }
-        .onFailure { Log.e("AuraDefense", "No se pudo abrir el ajuste de Android", it) }
+        .onFailure { Timber.e(it, "No se pudo abrir el ajuste de Android") }
 }
 
 private fun openAppSettings(action: String, app: InstalledAppInfo, context: Context) {
     runCatching {
         context.startActivity(Intent(action, Uri.parse("package:${app.packageName}")))
-    }.onFailure { Log.e("AuraDefense", "No se pudo abrir el ajuste de la app", it) }
+    }.onFailure { Timber.e(it, "No se pudo abrir el ajuste de la app") }
 }
 
 private fun shareReport(content: String, json: Boolean, context: Context) {
@@ -814,5 +815,5 @@ private fun shareReport(content: String, json: Boolean, context: Context) {
             putExtra(Intent.EXTRA_TEXT, content)
         }
         context.startActivity(Intent.createChooser(intent, "Compartir informe"))
-    }.onFailure { Log.e("AuraDefense", "No se pudo compartir el informe", it) }
+    }.onFailure { Timber.e(it, "No se pudo compartir el informe") }
 }
