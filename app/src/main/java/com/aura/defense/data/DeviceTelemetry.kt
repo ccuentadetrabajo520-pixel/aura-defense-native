@@ -8,8 +8,8 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.StatFs
 import android.provider.Settings
-import android.util.Log
 import com.aura.defense.vpn.AuraVpnService
+import timber.log.Timber
 
 data class DeviceTelemetrySnapshot(
     val manufacturer: String,
@@ -30,7 +30,7 @@ data class DeviceTelemetrySnapshot(
 class DeviceTelemetryProvider(private val context: Context) {
     fun read(): DeviceTelemetrySnapshot {
         return runCatching { readSnapshot() }
-            .onFailure { Log.e("AuraDefense", "No se pudo leer la telemetría del dispositivo", it) }
+            .onFailure { Timber.e(it, "No se pudo leer la telemetría del dispositivo") }
             .getOrElse { unavailableSnapshot() }
     }
 
@@ -64,18 +64,18 @@ class DeviceTelemetryProvider(private val context: Context) {
                 capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
                 else -> "Activa"
             }
-        }.onFailure { Log.e("AuraDefense", "No se pudo identificar la red activa", it) }
+        }.onFailure { Timber.e(it, "No se pudo identificar la red activa") }
             .getOrDefault("No disponible")
         val vpn = runCatching {
             AuraVpnService.isRunning && capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
-        }.onFailure { Log.e("AuraDefense", "No se pudo comprobar la VPN", it) }.getOrDefault(false)
+        }.onFailure { Timber.e(it, "No se pudo comprobar la VPN") }.getOrDefault(false)
 
         return DeviceTelemetrySnapshot(
             manufacturer = readText("fabricante") { Build.MANUFACTURER },
             model = readText("modelo") { Build.MODEL },
             androidVersion = readText("versión de Android") { Build.VERSION.RELEASE },
             apiLevel = runCatching { Build.VERSION.SDK_INT }
-                .onFailure { Log.e("AuraDefense", "No se pudo leer la API de Android", it) }
+                .onFailure { Timber.e(it, "No se pudo leer la API de Android") }
                 .getOrDefault(0),
             securityPatch = readText("parche de seguridad") { Build.VERSION.SECURITY_PATCH },
             batteryLevel = batteryText,
@@ -96,19 +96,19 @@ class DeviceTelemetryProvider(private val context: Context) {
         }.getOrNull()
         runCatching {
             Settings.Global.getString(context.contentResolver, "private_dns_specifier")
-        }.onFailure { Log.e("AuraDefense", "No se pudo leer el servidor DNS privado", it) }
+        }.onFailure { Timber.e(it, "No se pudo leer el servidor DNS privado") }
         when (mode?.takeIf { it.isNotBlank() }) {
             "off" -> "Inactivo"
             "opportunistic" -> "Automático"
             "hostname" -> "Activo"
             else -> if (mode.isNullOrBlank()) "No disponible" else "Activo"
         }
-    }.onFailure { Log.e("AuraDefense", "No se pudo leer el DNS privado", it) }
+    }.onFailure { Timber.e(it, "No se pudo leer el DNS privado") }
         .getOrDefault("No disponible")
 
     private fun readText(name: String, reader: () -> String?): String = runCatching {
         reader()?.takeIf { it.isNotBlank() } ?: "No disponible"
-    }.onFailure { Log.e("AuraDefense", "No se pudo leer $name", it) }
+    }.onFailure { Timber.e(it, "No se pudo leer $name") }
         .getOrDefault("No disponible")
 
 }

@@ -6,7 +6,7 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
-import android.util.Log
+import timber.log.Timber
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -100,7 +100,7 @@ class AppScanner(private val context: Context) {
                 app.copy(findings = findings)
             }
             AppScanResult(apps = enrichedApps, scannedAt = now)
-        }.onFailure { Log.e("AuraDefense", "No se pudo completar el escaneo de apps", it) }
+        }.onFailure { Timber.e(it, "No se pudo completar el escaneo de apps") }
             .getOrElse { AppScanResult(emptyList(), now, failed = true) }
     }
 
@@ -138,7 +138,7 @@ class AppScanner(private val context: Context) {
             requestsInstallPackages = requested.contains("android.permission.REQUEST_INSTALL_PACKAGES"),
             findings = findings
         )
-    }.onFailure { Log.e("AuraDefense", "No se pudo analizar una app visible", it) }.getOrNull()
+    }.onFailure { Timber.e(it, "No se pudo analizar una app visible") }.getOrNull()
 
     private fun buildFindings(application: ApplicationInfo, info: PackageInfo, permissions: List<String>, system: Boolean, debuggable: Boolean, allowBackup: Boolean): List<AppRiskFinding> = buildList {
         if (debuggable) add(AppRiskFinding(AppRiskSeverity.MEDIUM, "Aplicación depurable"))

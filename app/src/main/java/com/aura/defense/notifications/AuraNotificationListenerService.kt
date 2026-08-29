@@ -3,8 +3,8 @@ package com.aura.defense.notifications
 import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
-import android.util.Log
 import com.aura.defense.tools.LinkAnalyzer
+import timber.log.Timber
 import com.aura.defense.tools.LinkRisk
 
 class AuraNotificationListenerService : NotificationListenerService() {
@@ -28,7 +28,7 @@ class AuraNotificationListenerService : NotificationListenerService() {
                 }
             }
         }.onFailure {
-            Log.e("AuraDefense", "Error al procesar notificación")
+            Timber.e("Error al procesar notificación")
         }
     }
 

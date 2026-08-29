@@ -2,7 +2,6 @@ package com.aura.defense.security
 
 import com.aura.defense.data.DeviceTelemetrySnapshot
 import java.time.LocalDate
-import java.time.Period
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
