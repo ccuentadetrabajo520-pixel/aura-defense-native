@@ -43,6 +43,25 @@ data class AppScanResult(
 }
 
 class AppScanner(private val context: Context) {
+    private data class WellKnownApp(val packageName: String, val officialName: String)
+
+    private val knownApps = listOf(
+        WellKnownApp("com.whatsapp", "WhatsApp"),
+        WellKnownApp("com.facebook.katana", "Facebook"),
+        WellKnownApp("com.instagram.android", "Instagram"),
+        WellKnownApp("com.twitter.android", "X (Twitter)"),
+        WellKnownApp("org.telegram.messenger", "Telegram"),
+        WellKnownApp("com.snapchat.android", "Snapchat"),
+        WellKnownApp("com.tinder", "Tinder"),
+        WellKnownApp("com.spotify.music", "Spotify"),
+        WellKnownApp("com.netflix.mediaclient", "Netflix"),
+        WellKnownApp("com.paypal.android.p2pmobile", "PayPal"),
+        WellKnownApp("com.google.android.gm", "Gmail"),
+        WellKnownApp("com.bankinter", "Bankinter"),
+        WellKnownApp("com.bbva.bbvacontigo", "BBVA"),
+        WellKnownApp("com.santander.app", "Santander")
+    )
+
     fun scan(): AppScanResult {
         val now = timestamp(System.currentTimeMillis())
         return runCatching {
@@ -54,7 +73,25 @@ class AppScanner(private val context: Context) {
                 packageManager.getInstalledApplications(0)
             }
             val apps = applications.mapNotNull { application -> readApp(packageManager, application) }
-            AppScanResult(apps = apps, scannedAt = now)
+            val cloneResults = detectCloneApps(packageManager)
+            val enrichedApps = if (cloneResults.isEmpty()) {
+                apps
+            } else {
+                apps.map { app ->
+                    val matchingClones = cloneResults.filter { result ->
+                        val pkg = result.substringAfter("(").substringBeforeLast(")").trim()
+                        result.contains("(${app.packageName})") || pkg == app.packageName
+                    }
+                    if (matchingClones.isEmpty()) {
+                        app
+                    } else {
+                        app.copy(findings = app.findings + matchingClones.map { clone ->
+                            AppRiskFinding(AppRiskSeverity.HIGH, "Posible app clonada detectada: $clone")
+                        })
+                    }
+                }
+            }
+            AppScanResult(apps = enrichedApps, scannedAt = now)
         }.onFailure { Log.e("AuraDefense", "No se pudo completar el escaneo de apps", it) }
             .getOrElse { AppScanResult(emptyList(), now, failed = true) }
     }
@@ -112,6 +149,26 @@ class AppScanner(private val context: Context) {
     }
 
     private fun isDangerous(permission: String): Boolean = permission in setOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS, Manifest.permission.READ_SMS, Manifest.permission.SEND_SMS, Manifest.permission.READ_PHONE_STATE, Manifest.permission.CALL_PHONE)
+
+    private fun detectCloneApps(packageManager: PackageManager): List<String> {
+        val installed = runCatching {
+            val packages = runCatching {
+                packageManager.getInstalledPackages(PackageManager.GET_MATCH_DEFAULT_ONLY)
+            }.getOrElse {
+                @Suppress("DEPRECATION")
+                packageManager.getInstalledPackages(0)
+            }
+            packages.map { info -> info.packageName to info.applicationInfo?.loadLabel(packageManager).toString().lowercase() }
+        }.getOrDefault(emptyList())
+
+        val clones = mutableListOf<String>()
+        for ((pkg, label) in installed) {
+            if (knownApps.any { it.packageName != pkg && label.contains(it.officialName.lowercase()) && !pkg.startsWith("com.google.") }) {
+                clones.add("$label ($pkg) se parece a una app conocida")
+            }
+        }
+        return clones
+    }
 
     private fun readVersionCode(info: PackageInfo): Long = runCatching {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
