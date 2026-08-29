@@ -158,6 +158,151 @@ class AuraReportBuilder {
         GuardianConfidence.ALTA -> "Alta"
     }
 
+    fun markdown(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList(), indicators: List<ThreatIndicator> = emptyList(), guardian: AuraGuardianAssessment? = null, file: AuraFileAnalysis? = null, vaultAvailable: Boolean = false, lanPeers: List<AuraLanPeer> = emptyList(), lastLanScan: String? = null, history: List<AuraHistoryEntry> = emptyList(), baselineTimestamp: String = "No disponible", threatSnapshot: ThreatIntelligenceSnapshot? = null): String = buildString {
+        appendLine("# Informe Aura Defense")
+        appendLine()
+        appendLine("- Fecha: ${posture.timestamp}")
+        appendLine("- Aura ID: $auraId")
+        appendLine("- Puntuación Aura: ${if (posture.score >= 0) posture.score else "No disponible"}")
+        appendLine("- Estado: ${posture.status}")
+        appendLine()
+        appendLine("## Telemetría")
+        appendLine("- Fabricante: ${posture.telemetry.manufacturer}")
+        appendLine("- Modelo: ${posture.telemetry.model}")
+        appendLine("- Android: ${posture.telemetry.androidVersion} (API ${posture.telemetry.apiLevel})")
+        appendLine("- Parche de seguridad: ${posture.telemetry.securityPatch}")
+        appendLine("- Batería: ${posture.telemetry.batteryLevel}")
+        appendLine("- Red: ${posture.telemetry.networkActive}")
+        appendLine("- VPN: ${if (posture.telemetry.vpnActive) "Activa" else "Inactiva"}")
+        appendLine("- DNS privado: ${posture.telemetry.privateDnsStatus}")
+        appendLine()
+        appendLine("## Escáner de apps")
+        appendLine("Apps visibles: ${apps?.apps?.size ?: 0}")
+        appendLine("Apps con riesgos: ${apps?.riskyApps?.size ?: 0}")
+        appendLine("Riesgo alto: ${apps?.highRiskApps?.size ?: 0}")
+        if (apps != null) {
+            apps.riskyApps.forEach { app ->
+                appendLine("- ${app.appName} (${app.packageName}): ${app.findings.joinToString(", ") { it.reason }}")
+            }
+        }
+        appendLine()
+        appendLine("## Análisis de enlaces")
+        if (links.isEmpty()) appendLine("No se han analizado enlaces") else links.forEach { appendLine("- ${it.risk}: ${it.url} | ${it.reasons.joinToString(", ")}") }
+        appendLine()
+        appendLine("## Auditoría de contraseña")
+        appendLine(password?.let { "Resultado: ${it.strength.name.lowercase(Locale.getDefault())}, puntuación ${it.score}/100." } ?: "No se ha ejecutado una auditoría")
+        appendLine()
+        appendLine("## Protección de notificaciones")
+        appendLine("- Enlaces analizados: ${notifications.size}")
+        appendLine("- Sospechosos: ${notifications.count { it.analysis.risk.name == "SOSPECHOSO" }}")
+        appendLine("- Peligrosos: ${notifications.count { it.analysis.risk.name == "PELIGROSO" }}")
+        appendLine()
+        appendLine("## Inteligencia local de amenazas")
+        appendLine("- Versión: ${threatSnapshot?.version ?: "local-compatible"}")
+        appendLine("- Última actualización: ${threatSnapshot?.updatedAt ?: indicators.maxOfOrNull { it.updatedAt } ?: "No disponible"}")
+        appendLine("- Fuente: ${threatSnapshot?.source ?: "Inteligencia local incluida"}")
+        appendLine("- Coincidencias recientes: ${countThreatMatches(links, notifications)}")
+        appendLine()
+        appendLine("## Guardián Aura")
+        appendLine("- Nivel: ${guardian?.level?.toSpanish() ?: "No disponible"}")
+        appendLine("- Confianza: ${guardian?.confidence?.toSpanish() ?: "No disponible"}")
+        appendLine("- Razones: ${guardian?.reasons?.joinToString("; ") ?: "No disponible"}")
+        appendLine("- Recomendaciones: ${guardian?.recommendations?.joinToString("; ") ?: "No disponible"}")
+        appendLine()
+        appendLine("## Análisis de archivos")
+        appendLine("- Archivo: ${file?.name ?: "No disponible"}")
+        appendLine("- Riesgo potencial: ${file?.risk ?: "No disponible"}")
+        appendLine("- Bóveda cifrada: ${if (vaultAvailable) "Disponible" else "No disponible"}")
+        appendLine()
+        appendLine("## Historial inteligente")
+        appendLine("- Eventos recientes: ${history.size}")
+        appendLine("- Bajos: ${history.count { it.severity == "LOW" }}")
+        appendLine("- Medios: ${history.count { it.severity == "MEDIUM" }}")
+        appendLine("- Altos: ${history.count { it.severity == "HIGH" }}")
+        appendLine("- Críticos: ${history.count { it.severity == "CRITICAL" }}")
+        appendLine("- Última línea base: $baselineTimestamp")
+        appendLine()
+        appendLine("_Límites reales de Android sin root: las señales disponibles dependen de la versión, permisos y fabricante. Este informe no confirma malware._")
+    }
+
+    fun html(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList(), indicators: List<ThreatIndicator> = emptyList(), guardian: AuraGuardianAssessment? = null, file: AuraFileAnalysis? = null, vaultAvailable: Boolean = false, lanPeers: List<AuraLanPeer> = emptyList(), lastLanScan: String? = null, history: List<AuraHistoryEntry> = emptyList(), baselineTimestamp: String = "No disponible", threatSnapshot: ThreatIntelligenceSnapshot? = null): String = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Informe de Defensa Aura</title>
+            <style>
+                body { font-family: monospace; background: #050A10; color: #E8F6F3; padding: 24px; max-width: 700px; margin: 0 auto; }
+                h1, h2 { color: #00E5FF; }
+                h1 { border-bottom: 1px solid #00E5FF40; padding-bottom: 8px; }
+                .badge { display: inline-block; background: #0E1C29; padding: 2px 8px; border: 1px solid #00E5FF; border-radius: 4px; }
+                .muted { color: #A6C5C0; }
+            </style>
+        </head>
+        <body>
+            <h1>Informe Aura Defense</h1>
+            <p><strong>Fecha:</strong> ${posture.timestamp}</p>
+            <p><strong>Aura ID:</strong> $auraId</p>
+            <p><strong>Puntuación Aura:</strong> ${if (posture.score >= 0) posture.score else "No disponible"}</p>
+            <p><strong>Estado:</strong> ${posture.status}</p>
+
+            <h2>Telemetría</h2>
+            <p><strong>Fabricante:</strong> ${posture.telemetry.manufacturer}</p>
+            <p><strong>Modelo:</strong> ${posture.telemetry.model}</p>
+            <p><strong>Android:</strong> ${posture.telemetry.androidVersion} (API ${posture.telemetry.apiLevel})</p>
+            <p><strong>Parche de seguridad:</strong> ${posture.telemetry.securityPatch}</p>
+            <p><strong>Batería:</strong> ${posture.telemetry.batteryLevel}</p>
+            <p><strong>Red:</strong> ${posture.telemetry.networkActive}</p>
+            <p><strong>VPN:</strong> ${if (posture.telemetry.vpnActive) "Activa" else "Inactiva"}</p>
+            <p><strong>DNS privado:</strong> ${posture.telemetry.privateDnsStatus}</p>
+
+            <h2>Escáner de apps</h2>
+            <p>Apps visibles: ${apps?.apps?.size ?: 0}</p>
+            <p>Apps con riesgos: ${apps?.riskyApps?.size ?: 0}</p>
+            <p>Riesgo alto: ${apps?.highRiskApps?.size ?: 0}</p>
+            ${apps?.riskyApps?.joinToString(separator = "") { app -> "<p>- ${app.appName} (${app.packageName}): ${app.findings.joinToString(", ") { it.reason }}</p>" } ?: "<p>No se ha ejecutado un escaneo de apps</p>"}
+
+            <h2>Análisis de enlaces</h2>
+            ${if (links.isEmpty()) "<p>No se han analizado enlaces</p>" else links.joinToString(separator = "") { "<p>- ${it.risk}: ${it.url} | ${it.reasons.joinToString(", ")}</p>" }}
+
+            <h2>Auditoría de contraseña</h2>
+            <p>${password?.let { "Resultado: ${it.strength.name.lowercase(Locale.getDefault())}, puntuación ${it.score}/100." } ?: "No se ha ejecutado una auditoría"}</p>
+
+            <h2>Protección de notificaciones</h2>
+            <p>Enlaces analizados: ${notifications.size}</p>
+            <p>Sospechosos: ${notifications.count { it.analysis.risk.name == "SOSPECHOSO" }}</p>
+            <p>Peligrosos: ${notifications.count { it.analysis.risk.name == "PELIGROSO" }}</p>
+
+            <h2>Inteligencia local de amenazas</h2>
+            <p>Versión: ${threatSnapshot?.version ?: "local-compatible"}</p>
+            <p>Última actualización: ${threatSnapshot?.updatedAt ?: indicators.maxOfOrNull { it.updatedAt } ?: "No disponible"}</p>
+            <p>Fuente: ${threatSnapshot?.source ?: "Inteligencia local incluida"}</p>
+            <p>Coincidencias recientes: ${countThreatMatches(links, notifications)}</p>
+
+            <h2>Guardián Aura</h2>
+            <p>Nivel: ${guardian?.level?.toSpanish() ?: "No disponible"}</p>
+            <p>Confianza: ${guardian?.confidence?.toSpanish() ?: "No disponible"}</p>
+            <p>Razones: ${guardian?.reasons?.joinToString("; ") ?: "No disponible"}</p>
+            <p>Recomendaciones: ${guardian?.recommendations?.joinToString("; ") ?: "No disponible"}</p>
+
+            <h2>Análisis de archivos</h2>
+            <p>Archivo: ${file?.name ?: "No disponible"}</p>
+            <p>Riesgo potencial: ${file?.risk ?: "No disponible"}</p>
+            <p>Bóveda cifrada: ${if (vaultAvailable) "Disponible" else "No disponible"}</p>
+
+            <h2>Historial inteligente</h2>
+            <p>Eventos recientes: ${history.size}</p>
+            <p>Bajos: ${history.count { it.severity == "LOW" }}</p>
+            <p>Medios: ${history.count { it.severity == "MEDIUM" }}</p>
+            <p>Altos: ${history.count { it.severity == "HIGH" }}</p>
+            <p>Críticos: ${history.count { it.severity == "CRITICAL" }}</p>
+            <p>Última línea base: $baselineTimestamp</p>
+
+            <p class="muted">Límites reales de Android sin root: las señales disponibles dependen de la versión, permisos y fabricante. Este informe no confirma malware.</p>
+        </body>
+        </html>
+    """.trimIndent()
+
     private fun StringBuilder.appendTelemetry(t: DeviceTelemetrySnapshot) {
         appendLine("Fabricante: ${t.manufacturer}")
         appendLine("Modelo: ${t.model}")
