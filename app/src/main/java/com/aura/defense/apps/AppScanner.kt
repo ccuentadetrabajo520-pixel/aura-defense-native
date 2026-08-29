@@ -74,22 +74,30 @@ class AppScanner(private val context: Context) {
             }
             val apps = applications.mapNotNull { application -> readApp(packageManager, application) }
             val cloneResults = detectCloneApps(packageManager)
-            val enrichedApps = if (cloneResults.isEmpty()) {
-                apps
-            } else {
-                apps.map { app ->
-                    val matchingClones = cloneResults.filter { result ->
-                        val pkg = result.substringAfter("(").substringBeforeLast(")").trim()
-                        result.contains("(${app.packageName})") || pkg == app.packageName
-                    }
-                    if (matchingClones.isEmpty()) {
-                        app
-                    } else {
-                        app.copy(findings = app.findings + matchingClones.map { clone ->
+            val stalkerwareResults = detectStalkerware(packageManager)
+            val enrichedApps = apps.map { app ->
+                val matchingCloneResults = cloneResults.filter { result ->
+                    val pkg = result.substringAfter("(").substringBeforeLast(")").trim()
+                    result.contains("(${app.packageName})") || pkg == app.packageName
+                }
+                val matchingStalkerware = stalkerwareResults.filter { result ->
+                    val pkg = result.substringAfter("(").substringBeforeLast(")").trim()
+                    result.contains("(${app.packageName})") || pkg == app.packageName
+                }
+                val findings = buildList {
+                    addAll(app.findings)
+                    if (matchingCloneResults.isNotEmpty()) {
+                        addAll(matchingCloneResults.map { clone ->
                             AppRiskFinding(AppRiskSeverity.HIGH, "Posible app clonada detectada: $clone")
                         })
                     }
+                    if (matchingStalkerware.isNotEmpty()) {
+                        addAll(matchingStalkerware.map { result ->
+                            AppRiskFinding(AppRiskSeverity.CRITICAL, "Posible stalkerware detectado: $result. Esta aplicación puede estar monitoreando tus comunicaciones, ubicación o uso del dispositivo")
+                        })
+                    }
                 }
+                app.copy(findings = findings)
             }
             AppScanResult(apps = enrichedApps, scannedAt = now)
         }.onFailure { Log.e("AuraDefense", "No se pudo completar el escaneo de apps", it) }
@@ -149,6 +157,43 @@ class AppScanner(private val context: Context) {
     }
 
     private fun isDangerous(permission: String): Boolean = permission in setOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS, Manifest.permission.READ_SMS, Manifest.permission.SEND_SMS, Manifest.permission.READ_PHONE_STATE, Manifest.permission.CALL_PHONE)
+
+    private fun detectStalkerware(packageManager: PackageManager): List<String> {
+        val flags = PackageManager.GET_PERMISSIONS
+        val installed = runCatching {
+            val packages = runCatching {
+                packageManager.getInstalledPackages(flags)
+            }.getOrElse {
+                @Suppress("DEPRECATION")
+                packageManager.getInstalledPackages(0)
+            }
+            packages.map { info ->
+                val pkg = info.packageName.lowercase(Locale.getDefault())
+                val label = info.applicationInfo?.loadLabel(packageManager)?.toString()?.lowercase(Locale.getDefault()).orEmpty()
+                pkg to label
+            }
+        }.getOrDefault(emptyList())
+
+        val suspiciousNames = listOf(
+            "spynote", "spy", "mspy", "mobistealth", "hoverwatch", "flexispy",
+            "thetruthspy", "stealthgenie", "xnspy", "kidlogger", "cocospy",
+            "neatspy", "spyzie", "trackview", "monitor", "stalker"
+        )
+
+        return installed.mapNotNull { (pkg, label) ->
+            val isStalkerware = suspiciousNames.any { token ->
+                pkg.contains(token) || label.contains(token)
+            }
+            if (isStalkerware) {
+                val appLabel = runCatching {
+                    packageManager.getApplicationInfo(pkg, 0).loadLabel(packageManager).toString()
+                }.getOrDefault(pkg)
+                "$appLabel ($pkg)"
+            } else {
+                null
+            }
+        }
+    }
 
     private fun detectCloneApps(packageManager: PackageManager): List<String> {
         val installed = runCatching {
