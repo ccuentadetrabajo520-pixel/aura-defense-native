@@ -43,6 +43,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aura.defense.ui.AuraAmber
@@ -53,6 +55,7 @@ import com.aura.defense.ui.AuraMuted
 import com.aura.defense.ui.AuraRed
 import com.aura.defense.ui.AuraSpacing
 import com.aura.defense.ui.AuraSurface
+import com.aura.defense.ui.AuraSurfaceRaised
 import com.aura.defense.ui.components.ActionButton
 import com.aura.defense.ui.components.Metric
 import com.aura.defense.ui.components.ModuleDialog
@@ -107,6 +110,12 @@ fun HomeScreen(
                 Metric("DNS", result.telemetry.privateDnsStatus, if (result.telemetry.privateDnsStatus == "Activo" || result.telemetry.privateDnsStatus == "Automático") AuraGreen else AuraMuted)
                 Metric("RIESGOS", result.findings.count { it.severity >= com.aura.defense.security.FindingSeverity.MEDIUM }.toString(), AuraRed)
             }
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AuraSpacing.sm)) {
+            QuickAction("QR Anti-Phishing", "📷") { onModuleDialog("QR Anti-Phishing", "Abre el escáner QR desde la pestaña Auras para analizar códigos en tiempo real.") }
+            QuickAction("Analizar enlace", "🔗") { onModuleDialog("Analizar enlace", "Abre el analizador de enlaces desde la pestaña Auras para verificar URLs sospechosas.") }
+            QuickAction("Historial", "📋") { onModuleDialog("Historial", "Revisa el historial de diagnósticos y cambios detectados desde la pestaña Auras.") }
+            QuickAction("Firewall DNS", "🛡") { onModuleDialog("Firewall DNS", "Configura el cortafuegos DNS desde la pestaña Defensa para bloquear dominios peligrosos.") }
         }
         ActionButton("Iniciar escaneo", onClick = { onStartScan() })
         ActionButton("Abrir Defensa VPN", onClick = { onModuleDialog("Defensa VPN", "Activa la VPN desde la pestaña Defensa para aplicar el cortafuegos DNS local.") }, outlined = true)
@@ -336,5 +345,25 @@ private fun ScannerCanvas(modifier: Modifier, scanning: Boolean) {
         }
         val beamX = size.width * beam
         drawLine(AuraCyan.copy(alpha = 0.8f), Offset(beamX, 0f), Offset(beamX, size.height), 2.dp.toPx())
+    }
+}
+
+@Composable
+private fun QuickAction(label: String, icon: String, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier.weight(1f).fillMaxWidth(),
+        color = AuraSurfaceRaised,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.15f)),
+        onClick = onClick
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(icon, fontSize = 20.sp)
+            Text(label, color = AuraCyan, fontSize = 10.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, maxLines = 2)
+        }
     }
 }
