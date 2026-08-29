@@ -98,6 +98,17 @@ fun HomeScreen(
                     Column {
                         Text("PUNTUACIÓN AURA", color = AuraMuted, style = MaterialTheme.typography.labelSmall)
                         Text(if (result.score >= 0) "${result.score}/100" else "No disponible", color = AuraCyan, style = MaterialTheme.typography.displayLarge)
+                        if (result.score >= 0) {
+                            val percentile = when {
+                                result.score >= 95 -> "top 5%"
+                                result.score >= 85 -> "top 15%"
+                                result.score >= 70 -> "top 35%"
+                                result.score >= 60 -> "top 50%"
+                                result.score >= 40 -> "top 70%"
+                                else -> "bottom 30%"
+                            }
+                            Text("· $percentile de dispositivos protegidos ·", color = AuraMuted, fontSize = 11.sp, fontWeight = FontWeight.Light)
+                        }
                     }
                         StatusDot(if (result.score >= 85) AuraGreen else if (result.score >= 60) AuraAmber else AuraRed, "ESTADO", result.status)
                 }
