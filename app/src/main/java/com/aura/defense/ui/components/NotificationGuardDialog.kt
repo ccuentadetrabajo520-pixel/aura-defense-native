@@ -59,6 +59,7 @@ fun NotificationGuardDialog(onDismiss: () -> Unit) {
         title = { Text("Protección de notificaciones") },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Aura necesita acceso a notificaciones para detectar enlaces peligrosos y phishing en tiempo real. Actívalo en: Ajustes → Apps especiales → Acceso a notificaciones → Aura Defense", color = AuraMuted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
                 Text(if (enabled) "Activo" else "Acceso requerido", color = if (enabled) AuraGreen else AuraAmber, fontSize = 17.sp)
                 Text("Aura analiza únicamente el texto visible de las notificaciones cuando concedes acceso. El análisis se realiza localmente y no se sube contenido.", color = AuraMuted, fontSize = 12.sp)
                 if (!enabled) Text("Desactivado", color = AuraMuted, fontSize = 12.sp)
