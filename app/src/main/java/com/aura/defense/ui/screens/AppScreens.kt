@@ -98,7 +98,7 @@ fun HomeScreen(
                     }
                         StatusDot(if (result.score >= 85) AuraGreen else if (result.score >= 60) AuraAmber else AuraRed, "ESTADO", result.status)
                 }
-                    RadarCanvas(Modifier.fillMaxWidth().height(150.dp), result.score)
+                    RadarCanvas(result.score, Modifier.fillMaxWidth().height(150.dp))
             }
         }
         Panel(modifier = Modifier.fillMaxWidth()) {
