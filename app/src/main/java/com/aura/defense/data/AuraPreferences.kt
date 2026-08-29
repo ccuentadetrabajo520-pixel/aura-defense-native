@@ -1,31 +1,31 @@
 package com.aura.defense.data
 
 import android.content.Context
-import android.util.Log
+import timber.log.Timber
 import java.util.Locale
 import java.util.UUID
 
 class AuraPreferences(context: Context) {
     private val preferences by lazy {
         runCatching { context.getSharedPreferences(NAME, Context.MODE_PRIVATE) }
-            .onFailure { Log.e("AuraDefense", "No se pudo abrir el almacenamiento local", it) }
+            .onFailure { Timber.e(it, "No se pudo abrir el almacenamiento local") }
             .getOrNull()
     }
 
     fun getAuraId(): String = runCatching {
         preferences?.getString(AURA_ID_KEY, null)
             ?: createAuraId().also { saveAuraId(it) }
-    }.onFailure { Log.e("AuraDefense", "No se pudo leer el Aura ID", it) }
+    }.onFailure { Timber.e(it, "No se pudo leer el Aura ID") }
         .getOrElse { "AURA-LOCAL" }
 
     fun saveAuraId(value: String) {
         runCatching { preferences?.edit()?.putString(AURA_ID_KEY, value.trim())?.apply() }
-            .onFailure { Log.e("AuraDefense", "No se pudo guardar el Aura ID", it) }
+            .onFailure { Timber.e(it, "No se pudo guardar el Aura ID") }
     }
 
-    fun hasCompletedOnboarding(): Boolean = prefs.getBoolean("onboarding_completed", false)
+    fun hasCompletedOnboarding(): Boolean = preferences?.getBoolean("onboarding_completed", false) ?: false
 
-    fun setOnboardingCompleted() = prefs.edit().putBoolean("onboarding_completed", true).apply()
+    fun setOnboardingCompleted() { preferences?.edit()?.putBoolean("onboarding_completed", true)?.apply() }
 
     private companion object {
         const val NAME = "aura_defense_preferences"
