@@ -699,6 +699,11 @@ private fun AuraDefenseApp(
     }
     if (showReports) {
         ReportDialog(
+            auraId = auraId,
+            postureResult = result,
+            appScanResult = appScanResult,
+            linkHistory = linkHistory,
+            guardianAssessment = guardianAssessment,
             onExport = { json ->
                 val vaultAvailable = com.aura.defense.vault.AuraVault.isAvailable()
                 val content = if (json) AuraReportBuilder().json(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp(), threatSnapshot)
