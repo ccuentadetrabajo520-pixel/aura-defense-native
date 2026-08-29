@@ -58,6 +58,7 @@ import com.aura.defense.ui.AuraSpacing
 import com.aura.defense.ui.AuraSurface
 import com.aura.defense.ui.AuraSurfaceRaised
 import com.aura.defense.ui.components.ActionButton
+import com.aura.defense.ui.components.AuraToolsHubDialog
 import com.aura.defense.ui.components.Metric
 import com.aura.defense.ui.components.ModuleDialog
 import com.aura.defense.ui.components.Panel
@@ -87,7 +88,8 @@ fun HomeScreen(
     onGuardianAnalysis: () -> Unit,
     onStartScan: () -> Unit,
     onModuleDialog: (String, String) -> Unit,
-    onEmergency: () -> Unit
+    onEmergency: () -> Unit,
+    onToolsHub: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AuraSpacing.lg)) {
         SectionTitle("PANEL PRINCIPAL", "Centro de defensa Aura", "Diagnóstico local del dispositivo y sus señales disponibles.")
@@ -131,6 +133,7 @@ fun HomeScreen(
         }
         ActionButton("Iniciar escaneo", onClick = { onStartScan() })
         ActionButton("Abrir Defensa VPN", onClick = { onModuleDialog("Defensa VPN", "Activa la VPN desde la pestaña Defensa para aplicar el cortafuegos DNS local.") }, outlined = true)
+        ActionButton("Herramientas avanzadas", onClick = onToolsHub, outlined = true)
         ActionButton("Modo emergencia", onClick = onEmergency, outlined = true)
     }
 }
