@@ -333,7 +333,7 @@ private fun AuraDefenseApp(
                 val telemetry = withContext(Dispatchers.Default) { telemetryProvider.read() }
                 emergencyStep = 1
                 val refreshedPosture = withContext(Dispatchers.Default) { engine.evaluate(telemetry) }
-                ScoreHistoryStore(this@MainActivity).saveScore(refreshedPosture.score, refreshedPosture.status)
+                ScoreHistoryStore(applicationContext).saveScore(refreshedPosture.score, refreshedPosture.status)
                 result = refreshedPosture
                 val scan = withContext(Dispatchers.Default) { appScanner.scan() }
                 emergencyStep = 2
