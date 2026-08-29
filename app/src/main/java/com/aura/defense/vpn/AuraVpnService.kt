@@ -42,6 +42,8 @@ class AuraVpnService : VpnService() {
     }
 
     override fun onDestroy() {
+        val prefs = getSharedPreferences("aura_killswitch", MODE_PRIVATE)
+        prefs.edit().putBoolean("vpn_was_running", true).apply()
         stopVpn()
         super.onDestroy()
     }

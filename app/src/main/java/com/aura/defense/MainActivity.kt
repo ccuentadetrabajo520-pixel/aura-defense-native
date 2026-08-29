@@ -273,6 +273,12 @@ private fun AuraDefenseApp(
     LaunchedEffect(Unit) {
         while (true) {
             isVpnRunning = isAuraVpnActive(context)
+            val killswitchPrefs = context.getSharedPreferences("aura_killswitch", android.content.Context.MODE_PRIVATE)
+            val wasRunning = killswitchPrefs.getBoolean("vpn_was_running", false)
+            if (wasRunning && !isVpnRunning) {
+                killswitchPrefs.edit().remove("vpn_was_running").apply()
+                moduleDialog = "VPN desconectada" to "La VPN de Aura se desconectó inesperadamente. Tu tráfico puede no estar protegido. Reactívala desde la pestaña Defensa."
+            }
             val updatedBlockedDns = dnsFirewallStore.blockedEvents()
             val updatedBlockedDnsCount = dnsFirewallStore.blockedCount()
             if (updatedBlockedDnsCount > blockedDnsCount) dnsBlockPulse++
