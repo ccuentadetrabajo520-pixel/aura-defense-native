@@ -21,7 +21,7 @@
     <string name="active">Active</string>
     <string name="inactive">Inactive</string>
     <string name="not_available">Not available</string>
-    <string name="protected">Protected</string>
+    <string name="status_protected">Protected</string>
     <string name="partial">Partial</string>
     <string name="high_risk">High risk</string>
     <string name="close">Close</string>
