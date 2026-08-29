@@ -19,6 +19,10 @@ import com.aura.defense.tools.LinkAnalysis
 import com.aura.defense.tools.LinkAnalyzer
 import com.aura.defense.tools.LinkRisk
 import com.aura.defense.security.SocialEngineDetector
+import com.aura.defense.ui.AuraCyan
+import com.aura.defense.ui.AuraTeal
+import com.aura.defense.ui.AuraText
+import com.aura.defense.ui.AuraTextSecondary
 
 @Composable
 fun ShareScannerDialog(text: String, onAnalyses: (List<LinkAnalysis>) -> Unit, onDismiss: () -> Unit) {
@@ -34,15 +38,15 @@ fun ShareScannerDialog(text: String, onAnalyses: (List<LinkAnalysis>) -> Unit, o
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Texto recibido", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
-                Text(text.take(1000), color = Color(0xFFA9C2C0), fontSize = 12.sp)
+                Text(text.take(1000), color = AuraText, fontSize = 12.sp)
                 if (analyses.isEmpty()) {
                     Text("Sin enlaces detectados", color = Color(0xFFFFC66D), fontSize = 15.sp)
                 } else {
-                    Text("Enlaces detectados", color = Color(0xFF62E6D5), fontSize = 15.sp)
+                    Text("Enlaces detectados", color = AuraTeal, fontSize = 15.sp)
                     analyses.forEach { analysis ->
-                        Text(analysis.url, color = Color(0xFFA9C2C0), fontSize = 12.sp)
+                        Text(analysis.url, color = AuraText, fontSize = 12.sp)
                         Text("Resultado: ${socialAnalysis.level} (${socialAnalysis.score}/100)", color = socialAnalysis.level.color(), fontSize = 14.sp)
-                        Text(socialAnalysis.reason, color = Color(0xFF8BA6A4), fontSize = 12.sp)
+                        Text(socialAnalysis.reason, color = AuraTextSecondary, fontSize = 12.sp)
                     }
                 }
             }

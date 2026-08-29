@@ -30,6 +30,7 @@ import com.aura.defense.ui.AuraAmber
 import com.aura.defense.ui.AuraGreen
 import com.aura.defense.ui.AuraMuted
 import com.aura.defense.ui.AuraRed
+import com.aura.defense.ui.AuraText
 
 @Composable
 fun AuraHistoryDialog(
@@ -75,7 +76,7 @@ private fun HistoryRow(entry: AuraHistoryEntry) {
     Column(modifier = Modifier.fillMaxWidth().padding(9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Text("Cambio detectado · ${entry.titleEs}", color = color, fontSize = 14.sp)
         Text("${entry.severity.toSpanish()} · ${entry.timestamp} · ${entry.source}", color = AuraMuted, fontSize = 11.sp)
-        Text(entry.descriptionEs, color = Color(0xFFEAF7F5), fontSize = 12.sp)
+        Text(entry.descriptionEs, color = AuraText, fontSize = 12.sp)
         Text("Evidencia: ${entry.evidenceEs}", color = AuraMuted, fontSize = 11.sp)
         Text("Revisión recomendada: ${entry.recommendedActionEs}", color = AuraMuted, fontSize = 11.sp)
     }

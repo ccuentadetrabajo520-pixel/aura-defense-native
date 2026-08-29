@@ -19,6 +19,7 @@ import com.aura.defense.ui.AuraCyan
 import com.aura.defense.ui.AuraGreen
 import com.aura.defense.ui.AuraMuted
 import com.aura.defense.ui.AuraRed
+import com.aura.defense.ui.AuraText
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.padding
@@ -40,9 +41,9 @@ fun AuraGuardianDialog(assessment: AuraGuardianAssessment, onDismiss: () -> Unit
                 Text(assessment.summary, color = AuraMuted, fontSize = 13.sp)
                 Text("Confianza: ${assessment.confidence.toSpanish()}", color = AuraCyan, fontSize = 13.sp)
                 Text("Razones principales", color = AuraCyan, fontSize = 12.sp)
-                assessment.reasons.forEach { Text("• $it", color = Color(0xFFEAF7F5), fontSize = 12.sp) }
+                assessment.reasons.forEach { Text("• $it", color = AuraText, fontSize = 12.sp) }
                 Text("Acciones recomendadas", color = AuraCyan, fontSize = 12.sp)
-                assessment.recommendations.forEach { Text("• $it", color = Color(0xFFEAF7F5), fontSize = 12.sp) }
+                assessment.recommendations.forEach { Text("• $it", color = AuraText, fontSize = 12.sp) }
                 if (assessment.missingSignals.isNotEmpty()) {
                     Text("Señales pendientes", color = AuraAmber, fontSize = 12.sp)
                     assessment.missingSignals.forEach { Text("• $it", color = AuraMuted, fontSize = 12.sp) }

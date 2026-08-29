@@ -56,6 +56,7 @@ import com.aura.defense.tools.LinkRisk
 import com.aura.defense.security.SocialEngineDetector
 import com.aura.defense.security.ThreatAnalysis
 import com.aura.defense.ui.AuraAmber
+import com.aura.defense.ui.AuraCyan
 import com.aura.defense.ui.AuraGreen
 import com.aura.defense.ui.AuraMuted
 import com.aura.defense.ui.AuraRed
@@ -83,7 +84,7 @@ fun QrScannerDialog(onAnalysis: (LinkAnalysis) -> Unit, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("QR Anti-Phishing", color = Color(0xFF00E5FF))
+                Text("QR Anti-Phishing", color = AuraCyan)
                 Text("Escaneo local activo", color = AuraGreen, fontSize = 12.sp)
                 Text("Aura analiza el código en este dispositivo. No se sube contenido.", color = AuraMuted, fontSize = 11.sp)
             }
@@ -108,8 +109,8 @@ fun QrScannerDialog(onAnalysis: (LinkAnalysis) -> Unit, onDismiss: () -> Unit) {
                     val value = detectedValue.orEmpty()
                     val url = value.takeIf(::isUrl)
                     var analysis by remember(value) { mutableStateOf<ThreatAnalysis?>(null) }
-                    Text("Código detectado", color = Color(0xFF00E5FF), fontSize = 12.sp)
-                    ResultCard(if (url != null) "Enlace detectado" else "Texto detectado", Color(0xFF00E5FF)) {
+                    Text("Código detectado", color = AuraCyan, fontSize = 12.sp)
+                    ResultCard(if (url != null) "Enlace detectado" else "Texto detectado", AuraCyan) {
                         Text(value, maxLines = 3, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
                     }
                     if (url != null) {
@@ -158,13 +159,13 @@ private fun ScannerFrame(content: @Composable () -> Unit) {
         label = "qr-line-position"
     )
     Box(
-        modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.55f), RoundedCornerShape(12.dp)).padding(5.dp)
+        modifier = Modifier.fillMaxWidth().border(1.dp, AuraCyan.copy(alpha = 0.55f), RoundedCornerShape(12.dp)).padding(5.dp)
     ) {
         content()
         Canvas(Modifier.matchParentSize()) {
             val length = 22.dp.toPx()
             val stroke = 2.dp.toPx()
-            val corner = Color(0xFF00E5FF)
+            val corner = AuraCyan
             drawLine(corner, Offset(10.dp.toPx(), length), Offset(10.dp.toPx(), 10.dp.toPx()), stroke, StrokeCap.Round)
             drawLine(corner, Offset(10.dp.toPx(), 10.dp.toPx()), Offset(length, 10.dp.toPx()), stroke, StrokeCap.Round)
             drawLine(corner, Offset(size.width - length, 10.dp.toPx()), Offset(size.width - 10.dp.toPx(), 10.dp.toPx()), stroke, StrokeCap.Round)
