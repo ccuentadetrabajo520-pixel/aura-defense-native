@@ -115,7 +115,7 @@ fun HomeScreen(
                 val cy = size.height / 2f
                 val r = size.minDimension * 0.38f
                 drawCircle(scoreColor.copy(alpha = 0.06f), r * 1.4f, center = Offset(cx, cy))
-                drawCircle(Color.Transparent, r, center = Offset(cx, cy), style = Stroke(1.dp.toPx(), color = scoreColor.copy(alpha = 0.25f)))
+                drawCircle(scoreColor.copy(alpha = 0.25f), r, center = Offset(cx, cy), style = Stroke(1.dp.toPx()))
                 val sides = 6
                 for (i in 0 until sides) {
                     val a1 = Math.toRadians((60.0 * i - 90.0))
