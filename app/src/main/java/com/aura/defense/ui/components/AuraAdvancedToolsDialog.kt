@@ -44,7 +44,6 @@ import com.aura.defense.security.PasswordStrength
 import com.aura.defense.security.PrivacyAuditResult
 import com.aura.defense.security.PrivacyAuditor
 import com.aura.defense.security.SecureFileShredder
-import com.aura.defense.security.SecurePasswordGenerator
 import com.aura.defense.security.ShredResult
 import com.aura.defense.security.StrengthLevel
 import com.aura.defense.security.WiFiAnalysisResult
