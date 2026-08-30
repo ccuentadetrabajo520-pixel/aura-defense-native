@@ -341,6 +341,10 @@ private fun AuraDefenseApp(
                     engine.evaluate(telemetry, scan.riskyApps.size, scan.highRiskApps.size)
                 }
                 result = scannedPosture
+                val emergencyCtx = context
+                kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+                    com.aura.defense.history.ScoreHistoryStore(emergencyCtx).saveScore(scannedPosture.score, scannedPosture.status)
+                }
                 changeDetector.compare(scannedPosture, scan, linkHistory, notificationAlerts)
                 historyEntries = historyStore.getEntries()
                 emergencyStep = 3
