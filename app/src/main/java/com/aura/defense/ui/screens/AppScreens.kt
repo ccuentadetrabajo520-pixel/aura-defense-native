@@ -255,7 +255,7 @@ fun AurasScreen(
                             Text(peer.name, color = AuraText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                             Text("${peer.auraId} | ${peer.guardianLevel}", color = AuraMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                         }
-                        Text(peer.timestamp, color = AuraMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        Text(formatDnsTime(peer.timestamp), color = AuraMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
             }
