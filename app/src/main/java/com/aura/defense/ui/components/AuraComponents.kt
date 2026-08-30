@@ -105,7 +105,7 @@ fun AuraAnimatedBadge(text: String, modifier: Modifier = Modifier, color: Color 
 
 @Composable
 fun AuraBottomNav(selected: Int, onSelected: (Int) -> Unit) {
-    val labels = listOf("HOME", "FIELD", "DEFENSE", "APPS")
+    val labels = listOf("INICIO", "AURAS", "DEFENSA", "APPS")
     Row(modifier = Modifier.fillMaxWidth().background(AuraSurface, RoundedCornerShape(14.dp)).border(BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.1f)), RoundedCornerShape(14.dp)).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         labels.forEachIndexed { index, label ->
             val active = selected == index
