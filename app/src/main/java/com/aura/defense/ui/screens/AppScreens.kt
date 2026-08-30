@@ -100,7 +100,7 @@ fun HomeScreen(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Box(modifier = Modifier.size(6.dp).background(scoreColor.copy(alpha = blink), CircleShape))
-                Text(guardianAssessment.level.displayName, color = scoreColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text(guardianAssessment.level.name, color = scoreColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
             Text("LVL $guardianAssessment.score", color = AuraCyan.copy(alpha = 0.5f), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
         }
