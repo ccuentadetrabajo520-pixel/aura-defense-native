@@ -236,7 +236,7 @@ fun AurasScreen(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf(
                 Triple("PEERS", "${lanPeers.size}", AuraCyan),
-                Triple("HISTORY", "$historyCount", AuraMuted),
+                Triple("HISTORY", "${historyEntries.size}", AuraMuted),
                 Triple("STATUS", if (lanSearching) "SCANNING" else "READY", if (lanSearching) AuraAmber else AuraGreen)
             ).forEach { (label, value, color) ->
                 Column(modifier = Modifier.weight(1f).background(AuraSurface, RoundedCornerShape(10.dp)).padding(vertical = 10.dp, horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
