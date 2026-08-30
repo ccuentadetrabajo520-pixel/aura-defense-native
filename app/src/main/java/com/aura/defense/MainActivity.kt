@@ -582,6 +582,21 @@ private fun AuraDefenseApp(
                 } else if (item == "Auras LAN") {
                     selectedTab = 1
                     showAuraCenter = false
+                } else if (item == "Integridad del dispositivo") {
+                    showToolsHub = true
+                    showAuraCenter = false
+                } else if (item == "Auditoría de permisos") {
+                    showToolsHub = true
+                    showAuraCenter = false
+                } else if (item == "Verificación HIBP") {
+                    showToolsHub = true
+                    showAuraCenter = false
+                } else if (item == "Certificado de seguridad") {
+                    showToolsHub = true
+                    showAuraCenter = false
+                } else if (item == "Herramientas avanzadas") {
+                    showToolsHub = true
+                    showAuraCenter = false
                 } else if (item == "Analizador de archivos") {
                     showFileAnalyzer = true
                     showAuraCenter = false
