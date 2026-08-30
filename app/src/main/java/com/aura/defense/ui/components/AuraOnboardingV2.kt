@@ -49,7 +49,7 @@ import com.aura.defense.ui.AuraText
 import com.aura.defense.ui.AuraTextSecondary
 import kotlinx.coroutines.delay
 
-private data class OnboardingPage(
+private data class OnboardingPageV2(
     val title: String,
     val subtitle: String,
     val description: String,
@@ -60,28 +60,28 @@ private data class OnboardingPage(
 @Composable
 fun AuraOnboardingV2(onComplete: () -> Unit) {
     val pages = listOf(
-        OnboardingPage(
+        OnboardingPageV2(
             title = "AURA DEFENSE",
             subtitle = "Primera app de ciberdefensa sin root del mundo",
             description = "Diagnóstico en tiempo real, firewall DNS, detección de amenazas, VPN local y protección contra ingeniería social. Todo funciona directamente en tu dispositivo.",
             icon = "[shield]",
             accentColor = AuraCyan
         ),
-        OnboardingPage(
+        OnboardingPageV2(
             title = "INTELIGENCIA ACTIVA",
             subtitle = "Detecta lo invisible",
             description = "Analiza apps instaladas, enlaces, notificaciones y redes Wi-Fi contra una base de inteligencia local. Escaneo SMS, TOTP 2FA y geofencing avanzado.",
             icon = "[radar]",
             accentColor = AuraGreen
         ),
-        OnboardingPage(
+        OnboardingPageV2(
             title = "FIREWALL DNS + VPN",
             subtitle = "Protección a nivel de red",
             description = "Bloquea dominios maliciosos antes de que carguen. Túnel VPN completo opcional. Todo el tráfico se filtra localmente sin servidores externos.",
             icon = "[lock]",
             accentColor = AuraAmber
         ),
-        OnboardingPage(
+        OnboardingPageV2(
             title = "PRIVACIDAD TOTAL",
             subtitle = "Sin rastros, sin cloud",
             description = "Cero telemetría. Cero datos en servidores. Cero root requerido. Tu información nunca sale del dispositivo. Código abierto y auditable.",
