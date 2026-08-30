@@ -92,6 +92,7 @@ import com.aura.defense.ui.components.AuraHistoryDialog
 import com.aura.defense.ui.components.EmergencyModeDialog
 import com.aura.defense.ui.components.EmergencyModeResult
 import com.aura.defense.ui.components.AuraToolsHubDialog
+import com.aura.defense.ui.components.AuraAdvancedToolsDialog
 import com.aura.defense.lan.AuraLanDiscovery
 import com.aura.defense.lan.AuraLanPeer
 import com.aura.defense.ui.components.isNotificationAccessEnabled
@@ -222,6 +223,7 @@ private fun AuraDefenseApp(
     var showGuardian by remember { mutableStateOf(false) }
     var showFileAnalyzer by remember { mutableStateOf(sharedFile != null) }
     var showToolsHub by remember { mutableStateOf(false) }
+    var showAdvancedTools by remember { mutableStateOf(false) }
     var showVault by remember { mutableStateOf(false) }
     var showSchedule by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
@@ -600,6 +602,9 @@ private fun AuraDefenseApp(
                 } else if (item == "Certificado de seguridad") {
                     showToolsHub = true
                     showAuraCenter = false
+                } else if (item == "Seguridad avanzada") {
+                    showAdvancedTools = true
+                    showAuraCenter = false
                 } else if (item == "Herramientas avanzadas") {
                     showToolsHub = true
                     showAuraCenter = false
@@ -762,6 +767,9 @@ private fun AuraDefenseApp(
     }
     if (showToolsHub) {
         AuraToolsHubDialog(onDismiss = { showToolsHub = false })
+    }
+    if (showAdvancedTools) {
+        AuraAdvancedToolsDialog(onDismiss = { showAdvancedTools = false })
     }
     if (showEmergency) {
         EmergencyModeDialog(
