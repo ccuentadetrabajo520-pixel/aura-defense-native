@@ -102,7 +102,7 @@ fun HomeScreen(
                 Box(modifier = Modifier.size(6.dp).background(scoreColor.copy(alpha = blink), CircleShape))
                 Text(guardianAssessment.level.displayName, color = scoreColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
-            Text("AURA $guardianAssessment.score", color = AuraCyan.copy(alpha = 0.5f), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+            Text("LVL $guardianAssessment.score", color = AuraCyan.copy(alpha = 0.5f), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
         }
 
         Box(
