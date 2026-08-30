@@ -91,6 +91,7 @@ import com.aura.defense.ui.components.AuraScheduleDialog
 import com.aura.defense.ui.components.AuraHistoryDialog
 import com.aura.defense.ui.components.EmergencyModeDialog
 import com.aura.defense.ui.components.EmergencyModeResult
+import com.aura.defense.ui.components.AuraToolsHubDialog
 import com.aura.defense.lan.AuraLanDiscovery
 import com.aura.defense.lan.AuraLanPeer
 import com.aura.defense.ui.components.isNotificationAccessEnabled
