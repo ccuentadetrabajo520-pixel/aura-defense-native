@@ -37,6 +37,12 @@ val AuraTextSecondary = Color(0xFF7A9AAA)
 val AuraCyanGlow = Color(0x3300E5FF)
 val AuraGreenGlow = Color(0x3300FF88)
 val AuraRedGlow = Color(0x33FF3B5C)
+val AuraCyanDim = Color(0xFF004D57)
+val AuraGridLine = Color(0xFF0A1E28)
+val AuraScanGlow = Color(0x1800E5FF)
+val AuraDangerZone = Color(0x33FF3B5C)
+val AuraDataGreen = Color(0xFF00CC6A)
+val AuraWarmAmber = Color(0xFFFF9500)
 
 // ── GRADIENTS ─────────────────────────────────────
 val AuraGradientPrimary = Brush.horizontalGradient(listOf(AuraCyan, AuraTeal))
@@ -45,6 +51,10 @@ val AuraGradientDanger = Brush.horizontalGradient(listOf(AuraAmber, AuraRed))
 val AuraGradientSuccess = Brush.horizontalGradient(listOf(AuraGreen, AuraTeal))
 val AuraGradientShield = Brush.radialGradient(listOf(AuraCyan.copy(alpha = 0.2f), Color.Transparent))
 val AuraGradientSurface = Brush.verticalGradient(listOf(AuraSurface, AuraBackground))
+val AuraGradientScan = Brush.verticalGradient(listOf(Color.Transparent, AuraCyan.copy(alpha = 0.08f), Color.Transparent))
+val AuraGradientDangerZone = Brush.verticalGradient(listOf(Color.Transparent, AuraRed.copy(alpha = 0.1f), Color.Transparent))
+val AuraGradientWarm = Brush.horizontalGradient(listOf(AuraWarmAmber, AuraAmber))
+val AuraGradientCyber = Brush.linearGradient(listOf(AuraCyan.copy(alpha = 0.2f), AuraPurple.copy(alpha = 0.15f), AuraGreen.copy(alpha = 0.2f)))
 
 // ── TYPOGRAPHY ────────────────────────────────────
 val AuraTypography = androidx.compose.material3.Typography(
