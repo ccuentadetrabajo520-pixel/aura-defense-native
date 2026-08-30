@@ -129,8 +129,8 @@ fun HomeScreen(
             }
             Column(
                 modifier = Modifier.fillMaxSize().padding(AuraSpacing.lg),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
                 Text(if (result.score >= 0) "${result.score}" else "--", color = scoreColor, fontSize = 52.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                 Text("/100", color = AuraMuted, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
