@@ -94,6 +94,7 @@ import com.aura.defense.ui.components.EmergencyModeResult
 import com.aura.defense.ui.components.AuraToolsHubDialog
 import com.aura.defense.ui.components.AuraAdvancedToolsDialog
 import com.aura.defense.ui.components.AuraPhase4Dialog
+import com.aura.defense.ui.components.AuraOnboardingV2
 import com.aura.defense.lan.AuraLanDiscovery
 import com.aura.defense.lan.AuraLanPeer
 import com.aura.defense.ui.components.isNotificationAccessEnabled
@@ -382,7 +383,7 @@ private fun AuraDefenseApp(
         if (showingIntro) {
             com.aura.defense.ui.components.AuraCoreIntro()
         } else if (!hasCompletedOnboarding) {
-            AuraOnboarding(onComplete = { hasCompletedOnboarding = true; preferences.setOnboardingCompleted() })
+            AuraOnboardingV2(onComplete = { hasCompletedOnboarding = true; preferences.setOnboardingCompleted() })
         } else Scaffold(
         containerColor = AuraBackground,
         topBar = {
