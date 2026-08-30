@@ -61,13 +61,7 @@ import com.aura.defense.ui.AuraRed
 import com.aura.defense.ui.AuraSpacing
 import com.aura.defense.ui.AuraSurface
 import com.aura.defense.ui.AuraSurfaceRaised
-import com.aura.defense.ui.components.ActionButton
 import com.aura.defense.ui.components.Metric
-import com.aura.defense.ui.components.ModuleDialog
-import com.aura.defense.ui.components.Panel
-import com.aura.defense.ui.components.RadarCanvas
-import com.aura.defense.ui.components.SectionTitle
-import com.aura.defense.ui.components.StatusDot
 import com.aura.defense.ui.components.TacticalMap
 import com.aura.defense.guardian.AuraGuardianAssessment
 import com.aura.defense.ui.components.AuraGuardianPanel
@@ -501,22 +495,3 @@ private fun ScannerCanvas(modifier: Modifier, scanning: Boolean) {
     }
 }
 
-@Composable
-private fun RowScope.QuickAction(label: String, icon: String, onClick: () -> Unit) {
-    Surface(
-        modifier = Modifier.weight(1f).fillMaxWidth(),
-        color = AuraSurfaceRaised,
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.15f)),
-        onClick = onClick
-    ) {
-        Column(
-            modifier = Modifier.padding(vertical = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(icon, fontSize = 20.sp)
-            Text(label, color = AuraCyan, fontSize = 10.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, maxLines = 2)
-        }
-    }
-}
