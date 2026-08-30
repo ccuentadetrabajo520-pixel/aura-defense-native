@@ -413,7 +413,7 @@ private fun AuraDefenseApp(
                     onGuardianAnalysis = { showGuardian = true },
                     onStartScan = {
                         runCatching { engine.evaluate(telemetryProvider.read()) }
-                            .onSuccess { result = it; ScoreHistoryStore(context).saveScore(it.score, it.status); showSummary = true }
+                            .onSuccess { result = it; com.aura.defense.history.ScoreHistoryStore(context).saveScore(it.score, it.status); showSummary = true }
                             .onFailure {
                                 Timber.e(it, "No se pudo completar el diagnóstico solicitado")
                                 moduleDialog = "Diagnóstico no disponible" to "No se pudo completar el diagnóstico en este dispositivo. Aura seguirá funcionando con los datos disponibles."
