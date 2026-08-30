@@ -10,6 +10,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -271,84 +272,96 @@ fun DefenseScreen(
     onEmergency: () -> Unit
 ) {
     val logs by VpnDebugger.logs.collectAsState()
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AuraSpacing.lg)) {
-        SectionTitle("DEFENSA", "Cortafuegos Centinela", "Superficie de control visual. No se simulan bloqueos.")
-        Panel(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(AuraSpacing.xl), horizontalAlignment = Alignment.CenterHorizontally) {
-                SentinelCanvas(Modifier.fillMaxWidth().height(250.dp), blockPulse)
-                Text(vpnStatus, color = if (vpnStatus == "Protegido") AuraGreen else AuraAmber, fontSize = 12.sp)
+    val statusColor = if (vpnStatus == "Protegido") AuraGreen else AuraAmber
+
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("DEFENSE CONTROL", color = AuraCyan, fontSize = 11.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(modifier = Modifier.size(6.dp).background(statusColor.copy(alpha = 0.8f), CircleShape))
+                Text(vpnStatus.uppercase(), color = statusColor, fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
             }
         }
-        ActionButton(if (vpnRunning) "Desactivar VPN" else "Activar defensa VPN", onClick = onVpnToggle)
-        Panel(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(AuraSpacing.xl), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("CORTAFUEGOS DNS", color = AuraCyan, fontSize = 11.sp)
-                Text("Perfil: ${firewallProfile.label}", color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp)
+
+        Box(
+            modifier = Modifier.fillMaxWidth().height(200.dp)
+                .background(AuraSurface, RoundedCornerShape(14.dp))
+                .border(BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.15f)), RoundedCornerShape(14.dp))
+        ) {
+            SentinelCanvas(Modifier.fillMaxSize(), blockPulse)
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onVpnToggle),
+            shape = RoundedCornerShape(10.dp),
+            color = if (vpnRunning) AuraGreen.copy(alpha = 0.12f) else AuraSurface,
+            border = BorderStroke(0.5.dp, if (vpnRunning) AuraGreen.copy(alpha = 0.35f) else AuraCyan.copy(alpha = 0.12f))
+        ) {
+            Box(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
+                Text(if (vpnRunning) "DISABLE VPN TUNNEL" else "ACTIVATE VPN TUNNEL", color = if (vpnRunning) AuraGreen else AuraCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+            }
+        }
+
+        Column(
+            modifier = Modifier.fillMaxWidth()
+                .background(AuraSurface, RoundedCornerShape(10.dp))
+                .border(BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.12f)), RoundedCornerShape(10.dp))
+                .padding(AuraSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text("DNS FIREWALL", color = AuraCyan.copy(alpha = 0.7f), fontSize = 9.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+            Text("Active profile: ${firewallProfile.label}", color = AuraText, fontSize = 13.sp)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 DnsFirewallProfile.entries.forEach { profile ->
-                    Surface(onClick = { onProfileChange(profile) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = if (profile == firewallProfile) AuraCyan.copy(alpha = 0.12f) else AuraSurface, border = BorderStroke(if (profile == firewallProfile) 1.dp else 0.5.dp, AuraCyan.copy(alpha = if (profile == firewallProfile) 0.4f else 0.1f))) {
-                        Text(if (profile == firewallProfile) "${profile.label} · Activo" else profile.label, modifier = Modifier.padding(vertical = 12.dp), color = if (profile == firewallProfile) AuraCyan else AuraMuted, style = MaterialTheme.typography.labelLarge)
-                    }
-                }
-                Text("Dominios bloqueados en esta sesión: $blockedDomainCount", color = if (blockedDomainCount == 0) AuraMuted else AuraAmber, fontSize = 14.sp)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                        .background(AuraBackground)
-                        .border(BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.15f)), RoundedCornerShape(8.dp))
-                        .padding(AuraSpacing.sm),
-                ) {
-                    Text(logs.joinToString("\n"), color = Color(0xFF00FF41), fontFamily = FontFamily.Monospace, fontSize = 11.sp)
-                }
-                blockedDomains.takeLast(5).asReversed().forEach { event ->
-                    Text(
-                        "${event.domain} · ${event.category} · ${event.severity} · ${formatDnsTime(event.timestamp)}",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 12.sp
-                    )
-                }
-                if (blockedDomains.isEmpty()) Text("Todavía no se han bloqueado dominios.", color = AuraMuted, fontSize = 12.sp)
-                if (!ProfileManager.isFamilyModeEnabled) {
-                    var allowlistInput by remember { mutableStateOf("") }
-                    OutlinedTextField(
-                    value = allowlistInput,
-                    onValueChange = { allowlistInput = it },
-                    singleLine = true,
-                    label = { Text("Dominio permitido") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                    TextButton(onClick = {
-                    onAllowlistAdd(allowlistInput)
-                    allowlistInput = ""
-                    }) { Text("Añadir a la lista de permitidos") }
-                    allowlistedDomains.forEach { domain ->
-                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(domain, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
-                            TextButton(onClick = { onAllowlistRemove(domain) }) { Text("Quitar") }
-                        }
-                    }
-                    var blocklistInput by remember { mutableStateOf("") }
-                    OutlinedTextField(
-                    value = blocklistInput,
-                    onValueChange = { blocklistInput = it },
-                    singleLine = true,
-                    label = { Text("Dominio bloqueado") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                    TextButton(onClick = {
-                    onBlocklistAdd(blocklistInput)
-                    blocklistInput = ""
-                    }) { Text("Añadir a la lista de bloqueados") }
-                    blockedManuallyDomains.forEach { domain ->
-                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(domain, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
-                            TextButton(onClick = { onBlocklistRemove(domain) }) { Text("Quitar") }
+                    val active = profile == firewallProfile
+                    Surface(
+                        modifier = Modifier.weight(1f).clickable(onClick = { onProfileChange(profile) }),
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (active) AuraCyan.copy(alpha = 0.15f) else Color.Transparent,
+                        border = BorderStroke(0.5.dp, if (active) AuraCyan.copy(alpha = 0.4f) else AuraCyan.copy(alpha = 0.08f))
+                    ) {
+                        Box(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                            Text(if (active) "${profile.label} ACTIVE" else profile.label, color = if (active) AuraCyan else AuraMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace, letterSpacing = 0.5.sp, maxLines = 1)
                         }
                     }
                 }
             }
         }
-        ActionButton("Modo emergencia", onClick = onEmergency, outlined = true)
+
+        Column(
+            modifier = Modifier.fillMaxWidth()
+                .background(AuraSurface, RoundedCornerShape(10.dp))
+                .border(BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.12f)), RoundedCornerShape(10.dp))
+                .padding(AuraSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("BLOCKED DOMAINS", color = AuraRed.copy(alpha = 0.7f), fontSize = 9.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+                Text("$blockedDomainCount", color = AuraRed, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+            }
+            Box(
+                modifier = Modifier.fillMaxWidth().height(120.dp)
+                    .background(AuraBackground, RoundedCornerShape(6.dp))
+                    .padding(8.dp)
+            ) {
+                Text(if (logs.isEmpty()) "Awaiting DNS queries..." else logs.takeLast(8).joinToString("\n"), color = Color(0xFF00FF41), fontFamily = FontFamily.Monospace, fontSize = 10.sp, lineHeight = 14.sp)
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onEmergency),
+            shape = RoundedCornerShape(10.dp),
+            color = AuraRed.copy(alpha = 0.08f),
+            border = BorderStroke(0.5.dp, AuraRed.copy(alpha = 0.2f))
+        ) {
+            Box(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
+                Text("EMERGENCY MODE", color = AuraRed, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 2.sp)
+            }
+        }
     }
 }
 
