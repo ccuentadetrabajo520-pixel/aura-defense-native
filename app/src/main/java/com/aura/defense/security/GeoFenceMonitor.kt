@@ -136,7 +136,7 @@ class GeoFenceMonitor(private val context: Context) {
                                                                                             else if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) LocationManager.NETWORK_PROVIDER
                                                                                                             else return null
                                                                                                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                                                                                                                                            lm.getCurrentLocation(provider, null, context.mainLooper) { loc ->
+                                                                                                                                            lm.getCurrentLocation(provider, null, context.mainExecutor) { loc ->
                                                                                                                                                             }
                                                                                                                                                                             lm.getLastKnownLocation(provider)
                                                                                                                         } else {
