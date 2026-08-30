@@ -224,31 +224,62 @@ fun AurasScreen(
     onStopLanSearch: () -> Unit,
     onModuleDialog: (String, String) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AuraSpacing.lg)) {
-        SectionTitle("AURAS", "Campo táctico", if (locationActive) "Ubicación activa. No se muestran coordenadas." else "Vista privada sin ubicación ni datos LAN activos.")
-        TacticalMap(Modifier.fillMaxWidth().height(250.dp))
-        Panel(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(AuraSpacing.xl), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(if (locationActive) "Ubicación activa" else "Ubicación no activada", color = if (locationActive) AuraGreen else AuraAmber, fontSize = 17.sp)
-                Text(if (lanSearching) "Buscando en la red local..." else "El descubrimiento LAN está listo", color = AuraMuted, fontSize = 13.sp)
-                Text("La búsqueda se realiza solo en esta red local. No se comparte ubicación ni datos privados.", color = AuraMuted, fontSize = 12.sp)
-                if (lanPeers.isEmpty() && !lanSearching) Text("No se encontraron Auras cercanas", color = AuraAmber, fontSize = 14.sp)
-                lanPeers.forEach { peer ->
-                    Panel {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Text("Aura encontrada", color = AuraCyan, fontSize = 13.sp)
-                            Text("${peer.name} · ${peer.auraId}", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
-                            Text("Nivel: ${peer.guardianLevel}", color = AuraMuted, fontSize = 11.sp)
-                            Text("Última señal: ${peer.timestamp}", color = AuraMuted, fontSize = 11.sp)
-                        }
-                    }
-                }
-                lastLanScan?.let { Text("Última comprobación: $it", color = AuraMuted, fontSize = 11.sp) }
+    val statusColor = if (locationActive) AuraGreen else AuraAmber
+
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("TACTICAL FIELD", color = AuraCyan, fontSize = 11.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(modifier = Modifier.size(6.dp).background(statusColor.copy(alpha = 0.8f), CircleShape))
+                Text(if (locationActive) "LOC ON" else "LOC OFF", color = statusColor, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
             }
         }
-        ActionButton(if (locationActive) "Actualizar permiso de ubicación" else "Activar ubicación", onClick = onActivateLocation)
-        ActionButton(if (visible) "Modo visible" else "Modo invisible", onClick = onVisibilityToggle, outlined = true)
-        ActionButton(if (lanSearching) "Detener búsqueda" else "Buscar Auras", onClick = if (lanSearching) onStopLanSearch else onSearchLan, outlined = true)
+
+        Box(modifier = Modifier.fillMaxWidth().height(220.dp).background(AuraSurface, RoundedCornerShape(14.dp)).border(BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.12f)), RoundedCornerShape(14.dp))) {
+            TacticalMap(Modifier.fillMaxSize())
+        }
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(
+                Triple("PEERS", "${lanPeers.size}", AuraCyan),
+                Triple("HISTORY", "$historyCount", AuraMuted),
+                Triple("STATUS", if (lanSearching) "SCANNING" else "READY", if (lanSearching) AuraAmber else AuraGreen)
+            ).forEach { (label, value, color) ->
+                Column(modifier = Modifier.weight(1f).background(AuraSurface, RoundedCornerShape(10.dp)).padding(vertical = 10.dp, horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(label, color = AuraMuted, fontSize = 9.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
+                    Text(value, color = color, fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                }
+            }
+        }
+
+        if (lanPeers.isNotEmpty()) {
+            Column(modifier = Modifier.fillMaxWidth().background(AuraSurface, RoundedCornerShape(10.dp)).border(BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.12f)), RoundedCornerShape(10.dp)).padding(AuraSpacing.md), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("DISCOVERED AURAS", color = AuraCyan.copy(alpha = 0.7f), fontSize = 9.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+                lanPeers.forEach { peer ->
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column {
+                            Text(peer.name, color = AuraText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                            Text("${peer.auraId} | ${peer.guardianLevel}", color = AuraMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        }
+                        Text(peer.timestamp, color = AuraMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                    }
+                }
+            }
+        }
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(
+                Pair(if (locationActive) "UPDATE LOCATION" else "ENABLE LOCATION", onActivateLocation),
+                Pair(if (visible) "VISIBLE MODE" else "STEALTH MODE", onVisibilityToggle),
+                Pair(if (lanSearching) "STOP SCAN" else "SCAN NETWORK", if (lanSearching) onStopLanSearch else onSearchLan)
+            ).forEach { (label, action) ->
+                Surface(modifier = Modifier.weight(1f).clickable(onClick = action), shape = RoundedCornerShape(10.dp), color = AuraSurface, border = BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.12f))) {
+                    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+                        Text(label, color = AuraMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 0.5.sp, maxLines = 1)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -402,29 +433,51 @@ fun AppsScreen(
     onExport: () -> Unit,
     onModuleDialog: (String, String) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AuraSpacing.lg)) {
-        SectionTitle("APPS", "Escáner genómico de apps", "Interfaz visual del escáner. No se inventan resultados del gestor de paquetes.")
-        Panel(modifier = Modifier.fillMaxWidth()) { ScannerCanvas(Modifier.fillMaxWidth().height(190.dp), scanning) }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("RED", "SENSORES", "IDENTIDAD").forEach { label ->
-                Box(modifier = Modifier.weight(1f).background(if (true) AuraCyan.copy(alpha = 0.08f) else AuraSurface, RoundedCornerShape(12.dp)).border(BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.2f)), RoundedCornerShape(12.dp)).padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
-                    Text(label, color = AuraMuted, fontSize = 10.sp)
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("APP GENOME SCANNER", color = AuraCyan, fontSize = 11.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+            if (scanning) {
+                val scanBlink by rememberInfiniteTransition(label = "sb").animateFloat(0.3f, 1f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "sb")
+                Text("SCANNING", color = AuraAmber.copy(alpha = scanBlink), fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        Box(modifier = Modifier.fillMaxWidth().height(160.dp).background(AuraSurface, RoundedCornerShape(14.dp)).border(BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.12f)), RoundedCornerShape(14.dp))) {
+            ScannerCanvas(Modifier.fillMaxSize(), scanning)
+        }
+
+        scanResult?.let { scan ->
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(
+                    Triple("TOTAL", "${scan.apps.size}", AuraCyan),
+                    Triple("RISKY", "${scan.riskyApps.size}", AuraAmber),
+                    Triple("HIGH RISK", "${scan.highRiskApps.size}", AuraRed),
+                    Triple("SCANNED", scan.scannedAt, AuraMuted)
+                ).forEach { (label, value, color) ->
+                    Column(modifier = Modifier.weight(1f).background(AuraSurface, RoundedCornerShape(10.dp)).padding(vertical = 10.dp, horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(label, color = AuraMuted, fontSize = 8.sp, fontFamily = FontFamily.Monospace, letterSpacing = 0.5.sp)
+                        Text(value, color = color, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, maxLines = 1)
+                    }
+                }
+            }
+        } ?: run {
+            Box(modifier = Modifier.fillMaxWidth().background(AuraSurface, RoundedCornerShape(10.dp)).padding(vertical = 20.dp), contentAlignment = Alignment.Center) {
+                Text("No scan executed", color = AuraMuted, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+            }
+        }
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Surface(modifier = Modifier.weight(1f).clickable(onClick = onScan), shape = RoundedCornerShape(10.dp), color = AuraCyan.copy(alpha = 0.12f), border = BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.35f))) {
+                Box(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
+                    Text(if (scanning) "SCANNING..." else "SCAN APPS", color = AuraCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+                }
+            }
+            Surface(modifier = Modifier.weight(1f).clickable(onClick = onViewRisks), shape = RoundedCornerShape(10.dp), color = AuraSurface, border = BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.12f))) {
+                Box(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
+                    Text("VIEW RISKS", color = AuraMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
                 }
             }
         }
-        Panel(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(AuraSpacing.xl), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("RESUMEN DE RIESGOS", color = AuraCyan, fontSize = 11.sp)
-                Text(scanResult?.let { "${it.apps.size} apps visibles por Android" } ?: "Sin escaneo ejecutado", color = AuraMuted, fontSize = 14.sp)
-                scanResult?.let {
-                    Text("Riesgos: ${it.riskyApps.size} · Riesgo alto: ${it.highRiskApps.size}", color = AuraMuted, fontSize = 13.sp)
-                    Text("Último escaneo: ${it.scannedAt}", color = AuraMuted, fontSize = 12.sp)
-                }
-            }
-        }
-        ActionButton(if (scanning) "Escaneando apps..." else "Escanear apps", onClick = onScan)
-        ActionButton("Ver riesgos", onClick = onViewRisks, outlined = true)
-        ActionButton("Exportar reporte de apps", onClick = onExport, outlined = true)
     }
 }
 
