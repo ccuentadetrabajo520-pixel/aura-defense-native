@@ -44,11 +44,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aura.defense.ui.AuraAmber
+import com.aura.defense.ui.AuraText
 import com.aura.defense.ui.AuraBackground
 import com.aura.defense.ui.AuraCyan
 import com.aura.defense.ui.AuraGreen
@@ -90,50 +93,119 @@ fun HomeScreen(
     onEmergency: () -> Unit,
     onToolsHub: () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AuraSpacing.lg)) {
-        SectionTitle("PANEL PRINCIPAL", "Centro de defensa Aura", "Diagnóstico local del dispositivo y sus señales disponibles.")
-        AuraGuardianPanel(assessment = guardianAssessment, onViewAnalysis = onGuardianAnalysis)
-        if (historyCount > 0) Text("Cambios recientes: $historyCount", color = AuraMuted, fontSize = 12.sp)
-        Panel(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(AuraSpacing.xl), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column {
-                        Text("PUNTUACIÓN AURA", color = AuraMuted, style = MaterialTheme.typography.labelSmall)
-                        Text(if (result.score >= 0) "${result.score}/100" else "No disponible", color = AuraCyan, style = MaterialTheme.typography.displayLarge)
-                        if (result.score >= 0) {
-                            val percentile = when {
-                                result.score >= 95 -> "top 5%"
-                                result.score >= 85 -> "top 15%"
-                                result.score >= 70 -> "top 35%"
-                                result.score >= 60 -> "top 50%"
-                                result.score >= 40 -> "top 70%"
-                                else -> "bottom 30%"
-                            }
-                            Text("· $percentile de dispositivos protegidos ·", color = AuraMuted, fontSize = 11.sp, fontWeight = FontWeight.Light)
-                        }
-                    }
-                        StatusDot(if (result.score >= 85) AuraGreen else if (result.score >= 60) AuraAmber else AuraRed, "ESTADO", result.status)
+    val blink by rememberInfiniteTransition(label = "hb").animateFloat(0.4f, 1f, infiniteRepeatable(tween(1200), RepeatMode.Reverse), label = "bl")
+    val scoreColor = if (result.score >= 85) AuraGreen else if (result.score >= 60) AuraAmber else AuraRed
+    val findings = result.findings.take(4)
+
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(modifier = Modifier.size(6.dp).background(scoreColor.copy(alpha = blink), CircleShape))
+                Text(guardianAssessment.level.displayName, color = scoreColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
+            Text("AURA $guardianAssessment.score", color = AuraCyan.copy(alpha = 0.5f), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+        }
+
+        Box(
+            modifier = Modifier.fillMaxWidth().height(140.dp)
+                .background(AuraSurface, RoundedCornerShape(14.dp))
+                .border(BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.15f)), RoundedCornerShape(14.dp))
+        ) {
+            Canvas(Modifier.fillMaxSize()) {
+                val cx = size.width / 2f
+                val cy = size.height / 2f
+                val r = size.minDimension * 0.38f
+                drawCircle(scoreColor.copy(alpha = 0.06f), r * 1.4f, center = Offset(cx, cy))
+                drawCircle(Color.Transparent, r, center = Offset(cx, cy), style = Stroke(1.dp.toPx(), color = scoreColor.copy(alpha = 0.25f)))
+                val sides = 6
+                for (i in 0 until sides) {
+                    val a1 = Math.toRadians((60.0 * i - 90.0))
+                    val a2 = Math.toRadians((60.0 * ((i + 1) % sides) - 90.0))
+                    val x1 = cx + r * kotlin.math.cos(a1).toFloat()
+                    val y1 = cy + r * kotlin.math.sin(a1).toFloat()
+                    val x2 = cx + r * kotlin.math.cos(a2).toFloat()
+                    val y2 = cy + r * kotlin.math.sin(a2).toFloat()
+                    drawLine(scoreColor.copy(alpha = 0.3f), Offset(x1, y1), Offset(x2, y2), 1.dp.toPx())
                 }
-                    RadarCanvas(result.score, Modifier.fillMaxWidth().height(150.dp))
+            }
+            Column(
+                modifier = Modifier.fillMaxSize().padding(AuraSpacing.lg),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(if (result.score >= 0) "${result.score}" else "--", color = scoreColor, fontSize = 52.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                Text("/100", color = AuraMuted, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
+                Spacer(Modifier.height(2.dp))
+                Text(result.status, color = scoreColor.copy(alpha = 0.8f), fontSize = 12.sp, fontWeight = FontWeight.Medium, letterSpacing = 2.sp)
             }
         }
-        Panel(modifier = Modifier.fillMaxWidth()) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                Metric("VPN", if (result.telemetry.vpnActive) "Activa" else "Inactiva", if (result.telemetry.vpnActive) AuraGreen else AuraMuted)
-                Metric("DNS", result.telemetry.privateDnsStatus, if (result.telemetry.privateDnsStatus == "Activo" || result.telemetry.privateDnsStatus == "Automático") AuraGreen else AuraMuted)
-                Metric("RIESGOS", result.findings.count { it.severity >= com.aura.defense.security.FindingSeverity.MEDIUM }.toString(), AuraRed)
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf(
+                Triple("VPN", if (result.telemetry.vpnActive) "ON" else "OFF", if (result.telemetry.vpnActive) AuraGreen else AuraMuted),
+                Triple("DNS", result.telemetry.privateDnsStatus, if (result.telemetry.privateDnsStatus.contains("Activo") || result.telemetry.privateDnsStatus.contains("Autom")) AuraGreen else AuraMuted),
+                Triple("THREATS", "${findings.count { it.severity >= com.aura.defense.security.FindingSeverity.MEDIUM }}", if (findings.any { it.severity >= com.aura.defense.security.FindingSeverity.MEDIUM }) AuraRed else AuraGreen),
+                Triple("HISTORY", "$historyCount", AuraCyan.copy(alpha = 0.6f))
+            ).forEach { (label, value, color) ->
+                Column(
+                    modifier = Modifier.weight(1f).background(AuraSurface, RoundedCornerShape(10.dp)).padding(vertical = 10.dp, horizontal = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(label, color = AuraMuted, fontSize = 9.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
+                    Text(value, color = color, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, maxLines = 1)
+                }
             }
         }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AuraSpacing.sm)) {
-            QuickAction("QR Anti-Phishing", "📷") { onModuleDialog("QR Anti-Phishing", "Abre el escáner QR desde la pestaña Auras para analizar códigos en tiempo real.") }
-            QuickAction("Analizar enlace", "🔗") { onModuleDialog("Analizar enlace", "Abre el analizador de enlaces desde la pestaña Auras para verificar URLs sospechosas.") }
-            QuickAction("Historial", "📋") { onModuleDialog("Historial", "Revisa el historial de diagnósticos y cambios detectados desde la pestaña Auras.") }
-            QuickAction("Firewall DNS", "🛡") { onModuleDialog("Firewall DNS", "Configura el cortafuegos DNS desde la pestaña Defensa para bloquear dominios peligrosos.") }
+
+        if (findings.isNotEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxWidth()
+                    .background(AuraSurface, RoundedCornerShape(10.dp))
+                    .border(BorderStroke(0.5.dp, AuraRed.copy(alpha = 0.15f)), RoundedCornerShape(10.dp))
+                    .padding(AuraSpacing.md)
+            ) {
+                Text("THREAT FEED", color = AuraRed.copy(alpha = 0.7f), fontSize = 9.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+                findings.forEach { finding ->
+                    val sevColor = when (finding.severity) {
+                        com.aura.defense.security.FindingSeverity.HIGH -> AuraRed
+                        com.aura.defense.security.FindingSeverity.MEDIUM -> AuraAmber
+                        else -> AuraMuted
+                    }
+                    val sevTag = when (finding.severity) {
+                        com.aura.defense.security.FindingSeverity.HIGH -> "HI "
+                        com.aura.defense.security.FindingSeverity.MEDIUM -> "MED"
+                        else -> "LOW"
+                    }
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("[$sevTag]", color = sevColor, fontSize = 10.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.width(48.dp))
+                        Text(finding.title, color = AuraText, fontSize = 11.sp, maxLines = 1, modifier = Modifier.weight(1f))
+                    }
+                }
+            }
         }
-        ActionButton("Iniciar escaneo", onClick = { onStartScan() })
-        ActionButton("Abrir Defensa VPN", onClick = { onModuleDialog("Defensa VPN", "Activa la VPN desde la pestaña Defensa para aplicar el cortafuegos DNS local.") }, outlined = true)
-        ActionButton("Herramientas avanzadas", onClick = onToolsHub, outlined = true)
-        ActionButton("Modo emergencia", onClick = onEmergency, outlined = true)
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(
+                Pair("SCAN", onStartScan),
+                Pair("TOOLS", onToolsHub),
+                Pair("EMERGENCY", onEmergency)
+            ).forEach { (label, action) ->
+                Surface(
+                    modifier = Modifier.weight(1f).clickable(onClick = action),
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (label == "SCAN") AuraCyan.copy(alpha = 0.12f) else AuraSurface,
+                    border = BorderStroke(0.5.dp, if (label == "SCAN") AuraCyan.copy(alpha = 0.35f) else AuraCyan.copy(alpha = 0.12f))
+                ) {
+                    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
+                        Text(label, color = if (label == "SCAN") AuraCyan else AuraMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+                    }
+                }
+            }
+        }
     }
 }
 
