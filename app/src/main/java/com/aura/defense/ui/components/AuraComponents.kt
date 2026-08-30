@@ -58,6 +58,8 @@ import com.aura.defense.ui.AuraMuted
 import com.aura.defense.ui.AuraSpacing
 import com.aura.defense.ui.AuraSurface
 import com.aura.defense.ui.AuraSurfaceRaised
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import com.aura.defense.util.formatBytes
 
 @Composable
@@ -105,6 +107,19 @@ fun AuraTopBar(
             }
         }
     }
+}
+
+@Composable
+fun AuraAnimatedBadge(text: String, modifier: Modifier = Modifier, color: Color = AuraCyan) {
+        val pulseAlpha by animateFloatAsState(if (true) 0.8f else 0.4f, animationSpec = tween(1200), label = "badge-pulse")
+            Surface(
+                        modifier = modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                shape = RoundedCornerShape(6.dp),
+                                        color = color.copy(alpha = 0.1f),
+                                                border = BorderStroke(0.5.dp, color.copy(alpha = 0.3f))
+            ) {
+                        Text(text, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), color = color, fontSize = 10.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+            }
 }
 
 @Composable
@@ -321,6 +336,19 @@ fun RadarCanvas(score: Int, modifier: Modifier = Modifier) {
             drawCircle(AuraCyan.copy(alpha = blink.value * 0.4f), 2.dp.toPx(), point)
         }
     }
+}
+
+@Composable
+fun AnimatedScanBorder(modifier: Modifier = Modifier, color: Color = AuraCyan) {
+        val sweep by rememberInfiniteTransition(label = "scan-sweep").animateFloat(0f, 360f, infiniteRepeatable(tween(4000, easing = androidx.compose.animation.core.LinearEasing), RepeatMode.Restart), label = "sweep")
+            Canvas(modifier = modifier) {
+                        val cx = size.width / 2f
+                                val cy = size.height / 2f
+                                        val r = size.minDimension / 2f
+                                                val angleRad = java.lang.Math.toRadians(sweep.toDouble()).toFloat()
+                                                        drawCircle(color.copy(alpha = 0.15f), r, center = Offset(cx, cy), style = Stroke(1.dp.toPx()))
+                                                                drawLine(color.copy(alpha = 0.3f), Offset(cx, cy), Offset(cx + (r * kotlin.math.cos(angleRad)).toFloat(), cy + (r * kotlin.math.sin(angleRad)).toFloat()), 1.dp.toPx())
+            }
 }
 
 @Composable
