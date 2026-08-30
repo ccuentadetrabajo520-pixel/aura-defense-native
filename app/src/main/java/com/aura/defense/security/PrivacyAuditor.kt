@@ -78,8 +78,7 @@ class PrivacyAuditor(private val context: Context) {
                                                                                 }.sortedByDescending { it.sensitiveCount }
                                                     }.onFailure { e ->
                                                                 Timber.e(e, "Privacy audit failed")
-                                                                            emptyList()
-                                                                                    }.getOrDefault(emptyList())
+                                                                    }.getOrDefault(emptyList())
 
                                                                                             val highRisk = apps.count { it.riskLevel == "CRITICO" || it.riskLevel == "ALTO" }
                                                                                                     if (highRisk > 0) warnings.add("$highRisk app(s) con acceso a combinaciones de permisos sensibles de alto riesgo.")
