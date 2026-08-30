@@ -355,3 +355,22 @@ fun TacticalMap(modifier: Modifier = Modifier) {
         }
     }
 }
+
+@Composable
+fun AuraToolsHubDialog(onDismiss: () -> Unit) {
+    AuraHudDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Herramientas Avanzadas") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Verificar Integridad del Dispositivo", color = AuraCyan, fontSize = 13.sp)
+                Text("Certificado de Seguridad Aura", color = AuraCyan, fontSize = 13.sp)
+                Text("Verificar Contrasenas (HaveIBeenPwned)", color = AuraCyan, fontSize = 13.sp)
+                Text("Auditoria de Permisos de Apps", color = AuraCyan, fontSize = 13.sp)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cerrar") }
+        }
+    )
+}
