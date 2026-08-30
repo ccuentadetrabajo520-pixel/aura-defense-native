@@ -73,38 +73,17 @@ fun AuraTopBar(
     onFamilyModeToggle: () -> Unit,
     onCellularDataToggle: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Column {
-            Text("AURA / DEFENSA", color = AuraCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-            Text("Defensa móvil privada", color = AuraMuted, fontSize = 12.sp)
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("AURA", color = AuraCyan, fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 3.sp)
+            Text("DEFENSE", color = AuraCyan.copy(alpha = 0.5f), fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 3.sp)
         }
-        Column(horizontalAlignment = Alignment.End) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Familia", color = AuraMuted, fontSize = 11.sp)
-                Switch(checked = familyModeEnabled, onCheckedChange = { onFamilyModeToggle() })
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Surface(modifier = Modifier.clickable(onClick = onAuraIdClick), shape = RoundedCornerShape(50), color = AuraSurfaceRaised, border = BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.3f))) {
+                Text(auraId, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = AuraCyan, fontSize = 10.sp, fontFamily = FontFamily.Monospace, maxLines = 1)
             }
-            if (!familyModeEnabled) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Bloquear móvil", color = AuraMuted, fontSize = 11.sp)
-                    Switch(checked = cellularDataBlocked, onCheckedChange = { onCellularDataToggle() })
-                }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Surface(
-                modifier = Modifier.clickable(onClick = onAuraIdClick),
-                shape = RoundedCornerShape(50),
-                color = AuraSurfaceRaised,
-                border = BorderStroke(1.dp, AuraCyan.copy(alpha = 0.55f))
-            ) {
-                Text(auraId, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = AuraCyan, fontSize = 12.sp, maxLines = 1)
-            }
-            IconButton(onClick = onSettingsClick, modifier = Modifier.size(44.dp)) {
-                Text("⚙", color = AuraCyan, fontSize = 20.sp, maxLines = 1)
-            }
+            IconButton(onClick = onSettingsClick, modifier = Modifier.size(40.dp)) {
+                Text("[_]", color = AuraCyan.copy(alpha = 0.6f), fontSize = 14.sp, fontFamily = FontFamily.Monospace)
             }
         }
     }
