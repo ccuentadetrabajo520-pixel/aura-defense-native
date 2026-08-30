@@ -47,6 +47,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -104,18 +105,13 @@ fun AuraAnimatedBadge(text: String, modifier: Modifier = Modifier, color: Color 
 
 @Composable
 fun AuraBottomNav(selected: Int, onSelected: (Int) -> Unit) {
-    val labels = listOf("Inicio", "Auras", "Defensa", "Apps")
-    Surface(color = AuraSurface, shape = RoundedCornerShape(18.dp)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            labels.forEachIndexed { index, label ->
-                val active = selected == index
-                Surface(
-                    modifier = Modifier.weight(1f).clickable { onSelected(index) },
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (active) AuraCyan.copy(alpha = 0.16f) else Color.Transparent
-                ) {
-                    Text(label, modifier = Modifier.padding(vertical = 12.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, color = if (active) AuraCyan else AuraMuted, fontSize = 12.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
-                }
+    val labels = listOf("HOME", "FIELD", "DEFENSE", "APPS")
+    Row(modifier = Modifier.fillMaxWidth().background(AuraSurface, RoundedCornerShape(14.dp)).border(BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.1f)), RoundedCornerShape(14.dp)).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        labels.forEachIndexed { index, label ->
+            val active = selected == index
+            val alpha by animateFloatAsState(if (active) 1f else 0.5f, tween(300), label = "nav-$index")
+            Box(modifier = Modifier.weight(1f).clickable { onSelected(index) }.background(if (active) AuraCyan.copy(alpha = 0.1f) else Color.Transparent, RoundedCornerShape(10.dp)).padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+                Text(label, color = if (active) AuraCyan else AuraMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal, letterSpacing = if (active) 1.5.sp else 0.5.sp, modifier = Modifier.alpha(alpha))
             }
         }
     }
