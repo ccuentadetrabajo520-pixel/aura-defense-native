@@ -53,6 +53,7 @@ import com.aura.defense.apps.InstalledAppInfo
 import com.aura.defense.files.AuraFileAnalysis
 import com.aura.defense.history.AuraHistoryEntry
 import com.aura.defense.history.AuraHistoryStore
+import com.aura.defense.history.ScoreHistoryStore
 import com.aura.defense.history.SuspiciousChangeDetector
 import com.aura.defense.tools.LinkAnalysis
 import com.aura.defense.tools.PasswordAudit
