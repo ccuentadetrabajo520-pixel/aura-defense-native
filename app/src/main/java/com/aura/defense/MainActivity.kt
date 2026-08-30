@@ -219,6 +219,7 @@ private fun AuraDefenseApp(
     var showNotificationGuard by remember { mutableStateOf(false) }
     var showGuardian by remember { mutableStateOf(false) }
     var showFileAnalyzer by remember { mutableStateOf(sharedFile != null) }
+    var showToolsHub by remember { mutableStateOf(false) }
     var showVault by remember { mutableStateOf(false) }
     var showSchedule by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
@@ -416,7 +417,8 @@ private fun AuraDefenseApp(
                     onModuleDialog = { title, message -> moduleDialog = title to message },
                     onEmergency = {
                         runEmergencyMode()
-                    }
+                    },
+                    onToolsHub = { showToolsHub = true }
                 )
                 1 -> AurasScreen(
                     locationActive = locationActive,
@@ -736,6 +738,9 @@ private fun AuraDefenseApp(
             },
             onDismiss = { showSummary = false }
         )
+    }
+    if (showToolsHub) {
+        AuraToolsHubDialog(onDismiss = { showToolsHub = false })
     }
     if (showEmergency) {
         EmergencyModeDialog(
