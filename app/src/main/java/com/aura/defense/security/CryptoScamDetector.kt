@@ -47,7 +47,7 @@ class CryptoScamDetector {
 
                                                                                                                 URL_REGEX.findAll(input).map { it.value }.toList().forEach { url ->
                                                                                                                             FAKE_EXCHANGE.forEach { pattern ->
-                                                                                                                                            if (pattern in url.lower()) indicators.add("URL que imita un exchange: $url")
+                                                                                                                                            if (pattern in url.lowercase()) indicators.add("URL que imita un exchange: $url")
                                                                                                                                                         }
                                                                                                                                                                 }
                                                                                                                                                                         if (URGENCY_WORDS.any { it in lower }) indicators.add("Indicadores de urgencia. Las estafas cripto suelen presionar.")
