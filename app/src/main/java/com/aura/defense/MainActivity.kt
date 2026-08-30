@@ -93,6 +93,7 @@ import com.aura.defense.ui.components.EmergencyModeDialog
 import com.aura.defense.ui.components.EmergencyModeResult
 import com.aura.defense.ui.components.AuraToolsHubDialog
 import com.aura.defense.ui.components.AuraAdvancedToolsDialog
+import com.aura.defense.ui.components.AuraPhase4Dialog
 import com.aura.defense.lan.AuraLanDiscovery
 import com.aura.defense.lan.AuraLanPeer
 import com.aura.defense.ui.components.isNotificationAccessEnabled
@@ -224,6 +225,7 @@ private fun AuraDefenseApp(
     var showFileAnalyzer by remember { mutableStateOf(sharedFile != null) }
     var showToolsHub by remember { mutableStateOf(false) }
     var showAdvancedTools by remember { mutableStateOf(false) }
+    var showPhase4 by remember { mutableStateOf(false) }
     var showVault by remember { mutableStateOf(false) }
     var showSchedule by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
@@ -605,6 +607,9 @@ private fun AuraDefenseApp(
                 } else if (item == "Seguridad avanzada") {
                     showAdvancedTools = true
                     showAuraCenter = false
+                } else if (item == "Funciones avanzadas") {
+                    showPhase4 = true
+                    showAuraCenter = false
                 } else if (item == "Herramientas avanzadas") {
                     showToolsHub = true
                     showAuraCenter = false
@@ -770,6 +775,9 @@ private fun AuraDefenseApp(
     }
     if (showAdvancedTools) {
         AuraAdvancedToolsDialog(onDismiss = { showAdvancedTools = false })
+    }
+    if (showPhase4) {
+        AuraPhase4Dialog(onDismiss = { showPhase4 = false })
     }
     if (showEmergency) {
         EmergencyModeDialog(
