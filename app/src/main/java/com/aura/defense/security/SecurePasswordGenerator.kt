@@ -68,7 +68,7 @@ class SecurePasswordGenerator {
                                                                     val poolSize = (if (hasUpper) 26 else 0) + (if (hasLower) 26 else 0) + (if (hasDigit) 10 else 0) + (if (hasSymbol) 32 else 0)
                                                                             val entropy = if (poolSize > 0) length * kotlin.math.log2(poolSize.toDouble()) else 0.0
 
-                                                                                    val crackSeconds = pow(2.0, entropy) / 1e10
+                                                                                    val crackSeconds = 2.0.pow(entropy) / 1e10
                                                                                             val crackTime = when {
                                                                                                             crackSeconds < 1 -> "instantaneamente"
                                                                                                                         crackSeconds < 60 -> "${crackSeconds.toLong()} segundos"
