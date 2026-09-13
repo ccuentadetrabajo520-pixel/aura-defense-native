@@ -136,8 +136,7 @@ class ThreatIntelligenceRepository(private val context: Context) {
         const val FILE_NAME = "threats.json"
         const val CACHE_FILE = "threat_cache.json"
         const val MAX_BYTES = 2 * 1024 * 1024
-        // El feed remoto queda desactivado hasta publicar un threats.json verificado; el bundle local validado es la fuente actual.
-        val THREAT_FEED_URL: String? = null
+        const val THREAT_FEED_URL = "https://raw.githubusercontent.com/ccuentadetrabajo520-pixel/aura-defense-native/main/feed/threats.json"
         const val INVALID_MESSAGE = "No se pudo validar la inteligencia de amenazas. Aura usará la base local incluida."
     }
 }
