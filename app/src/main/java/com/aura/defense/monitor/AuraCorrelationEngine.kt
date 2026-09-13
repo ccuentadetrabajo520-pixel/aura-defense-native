@@ -51,17 +51,18 @@ object AuraCorrelationEngine {
     fun defaultRoleHolders(context: Context): Map<String, String> {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return emptyMap()
         return runCatching {
-            val rm = context.getSystemService(Context.ROLE_SERVICE) as? android.app.role.RoleManager
+            val service = context.getSystemService(Context.ROLE_SERVICE)
+                ?: return emptyMap()
+            val rmClass = Class.forName("android.app.role.RoleManager")
+            val getHolders = rmClass.getMethod("getRoleHolders", String::class.java)
             val result = LinkedHashMap<String, String>()
-            if (rm != null) {
-                val smsHolders: List<String> = rm.getRoleHolders(android.app.role.RoleManager.ROLE_SMS)
-                if (smsHolders.isNotEmpty()) {
-                    result["ROLE_SMS"] = smsHolders[0]
-                }
-                val browserHolders: List<String> = rm.getRoleHolders(android.app.role.RoleManager.ROLE_BROWSER)
-                if (browserHolders.isNotEmpty()) {
-                    result["ROLE_BROWSER"] = browserHolders[0]
-                }
+            val sms = getHolders.invoke(service, "android.app.role.SMS") as? List<*>
+            if (!sms.isNullOrEmpty() && sms[0] is String) {
+                result["ROLE_SMS"] = sms[0] as String
+            }
+            val browser = getHolders.invoke(service, "android.app.role.BROWSER") as? List<*>
+            if (!browser.isNullOrEmpty() && browser[0] is String) {
+                result["ROLE_BROWSER"] = browser[0] as String
             }
             result
         }.getOrDefault(emptyMap())
