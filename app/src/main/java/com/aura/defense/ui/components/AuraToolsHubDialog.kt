@@ -51,7 +51,11 @@ import com.aura.defense.ui.AuraSurfaceRaised
 import java.io.File
 
 @Composable
-fun AuraToolsHubDialog(onDismiss: () -> Unit) {
+fun AuraToolsHubDialog(
+    onDismiss: () -> Unit,
+    onAssistant: () -> Unit = {},
+    onVoiceCommands: () -> Unit = {}
+) {
     var activeTool by remember { mutableStateOf<String?>(null) }
     var integrityResult by remember { mutableStateOf<IntegrityResult?>(null) }
     var auditResult by remember { mutableStateOf<PermissionAuditResult?>(null) }
@@ -164,6 +168,10 @@ fun AuraToolsHubDialog(onDismiss: () -> Unit) {
                             scoreHistory = scoreStore.getScores()
                             activeTool = "scores"
                         }
+
+                        ToolButton("Asistente Aura", onAssistant)
+
+                        ToolButton("Comandos de voz", onVoiceCommands)
 
                         ToolButton("Generar reporte PDF") {
                             val output = File(ctx.filesDir, "aura-report-${System.currentTimeMillis()}.pdf")

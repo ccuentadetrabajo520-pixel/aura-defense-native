@@ -63,7 +63,7 @@ fun AuraOnboardingV2(onComplete: () -> Unit) {
         OnboardingPageV2(
             title = "AURA DEFENSE",
             subtitle = "Primera app de ciberdefensa sin root del mundo",
-            description = "Diagnóstico en tiempo real, firewall DNS, detección de amenazas, VPN local y protección contra ingeniería social. Todo funciona directamente en tu dispositivo.",
+            description = "Diagnóstico local, filtrado DNS, detección de señales de amenaza y herramientas contra ingeniería social. La cobertura depende de los permisos y de Android.",
             icon = "[shield]",
             accentColor = AuraCyan
         ),
@@ -77,14 +77,14 @@ fun AuraOnboardingV2(onComplete: () -> Unit) {
         OnboardingPageV2(
             title = "FIREWALL DNS + VPN",
             subtitle = "Protección a nivel de red",
-            description = "Bloquea dominios maliciosos antes de que carguen. Túnel VPN completo opcional. Todo el tráfico se filtra localmente sin servidores externos.",
+            description = "Bloquea dominios maliciosos en consultas DNS locales UDP/53. No es un túnel completo ni cubre automáticamente DoH, DoT, QUIC, IPv6 o todo el tráfico.",
             icon = "[lock]",
             accentColor = AuraAmber
         ),
         OnboardingPageV2(
             title = "PRIVACIDAD TOTAL",
             subtitle = "Sin rastros, sin cloud",
-            description = "Cero telemetría. Cero datos en servidores. Cero root requerido. Tu información nunca sale del dispositivo. Código abierto y auditable.",
+            description = "Procesamiento principalmente local y sin root. Los informes, consultas de red y fuentes configuradas pueden incluir datos que debes revisar antes de compartir.",
             icon = "[eye-off]",
             accentColor = AuraRed
         )

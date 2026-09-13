@@ -11,38 +11,11 @@ internal data class DnsQuery(
     val dnsLength: Int
 )
 
-fun extractDomainFromRawPacket(packet: ByteArray, length: Int, ipHeaderLength: Int): String {
-    if (length < 50) return ""
-    var offset = ipHeaderLength + 28 // IP(dinámico) + UDP(8) + DNS Header(12)
-    val domainBuilder = StringBuilder()
-    try {
-        while (offset < length) {
-            val labelLength = packet[offset].toInt() and 0xFF
-            if (labelLength == 0) break
-            if ((labelLength and 0xC0) == 0xC0) break // Seguridad por si hay compresión
-            offset++
-            if (offset + labelLength > length) break
-            for (i in 0 until labelLength) {
-                domainBuilder.append(packet[offset + i].toInt().toChar())
-            }
-            domainBuilder.append(".")
-            offset += labelLength
-        }
-    } catch (e: Exception) {
-        VpnDebugger.log("Error parseando dominio: ${e.message}")
-        return ""
-    }
-    if (domainBuilder.endsWith(".")) {
-        domainBuilder.deleteCharAt(domainBuilder.length - 1)
-    }
-    return domainBuilder.toString().lowercase()
-}
-
 internal object DnsPacketCodec {
     private const val IPV4_HEADER_SIZE = 20
     private const val UDP_HEADER_SIZE = 8
-    private const val DNS_QUESTION_OFFSET = 40
     private const val DNS_PORT = 53
+    private const val MAX_DNS_LABELS = 128
 
     fun query(packet: ByteArray, length: Int): DnsQuery? {
         if (length < IPV4_HEADER_SIZE + UDP_HEADER_SIZE + 12) return null
@@ -58,11 +31,11 @@ internal object DnsPacketCodec {
         val flags = readUnsignedShort(packet, dnsOffset + 2)
         val questionCount = readUnsignedShort(packet, dnsOffset + 4)
         if ((flags and 0x8000) != 0 || questionCount < 1) return null
-        val dominioExtraido = extractDomainFromRawPacket(packet, length, ipHeaderLength)
-        if (dominioExtraido.isEmpty()) return null
-        val questionEnd = questionEnd(packet, ipHeaderLength + 28, length) ?: return null
+        val questionStart = dnsOffset + 12
+        val dominioExtraido = readDomain(packet, questionStart, length) ?: return null
+        val questionEnd = questionEnd(packet, questionStart, length) ?: return null
         if (questionEnd + 4 > length) return null
-        val questionBytes = packet.copyOfRange(DNS_QUESTION_OFFSET, questionEnd + 4)
+        val questionBytes = packet.copyOfRange(questionStart, questionEnd + 4)
         return DnsQuery(
             domain = dominioExtraido,
             transactionId = readUnsignedShort(packet, dnsOffset),
@@ -91,28 +64,26 @@ internal object DnsPacketCodec {
     }
 
     fun blockedResponsePacket(queryPacket: ByteArray, length: Int, query: DnsQuery): ByteArray? {
-        if (length < IPV4_HEADER_SIZE + UDP_HEADER_SIZE || query.dnsOffset != IPV4_HEADER_SIZE + UDP_HEADER_SIZE) return null
+        if (length < query.dnsOffset || query.dnsOffset < IPV4_HEADER_SIZE + UDP_HEADER_SIZE) return null
 
         val dnsResponse = blockedResponse(query)
         val packet = ByteArray(IPV4_HEADER_SIZE + UDP_HEADER_SIZE + dnsResponse.size)
-        queryPacket.copyInto(packet, 0, 0, IPV4_HEADER_SIZE)
+        val ipHeaderLength = query.dnsOffset - UDP_HEADER_SIZE
+        queryPacket.copyInto(packet, 0, 0, ipHeaderLength)
 
         val sourceAddress = queryPacket.copyOfRange(12, 16)
         val destinationAddress = queryPacket.copyOfRange(16, 20)
         destinationAddress.copyInto(packet, 12)
         sourceAddress.copyInto(packet, 16)
-        val sourcePort = queryPacket.copyOfRange(20, 22)
-        val destinationPort = queryPacket.copyOfRange(22, 24)
-        destinationPort.copyInto(packet, 20)
-        sourcePort.copyInto(packet, 22)
-        writeUnsignedShort(packet, 24, UDP_HEADER_SIZE + dnsResponse.size)
-        packet[26] = 0
-        packet[27] = 0
+        val sourcePort = queryPacket.copyOfRange(ipHeaderLength, ipHeaderLength + 2)
+        val destinationPort = queryPacket.copyOfRange(ipHeaderLength + 2, ipHeaderLength + 4)
+        destinationPort.copyInto(packet, ipHeaderLength)
+        sourcePort.copyInto(packet, ipHeaderLength + 2)
+        writeUnsignedShort(packet, ipHeaderLength + 4, UDP_HEADER_SIZE + dnsResponse.size)
+        packet[ipHeaderLength + 6] = 0
+        packet[ipHeaderLength + 7] = 0
 
-        dnsResponse.copyInto(packet, IPV4_HEADER_SIZE + UDP_HEADER_SIZE)
-        packet[30] = 0x81.toByte()
-        packet[31] = 0x83.toByte()
-
+        dnsResponse.copyInto(packet, ipHeaderLength + UDP_HEADER_SIZE)
         writeUnsignedShort(packet, 2, packet.size)
         packet[10] = 0
         packet[11] = 0
@@ -163,6 +134,20 @@ internal object DnsPacketCodec {
             val labelLength = packet[offset++].toInt() and 0xff
             if (labelLength == 0) return offset
             if (labelLength > 63 || offset + labelLength > length) return null
+            offset += labelLength
+        }
+        return null
+    }
+
+    private fun readDomain(packet: ByteArray, start: Int, length: Int): String? {
+        var offset = start
+        val labels = mutableListOf<String>()
+        repeat(MAX_DNS_LABELS) {
+            if (offset >= length) return null
+            val labelLength = packet[offset++].toInt() and 0xff
+            if (labelLength == 0) return labels.joinToString(".").lowercase()
+            if (labelLength > 63 || offset + labelLength > length) return null
+            labels += packet.copyOfRange(offset, offset + labelLength).toString(Charsets.US_ASCII)
             offset += labelLength
         }
         return null

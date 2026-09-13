@@ -5,7 +5,9 @@ data class Threat(
     val name: String,
     val severity: ThreatSeverity,
     val description: String,
-    val detectedAt: String
+    val detectedAt: String,
+    val packageName: String = "",
+    val reasons: List<String> = emptyList()
 )
 
 enum class ThreatSeverity {

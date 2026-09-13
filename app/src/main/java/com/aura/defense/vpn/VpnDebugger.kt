@@ -6,6 +6,7 @@ object VpnDebugger {
     val logs = MutableStateFlow<List<String>>(emptyList())
 
     fun log(msg: String) {
+        if (!BuildConfig.DEBUG) return
         logs.value = (logs.value + msg).takeLast(MAX_LOGS)
     }
 

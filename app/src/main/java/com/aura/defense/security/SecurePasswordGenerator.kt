@@ -1,8 +1,7 @@
 package com.aura.defense.security
 
-import kotlin.math.log2
 import kotlin.math.pow
-import kotlin.random.Random
+import java.security.SecureRandom
 
 data class GeneratedPassword(
         val password: String,
@@ -20,6 +19,8 @@ data class PasswordStrength(val entropy: Double, val crackTime: String, val leve
 
 class SecurePasswordGenerator {
 
+        private val secureRandom = SecureRandom()
+
         companion object {
                     private val UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                             private val LOWERCASE = "abcdefghijklmnopqrstuvwxyz"
@@ -36,22 +37,34 @@ class SecurePasswordGenerator {
                                                         includeSymbols: Boolean = true,
                                                                 excludeAmbiguous: Boolean = false
             ): GeneratedPassword {
-                        var charset = ""
-                                var guaranteed = ""
-                                        if (includeUppercase) { charset += UPPERCASE; guaranteed += randomFrom(UPPERCASE) }
-                                                if (includeLowercase) { charset += LOWERCASE; guaranteed += randomFrom(LOWERCASE) }
-                                                        if (includeDigits) { charset += DIGITS; guaranteed += randomFrom(DIGITS) }
-                                                                if (includeSymbols) { charset += SYMBOLS; guaranteed += randomFrom(SYMBOLS) }
-
-                                                                        var effectiveCharset = charset
-                                                                                if (excludeAmbiguous) effectiveCharset = charset.filter { it !in AMBIGUOUS }
+                                                require(includeUppercase || includeLowercase || includeDigits || includeSymbols) {
+                                                        "Debes seleccionar al menos un tipo de carácter"
+                                                }
+                                                val requestedPools = buildList {
+                                                        if (includeUppercase) add(UPPERCASE)
+                                                        if (includeLowercase) add(LOWERCASE)
+                                                        if (includeDigits) add(DIGITS)
+                                                        if (includeSymbols) add(SYMBOLS)
+                                                }
+                                                val charset = requestedPools.joinToString("")
+                                                val effectiveCharset = if (excludeAmbiguous) {
+                                                        charset.filter { it !in AMBIGUOUS }
+                                                } else {
+                                                        charset
+                                                }
+                                                require(effectiveCharset.isNotEmpty()) {
+                                                        "La combinación elegida no deja caracteres disponibles"
+                                                }
+                                                val guaranteed = requestedPools.joinToString("") { pool ->
+                                                        randomFrom(if (excludeAmbiguous) pool.filter { it !in AMBIGUOUS } else pool).toString()
+                                                }
 
                                                                                         val finalLength = length.coerceIn(8, 64)
                                                                                                 val sb = StringBuilder(guaranteed)
                                                                                                         while (sb.length < finalLength) {
                                                                                                                         sb.append(randomFrom(effectiveCharset))
                                                                                                         }
-                                                                                                                val password = sb.toString().toCharArray().also { it.shuffle() }.concatToString()
+                                                                                                                val password = sb.toString().toCharArray().also(::secureShuffle).concatToString()
 
                                                                                                                         val poolSize = effectiveCharset.length.toDouble().coerceAtLeast(1.0)
                                                                                                                                 val entropy = finalLength * kotlin.math.log2(poolSize)
@@ -91,6 +104,15 @@ class SecurePasswordGenerator {
 
                     private fun randomFrom(chars: String): Char {
                                 val filtered = chars.ifEmpty { LOWERCASE }
-                                        return filtered[Random.nextInt(filtered.length)]
+                                        return filtered[secureRandom.nextInt(filtered.length)]
                     }
+
+                        private fun secureShuffle(chars: CharArray) {
+                                    for (index in chars.lastIndex downTo 1) {
+                                                val otherIndex = secureRandom.nextInt(index + 1)
+                                                        val value = chars[index]
+                                                                chars[index] = chars[otherIndex]
+                                                                        chars[otherIndex] = value
+                                    }
+                        }
 }

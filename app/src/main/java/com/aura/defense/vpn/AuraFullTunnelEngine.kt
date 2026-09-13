@@ -31,6 +31,7 @@ class AuraFullTunnelEngine(private val context: Context) {
                 private val logQueue = ConcurrentLinkedQueue<ConnectionLogEntry>()
                     private val blockedCount = AtomicLong(0)
                         private val allowedCount = AtomicLong(0)
+                            private val suspiciousIpCache: MutableSet<String> = HashSet()
 
                             fun getTunnelMode(): String {
                                         return prefs.getString("tunnel_mode", MODE_DNS_ONLY) ?: MODE_DNS_ONLY
@@ -46,10 +47,10 @@ class AuraFullTunnelEngine(private val context: Context) {
                                                                         builder.addRoute("0.0.0.0", 0)
                                                                                     builder.addDnsServer("1.1.1.1")
                                                                                                 builder.addDnsServer("8.8.8.8")
-                                                                                                            VpnDebugger.log("FULL TUNNEL mode configured - all traffic routed through VPN")
+                                                                                                            VpnDebugger.log("Modo de túnel completo configurado; requiere una implementación de reenvío adicional")
                                                         } else {
                                                                         builder.addRoute("10.0.0.1", 32)
-                                                                                    VpnDebugger.log("DNS ONLY mode configured")
+                                                                                    VpnDebugger.log("Modo DNS local configurado: solo UDP/53")
                                                         }
                                                                 return builder
                                     }
@@ -70,10 +71,20 @@ class AuraFullTunnelEngine(private val context: Context) {
                                                     fun getAllowedCount(): Long = allowedCount.get()
                                                         fun getTotalConnections(): Long = blockedCount.get() + allowedCount.get()
 
-                                                            fun isSuspiciousIp(ip: String): Boolean {
-                                                                        if (ip.startsWith("10.") || ip.startsWith("192.168.") || ip.startsWith("172.")) return false
-                                                                                if (ip.startsWith("127.") || ip.startsWith("0.") || ip.startsWith("169.254.")) return false
-                                                                                        return false
+                                                                    fun loadSuspiciousIps(lines: List<String>) {
+                                                                        synchronized(suspiciousIpCache) {
+                                                                            suspiciousIpCache.clear()
+                                                                            suspiciousIpCache.addAll(
+                                                                                lines.map { it.trim() }
+                                                                                    .filter { it.isNotEmpty() }
+                                                                            )
+                                                                        }
+                                                                    }
+
+                                                                    fun isSuspiciousIp(ip: String): Boolean =
+                                                                        synchronized(suspiciousIpCache) {
+                                                                            suspiciousIpCache.contains(ip)
+                                                                        }
                                                             }
 
                                                                 fun clearLogs() {

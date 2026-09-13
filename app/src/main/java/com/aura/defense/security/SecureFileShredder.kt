@@ -4,7 +4,7 @@ import android.content.Context
 import timber.log.Timber
 import java.io.File
 import java.io.FileOutputStream
-import java.util.Random
+import java.security.SecureRandom
 
 data class ShredResult(
         val file: String,
@@ -14,6 +14,8 @@ data class ShredResult(
 )
 
 class SecureFileShredder(private val context: Context) {
+
+        private val secureRandom = SecureRandom()
 
         companion object {
                     private const val DEFAULT_PASSES = 3
@@ -28,7 +30,7 @@ class SecureFileShredder(private val context: Context) {
                                                                 val length = file.length()
                                                                             repeat(passes) {
                                                                                                 val data = ByteArray(minOf(length.toInt(), 1024 * 1024))
-                                                                                                                Random().nextBytes(data)
+                                                                                                                                secureRandom.nextBytes(data)
                                                                                                                                 FileOutputStream(file, false).use { fos ->
                                                                                                                                                     var written = 0L
                                                                                                                                                                         while (written < length) {
@@ -51,7 +53,7 @@ class SecureFileShredder(private val context: Context) {
                                                                                                                             if (!deleted) file.deleteOnExit()
                                                                                                                                         ShredResult(fileName, true, passes)
                                                 }.onFailure { e ->
-                                                            Timber.e(e, "Shred failed for $fileName")
+                                                                        Timber.e(e, "Error en limpieza reforzada para $fileName")
                                                                         ShredResult(fileName, false, passes, e.message)
                                                                                 }.getOrDefault(ShredResult(fileName, false, passes, "Error desconocido"))
             }

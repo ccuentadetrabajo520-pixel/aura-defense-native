@@ -8,6 +8,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import com.aura.defense.apps.AppScanResult
 import com.aura.defense.guardian.AuraGuardianAssessment
 import com.aura.defense.reports.AuraReportBuilder
@@ -59,7 +60,10 @@ fun ReportDialog(
                         type = "text/html"
                         putExtra(Intent.EXTRA_SUBJECT, "Informe Aura HTML")
                         putExtra(Intent.EXTRA_TEXT, htmlReport)
-                        putExtra(Intent.EXTRA_STREAM, android.net.Uri.fromFile(htmlFile))
+                        putExtra(
+                            Intent.EXTRA_STREAM,
+                            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", htmlFile)
+                        )
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
                     context.startActivity(Intent.createChooser(shareIntent, "Compartir informe HTML"))

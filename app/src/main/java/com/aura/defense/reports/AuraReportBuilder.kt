@@ -14,6 +14,7 @@ import com.aura.defense.guardian.GuardianLevel
 import com.aura.defense.files.AuraFileAnalysis
 import com.aura.defense.lan.AuraLanPeer
 import com.aura.defense.history.AuraHistoryEntry
+import org.json.JSONObject
 import java.util.Locale
 
 class AuraReportBuilder {
@@ -57,45 +58,44 @@ class AuraReportBuilder {
     }
 
     fun json(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList(), indicators: List<ThreatIndicator> = emptyList(), guardian: AuraGuardianAssessment? = null, file: AuraFileAnalysis? = null, vaultAvailable: Boolean = false, lanPeers: List<AuraLanPeer> = emptyList(), lastLanScan: String? = null, history: List<AuraHistoryEntry> = emptyList(), baselineTimestamp: String = "No disponible", threatSnapshot: ThreatIntelligenceSnapshot? = null): String {
-        fun quote(value: String) = "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
-        return "{" + listOf(
-            "\"fecha\":${quote(posture.timestamp)}",
-            "\"auraId\":${quote(auraId)}",
-            "\"puntuacion\":${posture.score}",
-            "\"estado\":${quote(posture.status)}",
-            "\"appsVisibles\":${apps?.apps?.size ?: 0}",
-            "\"appsConRiesgos\":${apps?.riskyApps?.size ?: 0}",
-            "\"riesgoAlto\":${apps?.highRiskApps?.size ?: 0}",
-            "\"enlacesAnalizados\":${links.size}",
-            "\"enlacesNotificacionesAnalizados\":${notifications.size}",
-            "\"enlacesNotificacionesSospechosos\":${notifications.count { it.analysis.risk.name == "SOSPECHOSO" }}",
-            "\"enlacesNotificacionesPeligrosos\":${notifications.count { it.analysis.risk.name == "PELIGROSO" }}",
-            "\"indicadoresInteligenciaLocal\":${indicators.size}",
-            "\"versionInteligenciaAmenazas\":${quote(threatSnapshot?.version ?: "local-compatible")}",
-            "\"fuenteInteligenciaAmenazas\":${quote(threatSnapshot?.source ?: "Inteligencia local incluida")}",
-            "\"baseInteligenciaActualizada\":${threatSnapshot?.isUpdated ?: false}",
-            "\"estadoActualizacionInteligencia\":${quote(threatSnapshot?.lastUpdateStatus ?: "No disponible")}",
-            "\"actualizacionInteligenciaLocal\":${quote(indicators.maxOfOrNull { it.updatedAt } ?: "No disponible")}",
-            "\"coincidenciasInteligenciaLocal\":${countThreatMatches(links, notifications)}",
-            "\"guardianNivel\":${quote(guardian?.level?.toSpanish() ?: "No disponible")}",
-            "\"guardianConfianza\":${quote(guardian?.confidence?.toSpanish() ?: "No disponible")}",
-            "\"guardianRazones\":${quote(guardian?.reasons?.joinToString("; ") ?: "No disponible")}",
-            "\"guardianRecomendaciones\":${quote(guardian?.recommendations?.joinToString("; ") ?: "No disponible")}",
-            "\"guardianFecha\":${quote(guardian?.timestamp ?: "No disponible")}",
-            "\"archivoAnalizado\":${quote(file?.name ?: "No disponible")}",
-            "\"archivoRiesgo\":${quote(file?.risk ?: "No disponible")}",
-            "\"bovedaDisponible\":$vaultAvailable",
-            "\"ultimaComprobacionLan\":${quote(lastLanScan ?: "No disponible")}",
-            "\"aurasLanEncontradas\":${lanPeers.size}",
-            "\"historialEventos\":${history.size}",
-            "\"historialBajos\":${history.count { it.severity == "LOW" }}",
-            "\"historialMedios\":${history.count { it.severity == "MEDIUM" }}",
-            "\"historialAltos\":${history.count { it.severity == "HIGH" }}",
-            "\"historialCriticos\":${history.count { it.severity == "CRITICAL" }}",
-            "\"lineaBaseFecha\":${quote(baselineTimestamp)}",
-            "\"auditoriaContrasena\":${password?.let { quote(it.strength.name) } ?: "null"}",
-            "\"limitesAndroid\":${quote("Las señales dependen de la versión, permisos y fabricante; no confirma malware")}" 
-        ).joinToString(",") + "}"
+        return JSONObject().apply {
+            put("fecha", posture.timestamp)
+            put("auraId", auraId)
+            put("puntuacion", posture.score)
+            put("estado", posture.status)
+            put("appsVisibles", apps?.apps?.size ?: 0)
+            put("appsConRiesgos", apps?.riskyApps?.size ?: 0)
+            put("riesgoAlto", apps?.highRiskApps?.size ?: 0)
+            put("enlacesAnalizados", links.size)
+            put("enlacesNotificacionesAnalizados", notifications.size)
+            put("enlacesNotificacionesSospechosos", notifications.count { it.analysis.risk.name == "SOSPECHOSO" })
+            put("enlacesNotificacionesPeligrosos", notifications.count { it.analysis.risk.name == "PELIGROSO" })
+            put("indicadoresInteligenciaLocal", indicators.size)
+            put("versionInteligenciaAmenazas", threatSnapshot?.version ?: "local-compatible")
+            put("fuenteInteligenciaAmenazas", threatSnapshot?.source ?: "Inteligencia local incluida")
+            put("baseInteligenciaActualizada", threatSnapshot?.isUpdated ?: false)
+            put("estadoActualizacionInteligencia", threatSnapshot?.lastUpdateStatus ?: "No disponible")
+            put("actualizacionInteligenciaLocal", indicators.maxOfOrNull { it.updatedAt } ?: "No disponible")
+            put("coincidenciasInteligenciaLocal", countThreatMatches(links, notifications))
+            put("guardianNivel", guardian?.level?.toSpanish() ?: "No disponible")
+            put("guardianConfianza", guardian?.confidence?.toSpanish() ?: "No disponible")
+            put("guardianRazones", guardian?.reasons?.joinToString("; ") ?: "No disponible")
+            put("guardianRecomendaciones", guardian?.recommendations?.joinToString("; ") ?: "No disponible")
+            put("guardianFecha", guardian?.timestamp ?: "No disponible")
+            put("archivoAnalizado", file?.name ?: "No disponible")
+            put("archivoRiesgo", file?.risk ?: "No disponible")
+            put("bovedaDisponible", vaultAvailable)
+            put("ultimaComprobacionLan", lastLanScan ?: "No disponible")
+            put("aurasLanEncontradas", lanPeers.size)
+            put("historialEventos", history.size)
+            put("historialBajos", history.count { it.severity == "LOW" })
+            put("historialMedios", history.count { it.severity == "MEDIUM" })
+            put("historialAltos", history.count { it.severity == "HIGH" })
+            put("historialCriticos", history.count { it.severity == "CRITICAL" })
+            put("lineaBaseFecha", baselineTimestamp)
+            put("auditoriaContrasena", password?.strength?.name)
+            put("limitesAndroid", "Las señales dependen de la versión, permisos y fabricante; no confirma malware")
+        }.toString()
     }
 
     private fun StringBuilder.appendNotificationSummary(alerts: List<NotificationAlert>) {

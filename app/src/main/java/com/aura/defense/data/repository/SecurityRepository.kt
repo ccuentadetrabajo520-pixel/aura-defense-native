@@ -1,8 +1,11 @@
 package com.aura.defense.data.repository
 
 import android.content.Context
+import android.content.pm.PackageManager
 import com.aura.defense.data.model.SecurityStatus
 import com.aura.defense.data.model.Threat
+import com.aura.defense.data.model.ThreatSeverity
+import com.aura.defense.service.NotificationService
 import com.aura.defense.utils.SecurityUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,6 +14,7 @@ import java.util.Date
 import java.util.Locale
 
 class SecurityRepository(private val context: Context) {
+    private val notificationService = NotificationService(context)
     private val _threats = MutableStateFlow<List<Threat>>(emptyList())
     val threats: StateFlow<List<Threat>> = _threats
 
@@ -32,15 +36,38 @@ class SecurityRepository(private val context: Context) {
         _securityStatus.value = SecurityStatus(
             score = calculateScore(),
             threatsFound = _threats.value.size,
-            appsScanned = 127,
+            appsScanned = installedAppsCount(context),
             isVpnActive = SecurityUtils.isVpnActive(context),
             isDeveloperModeEnabled = SecurityUtils.isDeveloperModeEnabled(context),
             lastScanTime = getCurrentTime()
         )
     }
 
+    fun refreshAppsScanned(context: Context) {
+        val packageManager = context.packageManager
+        val count = runCatching {
+            packageManager.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0L)).size
+        }.getOrElse {
+            @Suppress("DEPRECATION")
+            packageManager.getInstalledApplications(0).size
+        }
+        _securityStatus.value = _securityStatus.value.copy(appsScanned = count)
+    }
+
+    private fun installedAppsCount(context: Context): Int = runCatching {
+        context.packageManager
+            .getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0L))
+            .size
+    }.getOrElse {
+        @Suppress("DEPRECATION")
+        context.packageManager.getInstalledApplications(0).size
+    }
+
     fun addThreat(threat: Threat) {
         _threats.value = _threats.value + threat
+        if (threat.severity == ThreatSeverity.HIGH || threat.severity == ThreatSeverity.CRITICAL) {
+            notificationService.showThreatAlert(threat)
+        }
         refreshStatus()
     }
 

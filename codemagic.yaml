@@ -18,10 +18,11 @@ workflows:
           ./gradlew clean
       - name: Build release APK
         script: |
-          ./gradlew assembleDebug --stacktrace
+          # La firma de distribución debe configurarse mediante keystore y secrets de Codemagic.
+          ./gradlew assembleRelease --stacktrace
     artifacts:
-      - app/build/outputs/apk/debug/*.apk
-      - app/build/outputs/mapping/debug/mapping.txt
+      - app/build/outputs/apk/release/*.apk
+      - app/build/outputs/mapping/release/mapping.txt
     publishing:
       email:
         recipients:

@@ -104,6 +104,8 @@ import com.aura.defense.ui.screens.AppsScreen
 import com.aura.defense.ui.screens.AurasScreen
 import com.aura.defense.ui.screens.DefenseScreen
 import com.aura.defense.ui.screens.HomeScreen
+import com.aura.defense.ai.interaction.VirtualAssistantDialog
+import com.aura.defense.ai.voice.VoiceCommandDialog
 import com.aura.defense.vpn.AuraVpnService
 import com.aura.defense.vpn.DnsBlockedEvent
 import com.aura.defense.vpn.DnsFirewallProfile
@@ -125,7 +127,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         sharedText = extractSharedText(intent)
         sharedFile = extractSharedFile(intent)
-        Timber.plant(Timber.DebugTree())
+        if (BuildConfig.DEBUG) Timber.plant(Timber.DebugTree())
         ProfileManager.loadProfile(this)
         val preferences = AuraPreferences(this)
         setContent {
@@ -225,6 +227,8 @@ private fun AuraDefenseApp(
     var showGuardian by remember { mutableStateOf(false) }
     var showFileAnalyzer by remember { mutableStateOf(sharedFile != null) }
     var showToolsHub by remember { mutableStateOf(false) }
+    var showAssistant by remember { mutableStateOf(false) }
+    var showVoiceCommands by remember { mutableStateOf(false) }
     var showAdvancedTools by remember { mutableStateOf(false) }
     var showPhase4 by remember { mutableStateOf(false) }
     var showVault by remember { mutableStateOf(false) }
@@ -772,7 +776,23 @@ private fun AuraDefenseApp(
         )
     }
     if (showToolsHub) {
-        AuraToolsHubDialog(onDismiss = { showToolsHub = false })
+        AuraToolsHubDialog(
+            onDismiss = { showToolsHub = false },
+            onAssistant = {
+                showToolsHub = false
+                showAssistant = true
+            },
+            onVoiceCommands = {
+                showToolsHub = false
+                showVoiceCommands = true
+            }
+        )
+    }
+    if (showAssistant) {
+        VirtualAssistantDialog(onDismiss = { showAssistant = false })
+    }
+    if (showVoiceCommands) {
+        VoiceCommandDialog(onDismiss = { showVoiceCommands = false })
     }
     if (showAdvancedTools) {
         AuraAdvancedToolsDialog(onDismiss = { showAdvancedTools = false })

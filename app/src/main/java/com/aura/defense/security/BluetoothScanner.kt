@@ -3,8 +3,11 @@ package com.aura.defense.security
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
+import androidx.core.content.ContextCompat
 import timber.log.Timber
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -39,6 +42,21 @@ class BluetoothScanner(private val context: Context) {
 
                                     if (adapter == null) return BluetoothScanResult(false, false, emptyList(), listOf("Bluetooth no disponible"), ts)
                                             if (!adapter.isEnabled) return BluetoothScanResult(true, false, emptyList(), listOf("Bluetooth desactivado"), ts)
+
+                                                                                                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                                                                                                                  ContextCompat.checkSelfPermission(
+                                                                                                                          context,
+                                                                                                                          Manifest.permission.BLUETOOTH_CONNECT
+                                                                                                                  ) != PackageManager.PERMISSION_GRANTED
+                                                                                                          ) {
+                                                                                                                  return BluetoothScanResult(
+                                                                                                                          true,
+                                                                                                                          true,
+                                                                                                                          emptyList(),
+                                                                                                                          listOf("Permiso Bluetooth CONNECT no concedido"),
+                                                                                                                          ts
+                                                                                                                  )
+                                                                                                          }
 
                                                     val devices = runCatching {
                                                                     adapter.bondedDevices.map { device ->
