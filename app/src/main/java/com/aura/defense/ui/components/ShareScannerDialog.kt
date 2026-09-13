@@ -40,7 +40,7 @@ fun ShareScannerDialog(text: String, onAnalyses: (List<LinkAnalysis>) -> Unit, o
                 Text("Texto recibido", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
                 Text(text.take(1000), color = AuraText, fontSize = 12.sp)
                 if (analyses.isEmpty()) {
-                    Text("Sin enlaces detectados", color = Color(0xFFFFC66D), fontSize = 15.sp)
+                      Text("No encontré enlaces para analizar. Puedes compartir otro texto.", color = Color(0xFFFFC66D), fontSize = 15.sp)
                 } else {
                     Text("Enlaces detectados", color = AuraTeal, fontSize = 15.sp)
                     analyses.forEach { analysis ->

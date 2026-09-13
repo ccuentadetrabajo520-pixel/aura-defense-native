@@ -80,22 +80,31 @@ fun AuraTerminal(
             )
         }
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            visibleEntries.forEach { entry ->
-                AnimatedVisibility(
-                    visible = true,
-                    enter = fadeIn(animationSpec = tween(220)) +
-                        slideInVertically(
-                            animationSpec = tween(220),
-                            initialOffsetY = { 8 }
+            if (visibleEntries.isEmpty()) {
+                Text(
+                    "Aún no veo nada preocupante. Sigo vigilando.",
+                    color = TerminalGreen.copy(alpha = 0.85f),
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp
+                )
+            } else {
+                visibleEntries.forEach { entry ->
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn(animationSpec = tween(220)) +
+                            slideInVertically(
+                                animationSpec = tween(220),
+                                initialOffsetY = { 8 }
+                            )
+                    ) {
+                        Text(
+                            "${dateFormat.format(Date(entry.timestamp))} [${entry.category}] ${entry.message}",
+                            color = TerminalGreen,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            maxLines = 2
                         )
-                ) {
-                    Text(
-                        "${dateFormat.format(Date(entry.timestamp))} [${entry.category}] ${entry.message}",
-                        color = TerminalGreen,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 11.sp,
-                        maxLines = 2
-                    )
+                    }
                 }
             }
             Text(

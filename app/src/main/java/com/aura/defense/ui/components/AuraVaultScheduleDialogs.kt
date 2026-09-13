@@ -32,13 +32,13 @@ fun AuraVaultDialog(context: Context, onDismiss: () -> Unit) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(if (available) "Bóveda disponible en este dispositivo." else "Bóveda no disponible en este dispositivo.", color = if (available) AuraGreen else AuraAmber)
             if (available) vaultContent?.let { Text("Último resumen guardado: $it", color = AuraMuted, fontSize = 12.sp) }
-                ?: Text("No hay historial guardado.", color = AuraMuted, fontSize = 12.sp)
+                ?: Text("Aún no hay historial guardado. Aura empezará a reunirlo cuando haya cambios.", color = AuraMuted, fontSize = 12.sp)
             message?.let { Text(it, color = AuraMuted, fontSize = 12.sp) }
             TextButton(onClick = {
                 val result = AuraVault.readReport(context)
                 vaultContent = result.takeUnless { it == "No saved history." || it.startsWith("Error") }
                 message = when {
-                    result == "No saved history." -> "No hay historial guardado."
+                    result == "No saved history." -> "Aún no hay historial guardado."
                     result.startsWith("Error") -> "No se pudo leer la bóveda cifrada."
                     else -> "Contenido leído de la bóveda."
                 }
@@ -46,7 +46,7 @@ fun AuraVaultDialog(context: Context, onDismiss: () -> Unit) {
             TextButton(onClick = {
                 val summary = vaultContent ?: AuraVault.readReport(context).takeUnless { it == "No saved history." || it.startsWith("Error") }
                 if (summary == null) {
-                    message = "No hay historial guardado."
+                    message = "Aún no hay historial guardado."
                 } else {
                     runCatching {
                         context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
@@ -60,7 +60,7 @@ fun AuraVaultDialog(context: Context, onDismiss: () -> Unit) {
     }, confirmButton = { Button(onClick = {
         val content = historyStore.getEntries().joinToString("\n") { it.toJson() }
         message = when {
-            content.isBlank() -> "No hay historial guardado."
+            content.isBlank() -> "Aún no hay historial guardado."
             (AuraVault.saveReport(context, content) == "Successfully saved").also { if (it) vaultContent = content } -> "Reporte guardado en la bóveda."
             else -> "No se pudo acceder a la bóveda cifrada."
         }

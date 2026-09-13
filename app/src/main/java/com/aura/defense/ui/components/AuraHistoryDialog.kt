@@ -46,7 +46,7 @@ fun AuraHistoryDialog(
     var message by remember { mutableStateOf<String?>(null) }
     AuraHudDialog(onDismissRequest = onDismiss, title = { Text("Historial inteligente") }, text = {
         Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (entries.isEmpty()) Text("Sin eventos recientes.", color = AuraMuted)
+            if (entries.isEmpty()) Text("Aún no hay cambios que contarte. Sigo vigilando.", color = AuraMuted)
             entries.forEach { HistoryRow(it) }
             message?.let { Text(it, color = AuraMuted, fontSize = 12.sp) }
         }
@@ -62,7 +62,7 @@ fun AuraHistoryDialog(
         }) { Text("Borrar historial") }
         TextButton(onClick = {
             val content = entries.joinToString("\n") { "${it.timestamp} · ${it.titleEs} · ${it.severity} · ${it.source}" }
-            if (content.isBlank()) message = "Sin eventos recientes." else runCatching {
+            if (content.isBlank()) message = "Aún no hay historial para compartir." else runCatching {
                 context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, content) }, "Exportar historial"))
                 message = "Historial exportado."
             }.onFailure { message = "No se pudo exportar el historial." }

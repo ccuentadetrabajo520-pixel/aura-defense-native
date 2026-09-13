@@ -32,7 +32,7 @@ fun AppRisksDialog(
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (apps.isEmpty()) {
-                    Text("No hay apps con señales de riesgo en el último escaneo.", color = AuraMuted)
+                    Text("Aún no veo señales de riesgo en tus aplicaciones. Sigo vigilando.", color = AuraMuted)
                 } else {
                     apps.forEach { app ->
                         Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {

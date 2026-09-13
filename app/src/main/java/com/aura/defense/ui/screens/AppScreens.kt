@@ -163,10 +163,10 @@ fun HomeScreen(
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             listOf(
-                Triple("VPN", if (result.telemetry.vpnActive) "ON" else "OFF", if (result.telemetry.vpnActive) AuraGreen else AuraMuted),
+                Triple("VPN", if (result.telemetry.vpnActive) "ACTIVA" else "INACTIVA", if (result.telemetry.vpnActive) AuraGreen else AuraMuted),
                 Triple("DNS", result.telemetry.privateDnsStatus, if (result.telemetry.privateDnsStatus.contains("Activo") || result.telemetry.privateDnsStatus.contains("Autom")) AuraGreen else AuraMuted),
-                Triple("THREATS", "${findings.count { it.severity >= com.aura.defense.security.FindingSeverity.MEDIUM }}", if (findings.any { it.severity >= com.aura.defense.security.FindingSeverity.MEDIUM }) AuraRed else AuraGreen),
-                Triple("HISTORY", "$historyCount", AuraCyan.copy(alpha = 0.6f))
+                Triple("AMENAZAS", "${findings.count { it.severity >= com.aura.defense.security.FindingSeverity.MEDIUM }}", if (findings.any { it.severity >= com.aura.defense.security.FindingSeverity.MEDIUM }) AuraRed else AuraGreen),
+                Triple("HISTORIAL", "$historyCount", AuraCyan.copy(alpha = 0.6f))
             ).forEach { (label, value, color) ->
                 Column(
                     modifier = Modifier.weight(1f).background(AuraSurface, RoundedCornerShape(10.dp)).padding(vertical = 10.dp, horizontal = 8.dp),
@@ -185,7 +185,7 @@ fun HomeScreen(
                     .border(BorderStroke(0.5.dp, AuraRed.copy(alpha = 0.15f)), RoundedCornerShape(10.dp))
                     .padding(AuraSpacing.md)
             ) {
-                Text("THREAT FEED", color = AuraRed.copy(alpha = 0.7f), fontSize = 9.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+                Text("ALERTAS", color = AuraRed.copy(alpha = 0.7f), fontSize = 9.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
                 findings.forEach { finding ->
                     val sevColor = when (finding.severity) {
                         com.aura.defense.security.FindingSeverity.HIGH -> AuraRed
@@ -207,15 +207,15 @@ fun HomeScreen(
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf(
-                Pair("SCAN", onStartScan),
+                Pair("ESCANEAR", onStartScan),
                 Pair("TOOLS", onToolsHub),
-                Pair("EMERGENCY", onEmergency)
+                Pair("EMERGENCIA", onEmergency)
             ).forEach { (label, action) ->
                 Surface(
                     modifier = Modifier.weight(1f).clickable(onClick = action),
                     shape = RoundedCornerShape(10.dp),
-                    color = if (label == "SCAN") AuraCyan.copy(alpha = 0.12f) else AuraSurface,
-                    border = BorderStroke(0.5.dp, if (label == "SCAN") AuraCyan.copy(alpha = 0.35f) else AuraCyan.copy(alpha = 0.12f))
+                    color = if (label == "ESCANEAR") AuraCyan.copy(alpha = 0.12f) else AuraSurface,
+                    border = BorderStroke(0.5.dp, if (label == "ESCANEAR") AuraCyan.copy(alpha = 0.35f) else AuraCyan.copy(alpha = 0.12f))
                 ) {
                     Box(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
                         Text(label, color = if (label == "SCAN") AuraCyan else AuraMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
@@ -244,10 +244,10 @@ fun AurasScreen(
 
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("TACTICAL FIELD", color = AuraCyan, fontSize = 11.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+            Text("CAMPO TÁCTICO", color = AuraCyan, fontSize = 11.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Box(modifier = Modifier.size(6.dp).background(statusColor.copy(alpha = 0.8f), CircleShape))
-                Text(if (locationActive) "LOC ON" else "LOC OFF", color = statusColor, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                Text(if (locationActive) "UBICACIÓN ACTIVA" else "UBICACIÓN INACTIVA", color = statusColor, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
             }
         }
 
@@ -257,9 +257,9 @@ fun AurasScreen(
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf(
-                Triple("PEERS", "${lanPeers.size}", AuraCyan),
-                Triple("HISTORY", "${historyEntries.size}", AuraMuted),
-                Triple("STATUS", if (lanSearching) "SCANNING" else "READY", if (lanSearching) AuraAmber else AuraGreen)
+                Triple("AURAS", "${lanPeers.size}", AuraCyan),
+                Triple("HISTORIAL", "${historyEntries.size}", AuraMuted),
+                Triple("ESTADO", if (lanSearching) "ESCANEANDO" else "LISTO", if (lanSearching) AuraAmber else AuraGreen)
             ).forEach { (label, value, color) ->
                 Column(modifier = Modifier.weight(1f).background(AuraSurface, RoundedCornerShape(10.dp)).padding(vertical = 10.dp, horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(label, color = AuraMuted, fontSize = 9.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.sp)
@@ -270,7 +270,7 @@ fun AurasScreen(
 
         if (lanPeers.isNotEmpty()) {
             Column(modifier = Modifier.fillMaxWidth().background(AuraSurface, RoundedCornerShape(10.dp)).border(BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.12f)), RoundedCornerShape(10.dp)).padding(AuraSpacing.md), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("DISCOVERED AURAS", color = AuraCyan.copy(alpha = 0.7f), fontSize = 9.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+                Text("AURAS DETECTADAS", color = AuraCyan.copy(alpha = 0.7f), fontSize = 9.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
                 lanPeers.forEach { peer ->
                     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                         Column {
@@ -285,9 +285,9 @@ fun AurasScreen(
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf(
-                Pair(if (locationActive) "UPDATE LOCATION" else "ENABLE LOCATION", onActivateLocation),
-                Pair(if (visible) "VISIBLE MODE" else "STEALTH MODE", onVisibilityToggle),
-                Pair(if (lanSearching) "STOP SCAN" else "SCAN NETWORK", if (lanSearching) onStopLanSearch else onSearchLan)
+                Pair(if (locationActive) "ACTUALIZAR UBICACIÓN" else "ACTIVAR UBICACIÓN", onActivateLocation),
+                Pair(if (visible) "MODO VISIBLE" else "MODO SIGILO", onVisibilityToggle),
+                Pair(if (lanSearching) "DETENER ESCANEO" else "ESCANEAR RED", if (lanSearching) onStopLanSearch else onSearchLan)
             ).forEach { (label, action) ->
                 Surface(modifier = Modifier.weight(1f).clickable(onClick = action), shape = RoundedCornerShape(10.dp), color = AuraSurface, border = BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.12f))) {
                     Box(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
@@ -445,8 +445,8 @@ fun DefenseScreen(
                 .padding(AuraSpacing.md),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text("DNS FIREWALL", color = AuraCyan.copy(alpha = 0.7f), fontSize = 9.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
-            Text("Active profile: ${firewallProfile.label}", color = AuraText, fontSize = 13.sp)
+            Text("FIREWALL DNS", color = AuraCyan.copy(alpha = 0.7f), fontSize = 9.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+            Text("Perfil activo: ${firewallProfile.label}", color = AuraText, fontSize = 13.sp)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 DnsFirewallProfile.entries.forEach { profile ->
                     val active = profile == firewallProfile
@@ -457,7 +457,7 @@ fun DefenseScreen(
                         border = BorderStroke(0.5.dp, if (active) AuraCyan.copy(alpha = 0.4f) else AuraCyan.copy(alpha = 0.08f))
                     ) {
                         Box(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                            Text(if (active) "${profile.label} ACTIVE" else profile.label, color = if (active) AuraCyan else AuraMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace, letterSpacing = 0.5.sp, maxLines = 1)
+                            Text(if (active) "${profile.label} ACTIVO" else profile.label, color = if (active) AuraCyan else AuraMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace, letterSpacing = 0.5.sp, maxLines = 1)
                         }
                     }
                 }
@@ -472,7 +472,7 @@ fun DefenseScreen(
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("BLOCKED DOMAINS", color = AuraRed.copy(alpha = 0.7f), fontSize = 9.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+                Text("DOMINIOS BLOQUEADOS", color = AuraRed.copy(alpha = 0.7f), fontSize = 9.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
                 Text("$blockedDomainCount", color = AuraRed, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
             Box(
@@ -480,7 +480,7 @@ fun DefenseScreen(
                     .background(AuraBackground, RoundedCornerShape(6.dp))
                     .padding(8.dp)
             ) {
-                Text(if (logs.isEmpty()) "Awaiting DNS queries..." else logs.takeLast(8).joinToString("\n"), color = Color(0xFF00FF41), fontFamily = FontFamily.Monospace, fontSize = 10.sp, lineHeight = 14.sp)
+                Text(if (logs.isEmpty()) "Aún no veo bloqueos DNS. Sigo vigilando." else logs.takeLast(8).joinToString("\n"), color = Color(0xFF00FF41), fontFamily = FontFamily.Monospace, fontSize = 10.sp, lineHeight = 14.sp)
             }
         }
 
@@ -491,7 +491,7 @@ fun DefenseScreen(
             border = BorderStroke(0.5.dp, AuraRed.copy(alpha = 0.2f))
         ) {
             Box(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
-                Text("EMERGENCY MODE", color = AuraRed, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 2.sp)
+                Text("MODO EMERGENCIA", color = AuraRed, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 2.sp)
             }
         }
     }
@@ -557,10 +557,10 @@ fun AppsScreen(
 ) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("APP GENOME SCANNER", color = AuraCyan, fontSize = 11.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+            Text("ESCÁNER DE APLICACIONES", color = AuraCyan, fontSize = 11.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
             if (scanning) {
                 val scanBlink by rememberInfiniteTransition(label = "sb").animateFloat(0.3f, 1f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "sb")
-                Text("SCANNING", color = AuraAmber.copy(alpha = scanBlink), fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                Text("ESCANEANDO", color = AuraAmber.copy(alpha = scanBlink), fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -572,9 +572,9 @@ fun AppsScreen(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf(
                     Triple("TOTAL", "${scan.apps.size}", AuraCyan),
-                    Triple("RISKY", "${scan.riskyApps.size}", AuraAmber),
-                    Triple("HIGH RISK", "${scan.highRiskApps.size}", AuraRed),
-                    Triple("SCANNED", scan.scannedAt, AuraMuted)
+                    Triple("RIESGO", "${scan.riskyApps.size}", AuraAmber),
+                    Triple("RIESGO ALTO", "${scan.highRiskApps.size}", AuraRed),
+                    Triple("ESCANEADAS", scan.scannedAt, AuraMuted)
                 ).forEach { (label, value, color) ->
                     Column(modifier = Modifier.weight(1f).background(AuraSurface, RoundedCornerShape(10.dp)).padding(vertical = 10.dp, horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(label, color = AuraMuted, fontSize = 8.sp, fontFamily = FontFamily.Monospace, letterSpacing = 0.5.sp)
@@ -584,14 +584,14 @@ fun AppsScreen(
             }
         } ?: run {
             Box(modifier = Modifier.fillMaxWidth().background(AuraSurface, RoundedCornerShape(10.dp)).padding(vertical = 20.dp), contentAlignment = Alignment.Center) {
-                Text("No scan executed", color = AuraMuted, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                Text("Aún no he escaneado tus aplicaciones. Cuando quieras, las revisamos.", color = AuraMuted, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
             }
         }
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Surface(modifier = Modifier.weight(1f).clickable(onClick = onScan), shape = RoundedCornerShape(10.dp), color = AuraCyan.copy(alpha = 0.12f), border = BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.35f))) {
                 Box(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
-                    Text(if (scanning) "SCANNING..." else "SCAN APPS", color = AuraCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+                    Text(if (scanning) "ESCANEANDO..." else "ESCANEAR APLICACIONES", color = AuraCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
                 }
             }
             Surface(modifier = Modifier.weight(1f).clickable(onClick = onViewRisks), shape = RoundedCornerShape(10.dp), color = AuraSurface, border = BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.12f))) {
