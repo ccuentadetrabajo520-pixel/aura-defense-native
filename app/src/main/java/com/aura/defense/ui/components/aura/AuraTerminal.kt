@@ -78,7 +78,11 @@ fun AuraTerminal(
             visibleEntries.forEach { entry ->
                 AnimatedVisibility(
                     visible = true,
-                    enter = fadeIn() + slideInVertically(initialOffsetY = { 8 })
+                    enter = fadeIn(animationSpec = tween(220)) +
+                        slideInVertically(
+                            animationSpec = tween(220),
+                            initialOffsetY = { 8 }
+                        )
                 ) {
                     Text(
                         "${dateFormat.format(Date(entry.timestamp))} [${entry.category}] ${entry.message}",

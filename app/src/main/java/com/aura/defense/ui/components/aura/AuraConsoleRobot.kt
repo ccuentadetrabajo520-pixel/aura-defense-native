@@ -1,17 +1,32 @@
 package com.aura.defense.ui.components.aura
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.unit.dp
+import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.sin
 
 @Composable
 fun AuraConsoleRobot(
@@ -20,79 +35,132 @@ fun AuraConsoleRobot(
     scanning: Boolean,
     eventCount: Int
 ) {
-    Box(modifier = modifier.fillMaxWidth().aspectRatio(1.45f)) {
-        Canvas(Modifier.fillMaxWidth()) {
-            val center = Offset(size.width / 2f, size.height * 0.52f)
-            val scale = min(size.width, size.height) / 260f
-            val stroke = (2.2f * scale).coerceAtLeast(1f)
-            val accent = if (serious) Color(0xFFF87171) else Color(0xFF22C55E)
-            val muted = Color(0xFF244C2B)
-            val faceWidth = 116f * scale
-            val faceHeight = 82f * scale
-            val faceTop = center.y - faceHeight / 2f
+    val transition = rememberInfiniteTransition(label = "aura_robot")
+    val scanPosition by transition.animateFloat(
+        initialValue = 0.18f,
+        targetValue = 0.82f,
+        animationSpec = infiniteRepeatable(tween(1200), RepeatMode.Reverse),
+        label = "scan_position"
+    )
+    val blinkScale by transition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.15f,
+        animationSpec = infiniteRepeatable(
+            animation = keyframes {
+                durationMillis = 3500
+                1f at 0
+                1f at 3360
+                0.15f at 3430
+                1f at 3500
+            },
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "robot_blink"
+    )
+    val headRotation = remember { Animatable(0f) }
+    val armAngle = remember { Animatable(20f) }
+    var isAnimating by remember { mutableStateOf(false) }
 
-            drawCircle(muted.copy(alpha = 0.2f), 92f * scale, center)
-            drawLine(
-                muted,
-                Offset(center.x, faceTop - 28f * scale),
-                Offset(center.x, faceTop - 8f * scale),
-                stroke,
-                StrokeCap.Round
-            )
-            drawCircle(accent, 4f * scale, Offset(center.x, faceTop - 32f * scale))
+    LaunchedEffect(eventCount) {
+        if (eventCount > 0 && !isAnimating) {
+            isAnimating = true
+            try {
+                headRotation.animateTo(-4f, tween(200))
+                armAngle.animateTo(-35f, tween(250, easing = FastOutSlowInEasing))
+                kotlinx.coroutines.delay(1200)
+                armAngle.animateTo(20f, tween(300))
+                headRotation.animateTo(0f, tween(300))
+            } finally {
+                isAnimating = false
+            }
+        }
+    }
+
+    Canvas(modifier) {
+        val scale = min(size.width, size.height) / 240f
+        val center = Offset(size.width * 0.5f, size.height * 0.48f)
+        val faceSize = Size(116f * scale, 82f * scale)
+        val faceTop = center.y - faceSize.height * 0.58f
+        val accent = Color(0xFF4DD8E6)
+        val amber = Color(0xFFFBBF24)
+        val shell = Brush.linearGradient(
+            colors = listOf(Color(0xFFE8EAED), Color(0xFFC9CDD3)),
+            start = Offset(0f, faceTop),
+            end = Offset(0f, faceTop + faceSize.height)
+        )
+        val stroke = (2f * scale).coerceAtLeast(1f)
+
+        fun drawGlow(point: Offset, color: Color, radius: Float) {
+            drawCircle(color.copy(alpha = 0.15f), radius * 2.7f, point)
+            drawCircle(color.copy(alpha = 0.3f), radius * 1.8f, point)
+            drawCircle(color.copy(alpha = 1f), radius, point)
+        }
+
+        withTransform({ rotate(headRotation.value, center) }) {
             drawRoundRect(
-                topLeft = Offset(center.x - faceWidth / 2f, faceTop),
-                size = androidx.compose.ui.geometry.Size(faceWidth, faceHeight),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(14f * scale),
-                style = Stroke(stroke),
-                color = accent.copy(alpha = 0.85f)
+                brush = shell,
+                topLeft = Offset(center.x - faceSize.width / 2f, faceTop),
+                size = faceSize,
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(15f * scale)
             )
-            val eyeY = center.y - 5f * scale
-            val eyeGap = 25f * scale
-            drawCircle(accent, 7f * scale, Offset(center.x - eyeGap, eyeY))
-            drawCircle(accent, 7f * scale, Offset(center.x + eyeGap, eyeY))
-            if (scanning) {
-                drawLine(
-                    Color(0xFF86EFAC),
-                    Offset(center.x - faceWidth * 0.36f, center.y + 20f * scale),
-                    Offset(center.x + faceWidth * 0.36f, center.y + 20f * scale),
-                    stroke,
-                    StrokeCap.Round
-                )
+            drawRoundRect(
+                color = Color(0xFF14171C),
+                topLeft = Offset(center.x - faceSize.width * 0.42f, faceTop + faceSize.height * 0.17f),
+                size = Size(faceSize.width * 0.84f, faceSize.height * 0.66f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(10f * scale),
+                style = Stroke(stroke)
+            )
+            val eyeY = faceTop + faceSize.height * 0.48f
+            val eyeGap = faceSize.width * 0.2f
+            if (serious) {
+                drawLine(amber, Offset(center.x - eyeGap - 9f * scale, eyeY - 3f * scale), Offset(center.x - eyeGap + 9f * scale, eyeY + 3f * scale), stroke * 1.5f, StrokeCap.Round)
+                drawLine(amber, Offset(center.x + eyeGap - 9f * scale, eyeY + 3f * scale), Offset(center.x + eyeGap + 9f * scale, eyeY - 3f * scale), stroke * 1.5f, StrokeCap.Round)
+                drawGlow(Offset(center.x - eyeGap, eyeY), amber, 2.5f * scale)
+                drawGlow(Offset(center.x + eyeGap, eyeY), amber, 2.5f * scale)
+            } else if (scanning) {
+                val scanX = center.x - faceSize.width * 0.35f + faceSize.width * 0.7f * scanPosition
+                drawGlow(Offset(scanX, eyeY), accent, 3f * scale)
+                drawLine(accent, Offset(scanX - 13f * scale, eyeY), Offset(scanX + 13f * scale, eyeY), stroke, StrokeCap.Round)
             } else {
-                drawLine(
-                    accent,
-                    Offset(center.x - 20f * scale, center.y + 22f * scale),
-                    Offset(center.x + 20f * scale, center.y + 22f * scale),
-                    stroke,
-                    StrokeCap.Round
-                )
+                val eyeScale = blinkScale
+                drawArc(accent, 200f, 140f, false, Offset(center.x - eyeGap - 10f * scale, eyeY - 6f * scale * eyeScale), Size(20f * scale, 14f * scale * eyeScale), style = Stroke(stroke))
+                drawArc(accent, 200f, 140f, false, Offset(center.x + eyeGap - 10f * scale, eyeY - 6f * scale * eyeScale), Size(20f * scale, 14f * scale * eyeScale), style = Stroke(stroke))
+                drawGlow(Offset(center.x - eyeGap, eyeY), accent, 2f * scale)
+                drawGlow(Offset(center.x + eyeGap, eyeY), accent, 2f * scale)
             }
-            val shoulderY = faceTop + faceHeight + 24f * scale
-            drawLine(
-                muted,
-                Offset(center.x - 38f * scale, shoulderY),
-                Offset(center.x - 64f * scale, shoulderY + 30f * scale),
-                stroke,
-                StrokeCap.Round
-            )
-            drawLine(
-                muted,
-                Offset(center.x + 38f * scale, shoulderY),
-                Offset(center.x + 64f * scale, shoulderY + 30f * scale),
-                stroke,
-                StrokeCap.Round
-            )
-            repeat(eventCount.coerceAtMost(4)) { index ->
-                val y = shoulderY + (index * 8f * scale)
-                drawLine(
-                    accent.copy(alpha = 0.35f),
-                    Offset(center.x - 16f * scale, y),
-                    Offset(center.x + 16f * scale, y),
-                    stroke,
-                    StrokeCap.Round
-                )
+        }
+
+        val shoulder = Offset(center.x + faceSize.width * 0.38f, faceTop + faceSize.height + 20f * scale)
+        val armLength = 48f * scale
+        val radians = Math.toRadians(armAngle.value.toDouble())
+        val hand = Offset(
+            shoulder.x - cos(radians).toFloat() * armLength,
+            shoulder.y + sin(radians).toFloat() * armLength
+        )
+        drawLine(Color(0xFFC9CDD3), shoulder, hand, 9f * scale, StrokeCap.Round)
+        drawCircle(Color(0xFFE8EAED), 6f * scale, hand)
+
+        val torsoTop = faceTop + faceSize.height + 18f * scale
+        drawRoundRect(
+            brush = shell,
+            topLeft = Offset(center.x - 43f * scale, torsoTop),
+            size = Size(86f * scale, 72f * scale),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(14f * scale)
+        )
+        drawRoundRect(
+            color = Color(0xFF14171C),
+            topLeft = Offset(center.x - 22f * scale, torsoTop + 20f * scale),
+            size = Size(44f * scale, 22f * scale),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(5f * scale)
+        )
+        drawContext.canvas.nativeCanvas.let {
+            val paint = android.graphics.Paint().apply {
+                color = android.graphics.Color.rgb(77, 216, 230)
+                textSize = 10f * scale
+                typeface = android.graphics.Typeface.MONOSPACE
+                textAlign = android.graphics.Paint.Align.CENTER
             }
+            it.drawText("AURA", center.x, torsoTop + 35f * scale, paint)
         }
     }
 }
