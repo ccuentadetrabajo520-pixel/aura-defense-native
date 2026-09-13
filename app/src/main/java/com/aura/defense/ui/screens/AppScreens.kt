@@ -64,7 +64,6 @@ import com.aura.defense.ui.AuraSpacing
 import com.aura.defense.ui.AuraSurface
 import com.aura.defense.ui.AuraSurfaceRaised
 import com.aura.defense.ui.components.Metric
-import com.aura.defense.ui.components.TacticalMap
 import com.aura.defense.guardian.AuraGuardianAssessment
 import com.aura.defense.ui.components.AuraGuardianPanel
 import com.aura.defense.apps.AppScanResult
@@ -250,7 +249,7 @@ fun AurasScreen(
         }
 
         Box(modifier = Modifier.fillMaxWidth().height(220.dp).background(AuraSurface, RoundedCornerShape(14.dp)).border(BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.12f)), RoundedCornerShape(14.dp))) {
-            TacticalMap(Modifier.fillMaxSize())
+            HonestTacticalMap(Modifier.fillMaxSize(), lanPeers, lanSearching)
         }
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -293,6 +292,65 @@ fun AurasScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun HonestTacticalMap(modifier: Modifier, peers: List<AuraLanPeer>, searching: Boolean) {
+    val sweep by rememberInfiniteTransition(label = "honest-radar").animateFloat(
+        0f,
+        360f,
+        infiniteRepeatable(tween(4000, easing = androidx.compose.animation.core.LinearEasing), RepeatMode.Restart),
+        label = "honest-sweep"
+    )
+    Box(modifier = modifier) {
+        Canvas(Modifier.fillMaxSize()) {
+            val dash = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 6.dp.toPx()))
+            val gridColor = AuraCyan.copy(alpha = 0.06f)
+            val spacing = 34.dp.toPx()
+            var x = 0f
+            while (x < size.width) {
+                drawLine(gridColor, Offset(x, 0f), Offset(x, size.height), 0.5.dp.toPx(), pathEffect = dash)
+                x += spacing
+            }
+            var y = 0f
+            while (y < size.height) {
+                drawLine(gridColor, Offset(0f, y), Offset(size.width, y), 0.5.dp.toPx(), pathEffect = dash)
+                y += spacing
+            }
+            val center = Offset(size.width / 2f, size.height / 2f)
+            val radius = size.minDimension * 0.42f
+            drawCircle(AuraCyan.copy(alpha = 0.08f), radius, center, style = Stroke(1.dp.toPx()))
+            val angle = Math.toRadians(sweep.toDouble())
+            drawLine(
+                AuraCyan.copy(alpha = 0.4f),
+                center,
+                Offset(center.x + kotlin.math.cos(angle).toFloat() * radius, center.y + kotlin.math.sin(angle).toFloat() * radius),
+                1.dp.toPx()
+            )
+            peers.forEach { peer ->
+                val hash = peer.auraId.hashCode()
+                val xRatio = 0.12f + Math.floorMod(hash, 76) / 100f
+                val yRatio = 0.12f + Math.floorMod(hash / 100, 76) / 100f
+                val point = Offset(size.width * xRatio, size.height * yRatio)
+                val color = when {
+                    peer.guardianLevel.contains("CRITICAL", ignoreCase = true) -> AuraRed
+                    peer.guardianLevel.contains("HIGH", ignoreCase = true) -> AuraAmber
+                    else -> AuraGreen
+                }
+                drawCircle(color.copy(alpha = 0.18f), 12.dp.toPx(), point)
+                drawCircle(color, 5.dp.toPx(), point)
+            }
+        }
+        if (peers.isEmpty()) {
+            Text(
+                if (searching) "Escaneando red local..." else "Sin Auras cercanas todavía",
+                modifier = Modifier.align(Alignment.Center),
+                color = AuraMuted,
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace
+            )
         }
     }
 }
