@@ -25,6 +25,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aura.defense.monitor.AuraProcessLog
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -39,10 +42,12 @@ fun AuraTerminal(
     entries: List<AuraProcessLog.ProcessEntry>,
     modifier: Modifier
 ) {
+    val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsStateWithLifecycle()
+    val isResumed = lifecycleState == Lifecycle.State.RESUMED
     val cursorAlpha by rememberInfiniteTransition(label = "terminal_cursor")
         .animateFloat(
         initialValue = 1f,
-        targetValue = 0f,
+        targetValue = if (isResumed) 0f else 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(500),
             repeatMode = RepeatMode.Reverse

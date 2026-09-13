@@ -24,6 +24,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -35,16 +38,18 @@ fun AuraConsoleRobot(
     scanning: Boolean,
     eventCount: Int
 ) {
+    val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsStateWithLifecycle()
+    val isResumed = lifecycleState == Lifecycle.State.RESUMED
     val transition = rememberInfiniteTransition(label = "aura_robot")
     val scanPosition by transition.animateFloat(
         initialValue = 0.18f,
-        targetValue = 0.82f,
+        targetValue = if (isResumed) 0.82f else 0.18f,
         animationSpec = infiniteRepeatable(tween(1200), RepeatMode.Reverse),
         label = "scan_position"
     )
     val blinkScale by transition.animateFloat(
         initialValue = 1f,
-        targetValue = 0.15f,
+        targetValue = if (isResumed) 0.15f else 1f,
         animationSpec = infiniteRepeatable(
             animation = keyframes {
                 durationMillis = 3500
@@ -61,8 +66,8 @@ fun AuraConsoleRobot(
     val armAngle = remember { Animatable(20f) }
     var isAnimating by remember { mutableStateOf(false) }
 
-    LaunchedEffect(eventCount) {
-        if (eventCount > 0 && !isAnimating) {
+    LaunchedEffect(eventCount, isResumed) {
+        if (eventCount > 0 && isResumed && !isAnimating) {
             isAnimating = true
             try {
                 headRotation.animateTo(-4f, tween(200))

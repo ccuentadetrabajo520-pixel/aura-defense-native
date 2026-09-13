@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +57,7 @@ import com.aura.defense.monitor.AuraCorrelationEngine
 import com.aura.defense.monitor.CorrelationAlert
 import com.aura.defense.monitor.AuraProcessLog
 import com.aura.defense.ui.screens.AuraConsoleScreen
+import com.aura.defense.ui.components.aura.AuraAvatarMini
 import com.aura.defense.vpn.DnsFirewallStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -102,6 +104,7 @@ fun AuraMainShell(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val appScanner = remember { AppScanner(context) }
+    val processEntries by AuraProcessLog.entries.collectAsState()
     var tabIndex by remember { mutableStateOf(0) }
     var moduleDialog by remember { mutableStateOf<Pair<String, String>?>(null) }
     var showGuardian by remember { mutableStateOf(false) }
@@ -219,6 +222,7 @@ fun AuraMainShell(
             ) {
                 Text("AURA DEFENS", color = AuraCyan)
                 Text(boot.auraId, modifier = Modifier.padding(start = 10.dp).weight(1f), color = AuraMuted)
+                AuraAvatarMini(onClick = { tabIndex = 0 })
                 IconButton(onClick = {
                     scope.launch(Dispatchers.IO) {
                         MainActivity.sharedDiagTree.flushNow()
@@ -283,7 +287,7 @@ fun AuraMainShell(
                     blockedDomainCount = boot.blockedDnsCount,
                     allowlistedDomains = boot.allowlistedDomains,
                     blockedManuallyDomains = boot.blockedManuallyDomains,
-                    blockPulse = 0,
+                    blockPulse = processEntries.count { it.category == "RED" },
                     onProfileChange = onProfileChange,
                     onAllowlistAdd = { domain -> scope.launch(Dispatchers.IO) { DnsFirewallStore(context).addAllowlistedDomain(domain) } },
                     onAllowlistRemove = { domain -> scope.launch(Dispatchers.IO) { DnsFirewallStore(context).removeAllowlistedDomain(domain) } },

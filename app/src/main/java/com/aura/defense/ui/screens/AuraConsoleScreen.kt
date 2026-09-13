@@ -40,6 +40,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aura.defense.ai.CopilotBrain
 import com.aura.defense.ai.voice.VoiceCommandEngine
 import com.aura.defense.monitor.AuraProcessLog
@@ -49,6 +51,7 @@ import com.aura.defense.ui.AuraSurface
 import com.aura.defense.ui.AuraText
 import com.aura.defense.ui.components.aura.AuraConsoleRobot
 import com.aura.defense.ui.components.aura.AuraTerminal
+import com.aura.defense.ui.components.aura.AuraMood
 import com.aura.defense.vpn.DnsFirewallProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -69,12 +72,37 @@ fun AuraConsoleScreen(
     val entries by AuraProcessLog.entries.collectAsState()
     val voiceEngine = remember { VoiceCommandEngine(context) }
     val voiceResult by voiceEngine.commandResult.collectAsState()
+    val voiceSpeaking by voiceEngine.isProcessing.collectAsState()
     val voiceError by voiceEngine.error.collectAsState()
     val messages = remember { mutableStateListOf<Pair<Boolean, String>>() }
     val scope = rememberCoroutineScope()
+    val lifecycleState by androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsStateWithLifecycle()
+    val isResumed = lifecycleState == Lifecycle.State.RESUMED
+    var proud by remember { mutableStateOf(false) }
+    var handledRedTimestamp by remember {
+        mutableStateOf(entries.lastOrNull { it.category == "RED" }?.timestamp)
+    }
     var input by remember { mutableStateOf("") }
     val brain = remember(posture, vpnRunning) {
         CopilotBrain(context, { posture }, { vpnRunning }, null)
+    }
+    val lastRed = entries.lastOrNull { it.category == "RED" }
+    LaunchedEffect(lastRed?.timestamp, isResumed) {
+        if (lastRed != null && lastRed.timestamp != handledRedTimestamp) {
+            handledRedTimestamp = lastRed.timestamp
+            proud = true
+            if (isResumed) {
+                kotlinx.coroutines.delay(1500)
+                proud = false
+            }
+        }
+    }
+    val mood = when {
+        scanning -> "SCANNING"
+        voiceSpeaking -> "HABLANDO"
+        proud -> "ORGULLOSO"
+        guardianSerious -> "SERIO"
+        else -> "IDLE"
     }
 
     fun addMessage(isUser: Boolean, text: String) {
@@ -163,6 +191,7 @@ fun AuraConsoleScreen(
             fontFamily = FontFamily.Monospace,
             fontSize = 13.sp
         )
+        AuraMood(mood = mood)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             listOf("¿Por qué mi score?", "Escanea mis apps", "¿Cómo está mi red?", "¿Qué es phishing?").forEach { chip ->
                 Text(

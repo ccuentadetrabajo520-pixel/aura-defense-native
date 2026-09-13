@@ -53,6 +53,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aura.defense.ui.AuraAmber
 import com.aura.defense.ui.AuraText
 import com.aura.defense.ui.AuraBackground
@@ -376,6 +379,32 @@ fun DefenseScreen(
 ) {
     val logs by VpnDebugger.logs.collectAsState()
     val statusColor = if (vpnStatus == "Protegido") AuraGreen else AuraAmber
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsStateWithLifecycle()
+    val vpnArc = remember { androidx.compose.animation.core.Animatable(0f) }
+    var previousVpnRunning by remember { mutableStateOf<Boolean?>(null) }
+    var previousBlockPulse by remember { mutableStateOf(blockPulse) }
+
+    LaunchedEffect(vpnRunning, lifecycleState) {
+        val wasRunning = previousVpnRunning
+        previousVpnRunning = vpnRunning
+        if (wasRunning == false && vpnRunning) {
+            vibrate(context)
+            if (lifecycleState == Lifecycle.State.RESUMED) {
+                vpnArc.snapTo(0f)
+                vpnArc.animateTo(1f, tween(600))
+            } else {
+                vpnArc.snapTo(1f)
+            }
+        } else if (!vpnRunning) {
+            vpnArc.snapTo(0f)
+        }
+    }
+
+    LaunchedEffect(blockPulse, lifecycleState) {
+        if (blockPulse > previousBlockPulse) vibrate(context)
+        previousBlockPulse = blockPulse
+    }
 
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
@@ -395,7 +424,7 @@ fun DefenseScreen(
                 .background(AuraSurface, RoundedCornerShape(14.dp))
                 .border(BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.15f)), RoundedCornerShape(14.dp))
         ) {
-            SentinelCanvas(Modifier.fillMaxSize(), blockPulse)
+            SentinelCanvas(Modifier.fillMaxSize(), blockPulse, vpnArc.value)
         }
 
         Surface(
@@ -469,7 +498,7 @@ fun DefenseScreen(
 }
 
 @Composable
-private fun SentinelCanvas(modifier: Modifier, blockPulse: Int) {
+private fun SentinelCanvas(modifier: Modifier, blockPulse: Int, vpnArcProgress: Float) {
     var pulseActive by remember { mutableStateOf(false) }
     LaunchedEffect(blockPulse) {
         if (blockPulse > 0) {
@@ -485,12 +514,33 @@ private fun SentinelCanvas(modifier: Modifier, blockPulse: Int) {
         drawCircle(AuraGreen.copy(alpha = 0.12f + pulse * 0.16f), radius * (1.55f + pulse * 0.2f), center)
         drawCircle(AuraGreen.copy(alpha = 0.35f), radius, center, style = Stroke(2.dp.toPx()))
         drawCircle(AuraGreen, radius * 0.32f, center)
+        if (vpnArcProgress > 0f) {
+            drawArc(
+                color = AuraCyan,
+                startAngle = -90f,
+                sweepAngle = 360f * vpnArcProgress,
+                useCenter = false,
+                topLeft = Offset(center.x - radius * vpnArcProgress, center.y - radius * vpnArcProgress),
+                size = androidx.compose.ui.geometry.Size(radius * 2f * vpnArcProgress, radius * 2f * vpnArcProgress),
+                style = Stroke(3.dp.toPx(), cap = StrokeCap.Round)
+            )
+        }
         listOf(0f, 90f, 180f, 270f).forEachIndexed { index, angle ->
             val radians = Math.toRadians(angle.toDouble())
             val node = Offset(center.x + kotlin.math.cos(radians).toFloat() * radius * 1.48f, center.y + kotlin.math.sin(radians).toFloat() * radius * 1.48f)
             drawLine(AuraGreen.copy(alpha = 0.45f), center, node, 1.dp.toPx(), StrokeCap.Round)
             drawCircle(if (index == 2) AuraAmber else AuraGreen, 8.dp.toPx(), node)
         }
+    }
+}
+
+private fun vibrate(context: android.content.Context) {
+    val vibrator = context.getSystemService(android.content.Context.VIBRATOR_SERVICE)
+        as? android.os.Vibrator ?: return
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+        vibrator.vibrate(android.os.VibrationEffect.createOneShot(30L, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+    } else {
+        @Suppress("DEPRECATION") vibrator.vibrate(30L)
     }
 }
 
