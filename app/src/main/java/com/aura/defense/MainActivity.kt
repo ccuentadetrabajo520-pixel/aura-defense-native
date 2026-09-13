@@ -37,6 +37,7 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         diagTree = com.aura.defense.util.DiagnosticLogTree(filesDir)
+        sharedDiagTree = diagTree
         Timber.plant(diagTree)
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
@@ -99,6 +100,8 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
+        lateinit var sharedDiagTree: com.aura.defense.util.DiagnosticLogTree
+
         fun auraVpnActiveStatic(context: Context): Boolean = runCatching {
             val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE)
                 as? ConnectivityManager
