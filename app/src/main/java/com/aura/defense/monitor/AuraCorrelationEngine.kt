@@ -15,34 +15,57 @@ data class CorrelationAlert(
 )
 
 object AuraCorrelationEngine {
-    fun deviceAdminPackages(context: Context): List<String> = runCatching {
-        val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager
-        dpm?.activeAdmins?.map { it.packageName }.orEmpty()
-    }.getOrDefault(emptyList())
-
-    fun foreignNotificationListeners(context: Context): List<String> = runCatching {
-        val enabled = Settings.Secure.getString(
-            context.contentResolver,
-            Settings.Secure.ENABLED_NOTIFICATION_LISTENERS
-        ).orEmpty()
-        enabled.split(':')
-            .mapNotNull { component -> component.substringBefore('/').takeIf { it.isNotBlank() } }
-            .filter { it != context.packageName }
-            .distinct()
-    }.getOrDefault(emptyList())
-
-    fun defaultRoleHolders(context: Context): Map<String, String> = runCatching {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return@runCatching emptyMap()
-        val roleManager = context.getSystemService(android.app.role.RoleManager::class.java)
-        buildMap {
-            listOf(
-                android.app.role.RoleManager.ROLE_SMS,
-                android.app.role.RoleManager.ROLE_BROWSER
-            ).forEach { role ->
-                roleManager?.getRoleHolders(role)?.firstOrNull()?.let { put(role, it) }
+    fun deviceAdminPackages(context: Context): List<String> {
+        return runCatching {
+            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager
+            val admins = dpm?.activeAdmins
+            val result = ArrayList<String>()
+            if (admins != null) {
+                for (admin in admins) {
+                    result.add(admin.packageName)
+                }
             }
-        }
-    }.getOrDefault(emptyMap())
+            result
+        }.getOrDefault(emptyList())
+    }
+
+    fun foreignNotificationListeners(context: Context): List<String> {
+        return runCatching {
+            val raw = android.provider.Settings.Secure.getString(
+                context.contentResolver,
+                "enabled_notification_listeners"
+            )
+            val result = ArrayList<String>()
+            if (!raw.isNullOrBlank()) {
+                for (chunk in raw.split(":")) {
+                    val pkg = chunk.substringAfterLast('/').substringBefore('/').trim()
+                    if (pkg.isNotBlank() && pkg != context.packageName) {
+                        result.add(pkg)
+                    }
+                }
+            }
+            result
+        }.getOrDefault(emptyList())
+    }
+
+    fun defaultRoleHolders(context: Context): Map<String, String> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return emptyMap()
+        return runCatching {
+            val rm = context.getSystemService(Context.ROLE_SERVICE) as? android.app.role.RoleManager
+            val result = LinkedHashMap<String, String>()
+            if (rm != null) {
+                val smsHolders: List<String> = rm.getRoleHolders(android.app.role.RoleManager.ROLE_SMS)
+                if (smsHolders.isNotEmpty()) {
+                    result["ROLE_SMS"] = smsHolders[0]
+                }
+                val browserHolders: List<String> = rm.getRoleHolders(android.app.role.RoleManager.ROLE_BROWSER)
+                if (browserHolders.isNotEmpty()) {
+                    result["ROLE_BROWSER"] = browserHolders[0]
+                }
+            }
+            result
+        }.getOrDefault(emptyMap())
+    }
 
     fun detectBankingTrojanPattern(
         context: Context,
