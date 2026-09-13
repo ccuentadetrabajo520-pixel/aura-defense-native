@@ -71,7 +71,7 @@ fun AuraCenterDialog(
 
 @Composable
 fun ThreatIntelligenceDialog(
-    snapshot: ThreatIntelligenceSnapshot,
+    snapshot: ThreatIntelligenceSnapshot?,
     refreshing: Boolean,
     onRefresh: () -> Unit,
     onRestore: () -> Unit,
@@ -82,12 +82,16 @@ fun ThreatIntelligenceDialog(
         title = { Text("Inteligencia de amenazas") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Base activa: ${if (snapshot.isBundled) "Base incluida" else "Base actualizada"}")
-                Text("Indicadores cargados: ${snapshot.indicatorCount}")
-                Text("Versión: ${snapshot.version}")
-                Text("Última actualización: ${snapshot.updatedAt}")
-                Text("Fuente: ${snapshot.source}")
-                Text(snapshot.lastUpdateStatus, color = AuraMuted)
+                if (snapshot == null) {
+                    Text("Cargando inteligencia…", color = AuraMuted)
+                } else {
+                    Text("Base activa: ${if (snapshot.isBundled) "Base incluida" else "Base actualizada"}")
+                    Text("Indicadores cargados: ${snapshot.indicatorCount}")
+                    Text("Versión: ${snapshot.version}")
+                    Text("Última actualización: ${snapshot.updatedAt}")
+                    Text("Fuente: ${snapshot.source}")
+                    Text(snapshot.lastUpdateStatus, color = AuraMuted)
+                }
                 Text("Aura usa inteligencia local. No se suben URLs ni datos del dispositivo.", color = AuraMuted)
                 if (refreshing) Text("Actualizando inteligencia...", color = AuraMuted)
                 AuraHudActionButton("Actualizar inteligencia") { if (!refreshing) onRefresh() }

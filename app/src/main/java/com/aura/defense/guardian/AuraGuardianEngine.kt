@@ -14,7 +14,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class AuraGuardianEngine(private val threatEngine: ThreatIntelligenceEngine) {
+class AuraGuardianEngine(private val threatEngine: ThreatIntelligenceEngine?) {
     fun assess(
         posture: PostureResult,
         appScan: AppScanResult?,
@@ -80,7 +80,8 @@ class AuraGuardianEngine(private val threatEngine: ThreatIntelligenceEngine) {
             reasons.add("Hay enlaces sospechosos recientes")
         }
 
-        if (threatEngine.indicators.isEmpty()) missing.add("Inteligencia local no disponible")
+        val indicators = threatEngine?.indicators.orEmpty()
+        if (indicators.isEmpty()) missing.add("Inteligencia local no disponible")
         val recentHigh = history.count { it.severity == "HIGH" }
         val recentCritical = history.count { it.severity == "CRITICAL" }
         if (history.isEmpty()) missing.add("Historial pendiente")

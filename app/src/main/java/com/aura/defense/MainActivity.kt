@@ -115,6 +115,19 @@ import com.aura.defense.vpn.DnsFirewallProfile
 import com.aura.defense.vpn.DnsFirewallStore
 import com.aura.defense.vpn.ProfileManager
 
+private data class InitialState(
+    val auraId: String,
+    val termsAccepted: Boolean,
+    val hasCompletedOnboarding: Boolean,
+    val dnsProfile: DnsFirewallProfile,
+    val blockedDns: List<DnsBlockedEvent>,
+    val blockedDnsCount: Int,
+    val allowlistedDomains: List<String>,
+    val blockedManuallyDomains: List<String>,
+    val notificationAlerts: List<com.aura.defense.notifications.NotificationAlert>,
+    val vpnActive: Boolean
+)
+
 class MainActivity : ComponentActivity() {
     private val vpnPermissionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) startAuraVpn(onFailure = { vpnPermissionDeniedCallback?.invoke() })
@@ -201,17 +214,23 @@ private fun AuraDefenseApp(
     val context = LocalContext.current
     val engine = remember { SecurityPostureEngine() }
     val appScanner = remember { AppScanner(context) }
-    val threatEngine = remember { ThreatIntelligenceEngine(context) }
-    var threatSnapshot by remember { mutableStateOf(threatEngine.snapshot) }
+    var threatEngine by remember { mutableStateOf<ThreatIntelligenceEngine?>(null) }
+    var threatSnapshot by remember { mutableStateOf<com.aura.defense.threats.ThreatIntelligenceSnapshot?>(null) }
     var threatRefreshing by remember { mutableStateOf(false) }
-    val guardianEngine = remember { AuraGuardianEngine(threatEngine) }
+    LaunchedEffect(context) {
+        threatEngine = withContext(Dispatchers.IO) { ThreatIntelligenceEngine(context) }
+    }
+    LaunchedEffect(threatEngine) {
+        threatSnapshot = threatEngine?.snapshot
+    }
+    val guardianEngine = remember(threatEngine) { AuraGuardianEngine(threatEngine) }
     val historyStore = remember { AuraHistoryStore(context) }
     val changeDetector = remember { SuspiciousChangeDetector(historyStore) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { ProfileManager.loadProfile(context) }
     var result by remember { mutableStateOf(com.aura.defense.security.PostureResult.pending()) }
     var selectedTab by remember { mutableStateOf(0) }
-    var auraId by remember { mutableStateOf(preferences.getAuraId()) }
+    var auraId by remember { mutableStateOf("") }
     var visibilityVisible by remember { mutableStateOf(true) }
     var showAuraCenter by remember { mutableStateOf(false) }
     var showThreatIntelligence by remember { mutableStateOf(false) }
@@ -240,14 +259,17 @@ private fun AuraDefenseApp(
     var showSchedule by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
     var fileAnalysis by remember { mutableStateOf<AuraFileAnalysis?>(null) }
-    var historyEntries by remember { mutableStateOf(historyStore.getEntries()) }
+    var historyEntries by remember { mutableStateOf<List<AuraHistoryEntry>>(emptyList()) }
+    LaunchedEffect(historyStore) {
+        historyEntries = withContext(Dispatchers.IO) { historyStore.getEntries() }
+    }
     var lanSearching by remember { mutableStateOf(false) }
     var lanPeers by remember { mutableStateOf<List<AuraLanPeer>>(emptyList()) }
     var lastLanScan by remember { mutableStateOf<String?>(null) }
     var lanSearchJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     var showIntro by remember { mutableStateOf(true) }
-    var hasCompletedOnboarding by remember { mutableStateOf(preferences.hasCompletedOnboarding()) }
-    var termsAccepted by remember { mutableStateOf(preferences.hasAcceptedTerms()) }
+    var hasCompletedOnboarding by remember { mutableStateOf(false) }
+    var termsAccepted by remember { mutableStateOf(false) }
     var locationActive by remember { mutableStateOf(hasLocationPermission(context)) }
     var linkHistory by remember { mutableStateOf<List<LinkAnalysis>>(emptyList()) }
     var passwordAudit by remember { mutableStateOf<PasswordAudit?>(null) }
@@ -255,21 +277,49 @@ private fun AuraDefenseApp(
     var emergencyRunning by remember { mutableStateOf(false) }
     var emergencyStep by remember { mutableStateOf(0) }
     var emergencyResult by remember { mutableStateOf<EmergencyModeResult?>(null) }
-    var isVpnRunning by remember { mutableStateOf(isAuraVpnActive(context)) }
+    var isVpnRunning by remember { mutableStateOf(false) }
     var vpnPermissionError by remember { mutableStateOf(false) }
     var familyModeEnabled by remember { mutableStateOf(false) }
     var cellularDataBlocked by remember { mutableStateOf(false) }
     val dnsFirewallStore = remember { DnsFirewallStore(context) }
-    var dnsProfile by remember { mutableStateOf(dnsFirewallStore.profile()) }
-    var blockedDns by remember { mutableStateOf<List<DnsBlockedEvent>>(dnsFirewallStore.blockedEvents()) }
-    var blockedDnsCount by remember { mutableStateOf(dnsFirewallStore.blockedCount()) }
-    var allowlistedDomains by remember { mutableStateOf(dnsFirewallStore.allowlist()) }
-    var blockedManuallyDomains by remember { mutableStateOf(dnsFirewallStore.blocklist()) }
+    var initialState by remember { mutableStateOf<InitialState?>(null) }
+    var dnsProfile by remember { mutableStateOf(DnsFirewallProfile.EQUILIBRADO) }
+    var blockedDns by remember { mutableStateOf<List<DnsBlockedEvent>>(emptyList()) }
+    var blockedDnsCount by remember { mutableStateOf(0) }
+    var allowlistedDomains by remember { mutableStateOf<List<String>>(emptyList()) }
+    var blockedManuallyDomains by remember { mutableStateOf<List<String>>(emptyList()) }
     var dnsBlockPulse by remember { mutableStateOf(0) }
     val emergencySteps = listOf("Actualizando telemetría", "Escaneando aplicaciones", "Comprobando alertas del Guardián", "Revisando enlaces recientes", "Comprobando VPN y cortafuegos", "Generando informe")
     val lifecycleOwner = LocalLifecycleOwner.current
     val notificationAlertStore = remember { NotificationAlertStore(context) }
-    var notificationAlerts by remember { mutableStateOf(notificationAlertStore.getAll()) }
+    var notificationAlerts by remember { mutableStateOf<List<com.aura.defense.notifications.NotificationAlert>>(emptyList()) }
+    LaunchedEffect(context) {
+        initialState = withContext(Dispatchers.IO) {
+            InitialState(
+                auraId = preferences.getAuraId(),
+                termsAccepted = preferences.hasAcceptedTerms(),
+                hasCompletedOnboarding = preferences.hasCompletedOnboarding(),
+                dnsProfile = dnsFirewallStore.profile(),
+                blockedDns = dnsFirewallStore.blockedEvents(),
+                blockedDnsCount = dnsFirewallStore.blockedCount(),
+                allowlistedDomains = dnsFirewallStore.allowlist(),
+                blockedManuallyDomains = dnsFirewallStore.blocklist(),
+                notificationAlerts = notificationAlertStore.getAll(),
+                vpnActive = isAuraVpnActive(context)
+            )
+        }.also { loaded ->
+            auraId = loaded.auraId
+            termsAccepted = loaded.termsAccepted
+            hasCompletedOnboarding = loaded.hasCompletedOnboarding
+            dnsProfile = loaded.dnsProfile
+            blockedDns = loaded.blockedDns
+            blockedDnsCount = loaded.blockedDnsCount
+            allowlistedDomains = loaded.allowlistedDomains
+            blockedManuallyDomains = loaded.blockedManuallyDomains
+            notificationAlerts = loaded.notificationAlerts
+            isVpnRunning = loaded.vpnActive
+        }
+    }
     val guardianAssessment: AuraGuardianAssessment = guardianEngine.assess(result, appScanResult, linkHistory, notificationAlerts, historyEntries, blockedDns)
 
     LaunchedEffect(appScanResult, blockedDns) {
@@ -377,8 +427,8 @@ private fun AuraDefenseApp(
                 val recentLinks = linkHistory + notificationAlerts.map { it.analysis }
                 emergencyStep = 5
                 val vaultAvailable = com.aura.defense.vault.AuraVault.isAvailable()
-                val reportText = AuraReportBuilder().text(auraId, scannedPosture, scan, recentLinks, passwordAudit, notificationAlerts, threatEngine.indicators, assessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp(), threatSnapshot)
-                val reportJson = AuraReportBuilder().json(auraId, scannedPosture, scan, recentLinks, passwordAudit, notificationAlerts, threatEngine.indicators, assessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp(), threatSnapshot)
+                val reportText = AuraReportBuilder().text(auraId, scannedPosture, scan, recentLinks, passwordAudit, notificationAlerts, threatEngine?.indicators.orEmpty(), assessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp(), threatSnapshot)
+                val reportJson = AuraReportBuilder().json(auraId, scannedPosture, scan, recentLinks, passwordAudit, notificationAlerts, threatEngine?.indicators.orEmpty(), assessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp(), threatSnapshot)
                 val reportSaved = withContext(Dispatchers.IO) {
                     runCatching {
                         File(context.filesDir, "informe-emergencia.txt").writeText(reportText)
@@ -398,6 +448,13 @@ private fun AuraDefenseApp(
     Crossfade(targetState = showIntro, animationSpec = tween(650), label = "aura-core-transition") { showingIntro ->
         if (showingIntro) {
             com.aura.defense.ui.components.AuraCoreIntro()
+        } else if (initialState == null) {
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                androidx.compose.material3.CircularProgressIndicator()
+            }
         } else if (!termsAccepted || !hasCompletedOnboarding) {
             AuraIntroScreen(
                 preferences = preferences,
@@ -695,12 +752,12 @@ private fun AuraDefenseApp(
             onRefresh = {
                 threatRefreshing = true
                 scope.launch {
-                    val updated = withContext(Dispatchers.IO) { threatEngine.refresh() }
+                    val updated = threatEngine?.let { withContext(Dispatchers.IO) { it.refresh() } }
                     threatSnapshot = updated
                     threatRefreshing = false
                 }
             },
-            onRestore = { threatSnapshot = threatEngine.restoreBundled() },
+            onRestore = { threatEngine?.let { threatSnapshot = it.restoreBundled() } },
             onDismiss = { showThreatIntelligence = false }
         )
     }
@@ -764,8 +821,8 @@ private fun AuraDefenseApp(
             guardianAssessment = guardianAssessment,
             onExport = { json ->
                 val vaultAvailable = com.aura.defense.vault.AuraVault.isAvailable()
-                val content = if (json) AuraReportBuilder().json(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp(), threatSnapshot)
-                else AuraReportBuilder().text(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine.indicators, guardianAssessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp(), threatSnapshot)
+                val content = if (json) AuraReportBuilder().json(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine?.indicators.orEmpty(), guardianAssessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp(), threatSnapshot)
+                else AuraReportBuilder().text(auraId, result, appScanResult, linkHistory, passwordAudit, notificationAlerts, threatEngine?.indicators.orEmpty(), guardianAssessment, fileAnalysis, vaultAvailable, lanPeers, lastLanScan, historyEntries, historyStore.baselineTimestamp(), threatSnapshot)
                 shareReport(content, json, context)
                 showReports = false
             },
