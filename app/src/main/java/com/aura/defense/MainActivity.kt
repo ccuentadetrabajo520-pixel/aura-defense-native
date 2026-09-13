@@ -800,7 +800,39 @@ private fun AuraDefenseApp(
         )
     }
     if (showAssistant) {
-        VirtualAssistantDialog(onDismiss = { showAssistant = false })
+        VirtualAssistantDialog(
+            posture = result,
+            vpnRunning = isVpnRunning,
+            threatEngine = threatEngine,
+            onVpnToggle = {
+                if (isVpnRunning) {
+                    (context as? MainActivity)?.stopAuraVpn()
+                    isVpnRunning = false
+                    vpnPermissionError = false
+                } else {
+                    vpnPermissionError = false
+                    (context as? MainActivity)?.requestAuraVpn {
+                        vpnPermissionError = true
+                    }
+                }
+            },
+            onScan = {
+                if (!scanningApps) scope.launch {
+                    scanningApps = true
+                    val scan = withContext(Dispatchers.Default) { appScanner.scan() }
+                    appScanResult = scan
+                    result = engine.evaluate(result.telemetry, scan.riskyApps.size, scan.highRiskApps.size)
+                    changeDetector.compare(result, scan, linkHistory, notificationAlerts)
+                    historyEntries = historyStore.getEntries()
+                    scanningApps = false
+                }
+            },
+            onProfileChange = { profile ->
+                dnsFirewallStore.saveProfile(profile)
+                dnsProfile = profile
+            },
+            onDismiss = { showAssistant = false }
+        )
     }
     if (showVoiceCommands) {
         VoiceCommandDialog(onDismiss = { showVoiceCommands = false })

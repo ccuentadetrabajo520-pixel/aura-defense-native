@@ -1,6 +1,5 @@
 package com.aura.defense.ai.interaction
 
-import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -38,7 +39,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.aura.defense.ui.components.AuraButton
-import kotlinx.coroutines.delay
+import com.aura.defense.ai.CopilotBrain
+import com.aura.defense.security.PostureResult
+import com.aura.defense.threats.ThreatIntelligenceEngine
+import com.aura.defense.vpn.DnsFirewallProfile
 import kotlinx.coroutines.launch
 
 data class ChatMessage(
@@ -48,50 +52,20 @@ data class ChatMessage(
     val timestamp: Long = System.currentTimeMillis()
 )
 
-class AuraVirtualAssistant(private val context: Context) {
-    private val responses = mapOf(
-        "hello" to "Hola. Soy Aura, tu asistente de ciberdefensa. ¿En qué puedo ayudarte?",
-        "status" to "Puedo ayudarte a revisar la seguridad, amenazas, VPN, permisos, malware, phishing, red y reportes.",
-        "threats" to "Abre el análisis de amenazas para revisar los hallazgos actuales del dispositivo.",
-        "scan" to "Puedes iniciar un análisis completo desde el panel principal de Aura.",
-        "vpn" to "Revisa el indicador VPN del panel principal para confirmar si el tráfico está protegido.",
-        "permissions" to "La auditoría de permisos muestra qué aplicaciones tienen acceso excesivo y qué puedes revisar.",
-        "report" to "Puedes generar y compartir un reporte desde Herramientas o desde el panel de reportes.",
-        "protection" to "Aura supervisa la postura del dispositivo, la red, las aplicaciones y los eventos de seguridad.",
-        "advice" to "Mantén Android actualizado, usa una VPN en redes públicas y revisa los permisos de aplicaciones nuevas.",
-        "malware" to "Ejecuta un análisis completo y revisa cualquier hallazgo de severidad media o alta.",
-        "phishing" to "No abras enlaces inesperados. Usa el analizador de enlaces de Aura antes de introducir credenciales.",
-        "network" to "Puedes revisar la red local y los dispositivos visibles desde el módulo de red de Aura.",
-        "help" to "Pregunta por seguridad, amenazas, VPN, permisos, malware, phishing, red, consejos o reportes."
-    )
-
-    suspend fun processQuery(query: String): String {
-        delay(300)
-        val normalized = query.lowercase().trim()
-        return when {
-            normalized.isBlank() -> "Escribe una consulta para que pueda ayudarte."
-            normalized.contains("hola") || normalized.contains("buenos") || normalized.contains("buenas") -> responses.getValue("hello")
-            normalized.contains("segur") || normalized.contains("proteg") -> responses.getValue("status")
-            normalized.contains("amenaza") || normalized.contains("peligro") -> responses.getValue("threats")
-            normalized.contains("escane") || normalized.contains("analiz") -> responses.getValue("scan")
-            normalized.contains("vpn") -> responses.getValue("vpn")
-            normalized.contains("permiso") -> responses.getValue("permissions")
-            normalized.contains("reporte") || normalized.contains("informe") -> responses.getValue("report")
-            normalized.contains("proteccion") || normalized.contains("protección") || normalized.contains("defensa") -> responses.getValue("protection")
-            normalized.contains("consejo") || normalized.contains("recomend") -> responses.getValue("advice")
-            normalized.contains("malware") || normalized.contains("virus") -> responses.getValue("malware")
-            normalized.contains("phishing") || normalized.contains("estafa") -> responses.getValue("phishing")
-            normalized.contains("red") || normalized.contains("wifi") -> responses.getValue("network")
-            normalized.contains("ayuda") || normalized.contains("que puedes") -> responses.getValue("help")
-            else -> "No reconocí esa consulta. Prueba con seguridad, amenazas, VPN, permisos, malware, phishing, red, consejos o reportes."
-        }
-    }
-}
-
 @Composable
-fun VirtualAssistantScreen(modifier: Modifier = Modifier) {
+fun VirtualAssistantScreen(
+    modifier: Modifier = Modifier,
+    posture: PostureResult,
+    vpnRunning: Boolean,
+    threatEngine: ThreatIntelligenceEngine?,
+    onVpnToggle: () -> Unit,
+    onScan: () -> Unit,
+    onProfileChange: (DnsFirewallProfile) -> Unit
+) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val assistant = remember { AuraVirtualAssistant(context) }
+    val brain = remember(vpnRunning, posture, threatEngine) {
+        CopilotBrain(context, { posture }, { vpnRunning }, threatEngine)
+    }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var messages by remember {
@@ -107,6 +81,17 @@ fun VirtualAssistantScreen(modifier: Modifier = Modifier) {
     var currentInput by remember { mutableStateOf("") }
     var isProcessing by remember { mutableStateOf(false) }
 
+    fun applyAction(action: String?) {
+        when {
+            action == "ACTIVATE_VPN" && !vpnRunning -> onVpnToggle()
+            action == "DEACTIVATE_VPN" && vpnRunning -> onVpnToggle()
+            action == "RUN_SCAN" -> onScan()
+            action?.startsWith("SET_PROFILE:") == true -> runCatching {
+                onProfileChange(DnsFirewallProfile.valueOf(action.substringAfter(':')))
+            }
+        }
+    }
+
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
@@ -118,8 +103,9 @@ fun VirtualAssistantScreen(modifier: Modifier = Modifier) {
         currentInput = ""
         isProcessing = true
         scope.launch {
-            val response = assistant.processQuery(query)
-            messages = messages + ChatMessage(text = response, isUser = false)
+            val response = brain.process(query)
+            messages = messages + ChatMessage(text = response.text, isUser = false)
+            if (response.needsConfirmation == false) applyAction(response.pendingAction)
             isProcessing = false
         }
     }
@@ -141,6 +127,14 @@ fun VirtualAssistantScreen(modifier: Modifier = Modifier) {
         ) {
             items(messages, key = { it.id }) { message -> ChatBubble(message) }
             if (isProcessing) item { Text("Aura está procesando...", style = MaterialTheme.typography.bodySmall) }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            listOf("¿Qué es phishing?", "¿Qué es un troyano bancario?", "Consulta un dominio").forEach { chip ->
+                AuraButton(text = chip, onClick = { currentInput = chip }, modifier = Modifier.widthIn(min = 120.dp))
+            }
         }
         Spacer(Modifier.height(12.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -189,14 +183,29 @@ fun ChatBubble(message: ChatMessage) {
 }
 
 @Composable
-fun VirtualAssistantDialog(onDismiss: () -> Unit) {
+fun VirtualAssistantDialog(
+    posture: PostureResult,
+    vpnRunning: Boolean,
+    threatEngine: ThreatIntelligenceEngine?,
+    onVpnToggle: () -> Unit,
+    onScan: () -> Unit,
+    onProfileChange: (DnsFirewallProfile) -> Unit,
+    onDismiss: () -> Unit
+) {
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             modifier = Modifier.fillMaxWidth().height(620.dp),
             shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.background
         ) {
-            VirtualAssistantScreen()
+            VirtualAssistantScreen(
+                posture = posture,
+                vpnRunning = vpnRunning,
+                threatEngine = threatEngine,
+                onVpnToggle = onVpnToggle,
+                onScan = onScan,
+                onProfileChange = onProfileChange
+            )
         }
     }
 }
