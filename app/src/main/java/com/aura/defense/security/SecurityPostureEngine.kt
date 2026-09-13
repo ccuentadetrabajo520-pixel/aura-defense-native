@@ -61,6 +61,15 @@ class SecurityPostureEngine {
             if (patchAge != null && patchAge > 180) add(SecurityFinding("Parche de seguridad antiguo", FindingSeverity.MEDIUM, "El parche tiene aproximadamente $patchAge días.", "Los parches del sistema corrigen problemas conocidos de seguridad y estabilidad.", "Busca actualizaciones del sistema en Ajustes de Android.", SettingsAction.SEGURIDAD))
             if (telemetry.apiLevel in 1..28) add(SecurityFinding("Versión de Android antigua", FindingSeverity.MEDIUM, "API ${telemetry.apiLevel} (${telemetry.androidVersion}).", "Las versiones antiguas pueden no incluir controles modernos del sistema.", "Comprueba si hay una actualización disponible.", SettingsAction.SEGURIDAD))
             if (riskyApps > 0) add(SecurityFinding("Apps con señales de riesgo", if (highRiskApps > 0) FindingSeverity.HIGH else FindingSeverity.MEDIUM, "${riskyApps} apps requieren revisión; ${highRiskApps} tienen severidad alta o crítica.", "El escáner ha encontrado permisos o configuraciones sensibles en apps visibles por Android.", "Revisa los detalles de las apps detectadas."))
+            if (!telemetry.screenLockSecure) add(SecurityFinding("Sin bloqueo de pantalla", FindingSeverity.HIGH, "No hay PIN, patrón ni biometría configurado.", "Un teléfono sin bloqueo expone todo su contenido a quien lo tome.", "Configura un bloqueo de pantalla en Ajustes > Seguridad.", SettingsAction.SEGURIDAD))
+            if (telemetry.adbEnabled) add(SecurityFinding("Depuración USB activa", FindingSeverity.HIGH, "ADB está habilitado.", "Con ADB activo, un equipo conectado por cable puede ejecutar comandos en tu dispositivo.", "Desactiva la depuración USB en Opciones de desarrollador cuando no la uses.", SettingsAction.DESARROLLADOR))
+            if (telemetry.accessibilityServices.isNotEmpty()) {
+                val knownVendors = listOf("com.google.android.", "com.android.", "com.samsung.", "com.sec.", "com.miui.", "com.xiaomi.", "com.oppo.", "com.vivo.", "com.huawei.", "com.hihonor.", "com.oneplus.", "com.coloros.")
+                val unknown = telemetry.accessibilityServices.filter { service ->
+                    knownVendors.none { service.contains(it) }
+                }
+                add(SecurityFinding("Servicios de accesibilidad activos", if (unknown.isNotEmpty()) FindingSeverity.HIGH else FindingSeverity.MEDIUM, "${telemetry.accessibilityServices.size} servicio(s) activo(s)" + if (unknown.isNotEmpty()) "; fuera de proveedores de confianza: " + unknown.map { it.substringBefore('/') }.joinToString(", ") else "", "Un servicio de accesibilidad puede leer la pantalla, simular toques y capturar credenciales: es el vector principal de los troyanos bancarios.", "Revisa Ajustes > Accesibilidad y desactiva cualquier servicio que no reconozcas.", SettingsAction.SEGURIDAD))
+            }
         }
         val score = (100 - findings.sumOf { severityPenalty(it.severity) }).coerceIn(0, 100)
         return PostureResult(score, statusFor(score), findings, telemetry, java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(java.util.Date()))

@@ -24,6 +24,7 @@ class AuraVpnService : VpnService() {
     private var packetThread: Thread? = null
     private val stopping = AtomicBoolean(false)
     private var ThreatEngine: ThreatIntelligenceEngine? = null
+    private var dnsStore: DnsFirewallStore? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
@@ -36,6 +37,7 @@ class AuraVpnService : VpnService() {
         VpnDebugger.log("✅ AURA VPN SERVICE INICIADO")
         ThreatFeedManager.init(this)
         ThreatEngine = ThreatIntelligenceEngine(this)
+        dnsStore = DnsFirewallStore(this)
         establishVpn()
         return START_NOT_STICKY
     }
@@ -93,16 +95,29 @@ class AuraVpnService : VpnService() {
     private fun handleDnsPacket(packet: ByteArray, length: Int, vpnOutput: FileOutputStream): Boolean {
         try {
             if (ProfileManager.shouldBlockDueToProfile(this)) return false
+            val store = dnsStore ?: return false
             val query = DnsPacketCodec.query(packet, length) ?: return false
             val domain = query.domain
 
-            val bridgeResult = ThreatBridge.enrichDomainCheck(domain, ThreatEngine)
-            if (bridgeResult.blocked) {
-                VpnDebugger.log("Consulta DNS bloqueada (${bridgeResult.source ?: "regla local"})")
+            if (store.isAllowed(domain)) return false
+
+            val verdict = ThreatBridge.enrichDomainCheck(domain, ThreatEngine)
+            val profile = store.profile()
+            val shouldBlock = when {
+                store.isBlocked(domain) -> true
+                !verdict.blocked -> false
+                profile == DnsFirewallProfile.PERMITIR_TODO -> false
+                else -> verdict.category != null && verdict.category in profile.categories
+            }
+
+            if (shouldBlock) {
+                val category = verdict.category ?: "MANUAL"
+                val severity = verdict.severity ?: "HIGH"
+                VpnDebugger.log("Consulta DNS bloqueada [$category] $domain")
                 DnsPacketCodec.blockedResponsePacket(packet, length, query)?.let(vpnOutput::write)
                 vpnOutput.flush()
-                DnsFirewallStore(this).recordBlocked(
-                    DnsBlockedEvent(domain, bridgeResult.source ?: "MANUAL", bridgeResult.severity ?: "HIGH", System.currentTimeMillis())
+                store.recordBlocked(
+                    DnsBlockedEvent(domain, category, severity, System.currentTimeMillis())
                 )
                 return true
             }

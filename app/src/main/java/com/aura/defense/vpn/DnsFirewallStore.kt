@@ -6,8 +6,8 @@ import org.json.JSONObject
 import java.util.Locale
 
 enum class DnsFirewallProfile(val label: String, val categories: Set<String>) {
-    EQUILIBRADO("Equilibrado", setOf("PHISHING", "MALWARE", "TRACKING")),
-    ESTRICTO("Estricto", setOf("PHISHING", "MALWARE", "TRACKING", "ADS", "CRYPTO_SCAM")),
+    EQUILIBRADO("Equilibrado", setOf("PHISHING", "MALWARE", "TRACKING", "FAKENEWS")),
+    ESTRICTO("Estricto", setOf("PHISHING", "MALWARE", "TRACKING", "ADS", "CRYPTO_SCAM", "FAKENEWS")),
     PERMITIR_TODO("Permitir todo", emptySet());
 
     companion object {

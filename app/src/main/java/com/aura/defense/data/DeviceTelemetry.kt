@@ -24,7 +24,10 @@ data class DeviceTelemetrySnapshot(
     val storageTotalBytes: Long,
     val networkActive: String,
     val vpnActive: Boolean,
-    val privateDnsStatus: String
+    val privateDnsStatus: String,
+    val screenLockSecure: Boolean = false,
+    val adbEnabled: Boolean = false,
+    val accessibilityServices: List<String> = emptyList()
 )
 
 class DeviceTelemetryProvider(private val context: Context) {
@@ -85,7 +88,24 @@ class DeviceTelemetryProvider(private val context: Context) {
             storageTotalBytes = runCatching { storage?.totalBytes ?: 0L }.getOrDefault(0L),
             networkActive = networkText,
             vpnActive = vpn,
-            privateDnsStatus = readPrivateDns()
+            privateDnsStatus = readPrivateDns(),
+            screenLockSecure = runCatching {
+                (context.getSystemService(Context.KEYGUARD_SERVICE) as? android.app.KeyguardManager)
+                    ?.isDeviceSecure == true
+            }.getOrDefault(false),
+            adbEnabled = runCatching {
+                Settings.Global.getInt(
+                    context.contentResolver,
+                    Settings.Global.ADB_ENABLED,
+                    0
+                ) == 1
+            }.getOrDefault(false),
+            accessibilityServices = runCatching {
+                Settings.Secure.getString(
+                    context.contentResolver,
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+                )?.split(':')?.filter { it.isNotBlank() }.orEmpty()
+            }.getOrDefault(emptyList())
         )
     }
 
@@ -126,5 +146,8 @@ private fun unavailableSnapshot() = DeviceTelemetrySnapshot(
     storageTotalBytes = 0L,
     networkActive = "No disponible",
     vpnActive = false,
-    privateDnsStatus = "No disponible"
+    privateDnsStatus = "No disponible",
+    screenLockSecure = false,
+    adbEnabled = false,
+    accessibilityServices = emptyList()
 )
