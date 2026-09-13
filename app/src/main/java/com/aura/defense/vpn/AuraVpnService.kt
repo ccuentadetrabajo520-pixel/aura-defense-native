@@ -82,6 +82,7 @@ class AuraVpnService : VpnService() {
                 .establish()
                 ?: error("No se pudo establecer el túnel VPN")
         }.onSuccess {
+            com.aura.defense.monitor.AuraProcessLog.log("Túnel VPN activado: el tráfico DNS pasa por el cortafuegos", "VPN")
             DnsFirewallStore(this).apply {
                 clearSession()
                 setServiceActive(true)
@@ -96,6 +97,7 @@ class AuraVpnService : VpnService() {
     }
 
     fun stopVpn() {
+        com.aura.defense.monitor.AuraProcessLog.log("Túnel VPN desactivado", "VPN")
         isRunning = false
         DnsFirewallStore(this).setServiceActive(false)
         stopping.set(true)
@@ -135,6 +137,7 @@ class AuraVpnService : VpnService() {
                 store.recordBlocked(
                     DnsBlockedEvent(domain, category, severity, System.currentTimeMillis())
                 )
+                com.aura.defense.monitor.AuraProcessLog.log("Dominio bloqueado [$category]: $domain", "RED")
                 return true
             }
         } catch (e: Exception) {

@@ -70,6 +70,7 @@ class AppScanner(private val context: Context) {
     fun scan(): AppScanResult {
         val now = timestamp(System.currentTimeMillis())
         return runCatching {
+            com.aura.defense.monitor.AuraProcessLog.log("Iniciando escaneo de aplicaciones instaladas…", "SCAN")
             val packageManager = context.packageManager
             val applications = runCatching {
                 packageManager.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0L))
@@ -104,6 +105,10 @@ class AppScanner(private val context: Context) {
                 }
                 app.copy(findings = findings)
             }
+            com.aura.defense.monitor.AuraProcessLog.log(
+                "Escaneo completado: ${apps.size} apps analizadas, ${enrichedApps.count { it.findings.isNotEmpty() }} con señales de riesgo",
+                "SCAN"
+            )
             AppScanResult(apps = enrichedApps, scannedAt = now)
         }.onFailure { Timber.e(it, "No se pudo completar el escaneo de apps") }
             .getOrElse { AppScanResult(emptyList(), now, failed = true) }

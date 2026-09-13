@@ -29,6 +29,7 @@ object ThreatFeedManager {
     fun init(context: Context) {
         blockedMap = rebuildFromCaches(context)
         VpnDebugger.log("ThreatFeedManager: ${blockedMap.size} dominios desde caché local.")
+        com.aura.defense.monitor.AuraProcessLog.log("Inteligencia cargada desde caché local: ${blockedMap.size} dominios", "FEED")
         coroutineJob?.cancel()
         coroutineJob = CoroutineScope(Dispatchers.IO).launch { refresh(context) }
     }
@@ -79,6 +80,7 @@ object ThreatFeedManager {
             etags.putAll(freshEtags)
             saveEtags(context, etags)
             VpnDebugger.log("INTELIGENCIA ACTIVA: ${blockedMap.size} dominios en memoria.")
+            com.aura.defense.monitor.AuraProcessLog.log("Feeds actualizados: ${blockedMap.size} dominios maliciosos en memoria", "FEED")
         } else {
             VpnDebugger.log("Sin fuentes ni caché: se conserva la blocklist previa (fail-closed).")
         }

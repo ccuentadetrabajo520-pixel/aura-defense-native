@@ -28,6 +28,7 @@ class AuraCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
             NotificationAlertStore(applicationContext).getAll()
         )
         runCatching { AuraVault.saveReport(applicationContext, "Fecha: ${finalPosture.timestamp}; Estado: ${finalPosture.status}; Puntuación: ${finalPosture.score}") }
+        com.aura.defense.monitor.AuraProcessLog.log("Comprobación programada ejecutada", "SISTEMA")
         Result.success()
     }.getOrElse { Result.failure() }
 }

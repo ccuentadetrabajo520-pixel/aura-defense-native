@@ -44,6 +44,7 @@ object IpBlocklistLoader {
                             .filter { it.isNotEmpty() && !it.startsWith("#") }
                             .toHashSet()
                         VpnDebugger.log("IP blocklist cargada: ${ipSet.size} IPs")
+                        com.aura.defense.monitor.AuraProcessLog.log("IP blocklist cargada: ${ipSet.size} IPs peligrosas", "FEED")
                     }
                 } finally {
                     con.disconnect()
