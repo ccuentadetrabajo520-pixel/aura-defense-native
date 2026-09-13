@@ -2,6 +2,7 @@ package com.aura.defense.ai
 
 import android.content.Context
 import com.aura.defense.security.PostureResult
+import com.aura.defense.security.DnsHijackDetector
 import com.aura.defense.vpn.DnsFirewallStore
 import com.aura.defense.vpn.ThreatFeedManager
 import com.aura.defense.threats.ThreatIntelligenceEngine
@@ -23,7 +24,7 @@ class CopilotBrain(
     var pendingAction: String? = null
         private set
 
-    fun process(input: String): CopilotResponse {
+    suspend fun process(input: String): CopilotResponse {
         val q = SecurityKnowledgeBase.normalize(input.trim())
         if (q.isBlank()) return CopilotResponse("Escribe o di algo y te ayudo.", false)
 
@@ -81,7 +82,39 @@ class CopilotBrain(
                 threatEngine?.findMatches(domain)?.isNotEmpty() == true -> "⚠ En inteligencia local. NO lo abras."
                 else -> "No aparece en mis bases actuales. Eso NO garantiza que sea seguro; verifica el remitente por canales oficiales."
             }
-            return CopilotResponse("Consulté $domain en mis bases: $verdict", false)
+            val age = DomainAgeChecker.check(domain)
+            val ageWarning = when {
+                age.daysOld == null -> ""
+                age.daysOld < 30 -> "\n🚨 ALERTA: dominio registrado hace SOLO ${age.daysOld} días. Los dominios de phishing viven pocos días: razonablemente NO confíes."
+                age.daysOld < 180 -> "\n⚠ Dominio relativamente nuevo: ${age.daysOld} días."
+                else -> "\n✓ Dominio con ${age.daysOld / 365} años de antigüedad (dato a favor, no garantía)."
+            }
+            return CopilotResponse("Consulté $domain en mis bases: $verdict$ageWarning", false)
+        }
+
+        if (q.contains("dns hijack") || q.contains("secuestro dns") || (q.contains("dns") && q.contains("verific"))) {
+            val result = DnsHijackDetector.check()
+            return CopilotResponse(
+                "🛡 Verificación anti-secuestro DNS:\n${result.detail}\nIPs sistema: ${result.systemIps.take(3).joinToString(", ")}",
+                false
+            )
+        }
+
+        if (q.contains("exfiltracion") || q.contains("exfiltración") || (q.contains("datos") && q.contains("sube"))) {
+            val top = com.aura.defense.security.DataExfiltrationMonitor.last24hPerApp(context).take(3)
+            return if (top.isEmpty()) {
+                CopilotResponse(
+                    "No pude leer estadísticas de red por app. Concede el permiso de 'Acceso al uso' en el Centro Aura y vuelve a preguntar.",
+                    false
+                )
+            } else {
+                CopilotResponse(
+                    "📊 Mayores consumidores de datos (24h, real):\n" +
+                        top.joinToString("\n") { "• ${it.packageName}: ${it.totalBytes / (1024 * 1024)} MB" } +
+                        "\nUna app desconocida con subida desproporcionada es la firma clásica de exfiltración.",
+                    false
+                )
+            }
         }
 
         SecurityKnowledgeBase.search(input)?.let { entry ->
