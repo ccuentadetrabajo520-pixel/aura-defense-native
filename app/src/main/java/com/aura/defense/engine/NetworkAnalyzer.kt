@@ -21,18 +21,7 @@ class NetworkAnalyzer(context: Context) {
 
         val detectedAt = System.currentTimeMillis().toString()
         return buildList {
-            if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ENCRYPTED)) {
-                add(
-                    Threat(
-                        id = "network:unencrypted:$detectedAt",
-                        name = "Red WiFi no encriptada",
-                        severity = ThreatSeverity.HIGH,
-                        description = "La red WiFi actual no está encriptada. Los datos pueden ser interceptados.",
-                        detectedAt = detectedAt
-                    )
-                )
-            }
-
+            // NET_CAPABILITY_NOT_ENCRYPTED fue deprecado/ausente en SDK 34; Android no expone aquí una señal equivalente de cifrado WiFi.
             if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)) {
                 add(
                     Threat(
