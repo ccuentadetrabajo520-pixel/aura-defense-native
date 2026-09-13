@@ -31,7 +31,12 @@ data class InstalledAppInfo(
     val allowBackup: Boolean,
     val requestsInstallPackages: Boolean,
     val findings: List<AppRiskFinding>
-)
+) {
+    fun firstInstallTimeAsLong(): Long = runCatching {
+        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+            .parse(firstInstallTime)?.time ?: 0L
+    }.getOrDefault(0L)
+}
 
 data class AppScanResult(
     val apps: List<InstalledAppInfo>,

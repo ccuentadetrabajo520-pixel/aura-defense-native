@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -69,6 +71,7 @@ import com.aura.defense.apps.AppScanResult
 import com.aura.defense.apps.AppRiskSeverity
 import com.aura.defense.apps.InstalledAppInfo
 import com.aura.defense.lan.AuraLanPeer
+import com.aura.defense.monitor.CorrelationAlert
 import com.aura.defense.vpn.DnsBlockedEvent
 import com.aura.defense.vpn.DnsFirewallProfile
 import com.aura.defense.vpn.VpnDebugger
@@ -81,6 +84,7 @@ import java.util.Locale
 fun HomeScreen(
     result: com.aura.defense.security.PostureResult,
     guardianAssessment: AuraGuardianAssessment,
+    correlationAlerts: List<CorrelationAlert> = emptyList(),
     historyCount: Int,
     onGuardianAnalysis: () -> Unit,
     onStartScan: () -> Unit,
@@ -93,6 +97,22 @@ fun HomeScreen(
     val findings = result.findings.take(4)
 
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        correlationAlerts.forEach { alert ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = AuraRed.copy(alpha = 0.14f)),
+                border = BorderStroke(0.8.dp, AuraRed.copy(alpha = 0.6f)),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(AuraSpacing.md), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("⚠ ${alert.title}", color = AuraRed, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(alert.detail, color = AuraText, fontSize = 12.sp)
+                    TextButton(onClick = { onModuleDialog("Evidencia: ${alert.title}", alert.evidence.joinToString("\n")) }) {
+                        Text("¿Por qué?", color = AuraRed, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
         Row(
             modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
             horizontalArrangement = Arrangement.SpaceBetween,

@@ -50,6 +50,8 @@ import kotlinx.coroutines.withContext
 import com.aura.defense.apps.AppScanResult
 import com.aura.defense.apps.AppScanner
 import com.aura.defense.apps.InstalledAppInfo
+import com.aura.defense.monitor.AuraCorrelationEngine
+import com.aura.defense.monitor.CorrelationAlert
 import com.aura.defense.files.AuraFileAnalysis
 import com.aura.defense.history.AuraHistoryEntry
 import com.aura.defense.history.AuraHistoryStore
@@ -217,6 +219,7 @@ private fun AuraDefenseApp(
     var showSummary by remember { mutableStateOf(false) }
     var moduleDialog by remember { mutableStateOf<Pair<String, String>?>(null) }
     var appScanResult by remember { mutableStateOf<AppScanResult?>(null) }
+    var correlationAlerts by remember { mutableStateOf<List<CorrelationAlert>>(emptyList()) }
     var scanningApps by remember { mutableStateOf(false) }
     var showAppRisks by remember { mutableStateOf(false) }
     var showLinkAnalyzer by remember { mutableStateOf(false) }
@@ -266,6 +269,10 @@ private fun AuraDefenseApp(
     val notificationAlertStore = remember { NotificationAlertStore(context) }
     var notificationAlerts by remember { mutableStateOf(notificationAlertStore.getAll()) }
     val guardianAssessment: AuraGuardianAssessment = guardianEngine.assess(result, appScanResult, linkHistory, notificationAlerts, historyEntries, blockedDns)
+
+    LaunchedEffect(appScanResult, blockedDns) {
+        correlationAlerts = AuraCorrelationEngine.evaluate(context, appScanResult)
+    }
     val locationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -422,6 +429,7 @@ private fun AuraDefenseApp(
                 0 -> HomeScreen(
                     result = result,
                     guardianAssessment = guardianAssessment,
+                    correlationAlerts = correlationAlerts,
                     historyCount = historyEntries.size,
                     onGuardianAnalysis = { showGuardian = true },
                     onStartScan = {
