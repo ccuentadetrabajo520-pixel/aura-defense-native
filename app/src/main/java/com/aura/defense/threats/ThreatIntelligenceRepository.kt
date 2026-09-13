@@ -136,7 +136,8 @@ class ThreatIntelligenceRepository(private val context: Context) {
         const val FILE_NAME = "threats.json"
         const val CACHE_FILE = "threat_cache.json"
         const val MAX_BYTES = 2 * 1024 * 1024
-        // TODO-F4: apuntar a feed JSON propio (formato threats.json hospedado en GitHub)
+        // TODO-F4: apuntar a feed JSON propio hospedado en GitHub (formato threats.json)
+        // El refresh() manual del usuario seguirá validando el bundle embebido (ahora real).
         val THREAT_FEED_URL: String? = null
         const val INVALID_MESSAGE = "No se pudo validar la inteligencia de amenazas. Aura usará la base local incluida."
     }
