@@ -106,6 +106,7 @@ import com.aura.defense.ui.screens.AppsScreen
 import com.aura.defense.ui.screens.AurasScreen
 import com.aura.defense.ui.screens.DefenseScreen
 import com.aura.defense.ui.screens.HomeScreen
+import com.aura.defense.ui.screens.AuraIntroScreen
 import com.aura.defense.ai.interaction.VirtualAssistantDialog
 import com.aura.defense.ai.voice.VoiceCommandDialog
 import com.aura.defense.vpn.AuraVpnService
@@ -246,6 +247,7 @@ private fun AuraDefenseApp(
     var lanSearchJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     var showIntro by remember { mutableStateOf(true) }
     var hasCompletedOnboarding by remember { mutableStateOf(preferences.hasCompletedOnboarding()) }
+    var termsAccepted by remember { mutableStateOf(preferences.hasAcceptedTerms()) }
     var locationActive by remember { mutableStateOf(hasLocationPermission(context)) }
     var linkHistory by remember { mutableStateOf<List<LinkAnalysis>>(emptyList()) }
     var passwordAudit by remember { mutableStateOf<PasswordAudit?>(null) }
@@ -396,8 +398,14 @@ private fun AuraDefenseApp(
     Crossfade(targetState = showIntro, animationSpec = tween(650), label = "aura-core-transition") { showingIntro ->
         if (showingIntro) {
             com.aura.defense.ui.components.AuraCoreIntro()
-        } else if (!hasCompletedOnboarding) {
-            AuraOnboardingV2(onComplete = { hasCompletedOnboarding = true; preferences.setOnboardingCompleted() })
+        } else if (!termsAccepted || !hasCompletedOnboarding) {
+            AuraIntroScreen(
+                preferences = preferences,
+                onFinished = {
+                    termsAccepted = preferences.hasAcceptedTerms()
+                    hasCompletedOnboarding = preferences.hasCompletedOnboarding()
+                }
+            )
         } else Scaffold(
         containerColor = AuraBackground,
         topBar = {

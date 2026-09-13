@@ -28,6 +28,10 @@ class AuraPreferences(context: Context) {
 
     fun setOnboardingCompleted() { preferences?.edit()?.putBoolean("onboarding_completed", true)?.apply() }
 
+    fun hasAcceptedTerms(): Boolean = preferences?.getBoolean("terms_accepted", false) ?: false
+
+    fun setTermsAccepted() { preferences?.edit()?.putBoolean("terms_accepted", true)?.apply() }
+
     fun exportBackup(context: Context): String = runCatching {
         val prefs = context.getSharedPreferences("aura_defense_preferences", Context.MODE_PRIVATE)
         val dnsPrefs = context.getSharedPreferences("aura_dns_firewall", Context.MODE_PRIVATE)
