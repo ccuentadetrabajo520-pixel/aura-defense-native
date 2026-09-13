@@ -213,7 +213,7 @@ private fun QrCameraPreview(previewView: PreviewView, onDetected: (String) -> Un
         val listener = Runnable {
             runCatching {
                 val provider = providerFuture.get()
-                val preview = Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
+                  val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
                 val analysis = ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build()
                 analysis.setAnalyzer(executor) { imageProxy ->
                     val mediaImage = imageProxy.image
