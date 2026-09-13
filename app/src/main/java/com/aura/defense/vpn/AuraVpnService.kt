@@ -40,7 +40,7 @@ class AuraVpnService : VpnService() {
         ThreatEngine = ThreatIntelligenceEngine(this)
         dnsStore = DnsFirewallStore(this)
         establishVpn()
-        return START_NOT_STICKY
+        return START_STICKY
     }
 
     override fun onDestroy() {
@@ -55,6 +55,19 @@ class AuraVpnService : VpnService() {
         super.onTaskRemoved(rootIntent)
     }
 
+    override fun onRevoke() {
+        VpnDebugger.log("VPN revocada por el sistema o por otra app")
+        isRunning = false
+        DnsFirewallStore(this).setServiceActive(false)
+        stopping.set(true)
+        packetThread?.interrupt()
+        packetThread = null
+        runCatching { tunnel?.close() }
+        tunnel = null
+        stopForeground(true)
+        stopSelf()
+    }
+
     private fun establishVpn() {
         runCatching {
             stopping.set(false)
@@ -64,6 +77,8 @@ class AuraVpnService : VpnService() {
                 .addAddress(VPN_ADDRESS, 32)
                 .addDnsServer(VPN_DNS)
                 .addRoute(VPN_DNS, 32)
+                .addAddress(VPN_ADDRESS_V6, 128)
+                .addRoute(VPN_DNS_V6, 128)
                 .establish()
                 ?: error("No se pudo establecer el túnel VPN")
         }.onSuccess {
@@ -215,6 +230,8 @@ class AuraVpnService : VpnService() {
         private const val TAG = "AuraVpnService"
         private const val VPN_DNS = "10.0.0.1"
         private const val VPN_ADDRESS = "10.0.0.2"
+        private const val VPN_DNS_V6 = "fd00:0:0:0:0:0:0:1"
+        private const val VPN_ADDRESS_V6 = "fd00:0:0:0:0:0:0:2"
         private const val UPSTREAM_DNS = "1.1.1.1"
         private const val DNS_PORT = 53
         private const val UDP_HEADER_SIZE = 8
