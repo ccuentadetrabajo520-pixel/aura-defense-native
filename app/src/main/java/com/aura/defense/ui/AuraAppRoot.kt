@@ -74,12 +74,12 @@ fun AuraAppRoot(
     var isVpnRunning by remember { mutableStateOf(false) }
     var sharedAnalysis by remember { mutableStateOf<Pair<String, String>?>(null) }
     val appScanner = remember { AppScanner(context) }
+    val prefs = remember { AuraPreferences(context) }
 
     LaunchedEffect(Unit) {
         boot = withContext(Dispatchers.IO) {
             Timber.i("BOOT:4 bootstrap IO iniciado")
             com.aura.defense.vpn.ProfileManager.loadProfile(context)
-            val prefs = AuraPreferences(context)
             val dnsStore = DnsFirewallStore(context)
             val alertStore = NotificationAlertStore(context)
             val historyStore = AuraHistoryStore(context)
@@ -140,10 +140,11 @@ fun AuraAppRoot(
             }
         }
         !boot.termsAccepted || !boot.hasCompletedOnboarding -> {
-            AuraIntroScreen(onFinished = {
+            AuraIntroScreen(
+                preferences = prefs,
+                onFinished = {
                 scope.launch {
                     boot = withContext(Dispatchers.IO) {
-                        val prefs = AuraPreferences(context)
                         boot.copy(
                             termsAccepted = prefs.hasAcceptedTerms(),
                             hasCompletedOnboarding = prefs.hasCompletedOnboarding(),

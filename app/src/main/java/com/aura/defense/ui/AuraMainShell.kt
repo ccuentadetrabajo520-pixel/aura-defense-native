@@ -57,6 +57,10 @@ import com.aura.defense.monitor.AuraCorrelationEngine
 import com.aura.defense.monitor.CorrelationAlert
 import com.aura.defense.monitor.AuraProcessLog
 import com.aura.defense.ui.screens.AuraConsoleScreen
+import com.aura.defense.ui.screens.AppsScreen
+import com.aura.defense.ui.screens.AurasScreen
+import com.aura.defense.ui.screens.DefenseScreen
+import com.aura.defense.ui.screens.HomeScreen
 import com.aura.defense.ui.components.aura.AuraAvatarMini
 import com.aura.defense.vpn.DnsFirewallStore
 import kotlinx.coroutines.Dispatchers

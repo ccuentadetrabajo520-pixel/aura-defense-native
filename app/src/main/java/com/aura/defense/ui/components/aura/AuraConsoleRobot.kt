@@ -1,5 +1,7 @@
 package com.aura.defense.ui.components.aura
 
+import android.graphics.Paint
+import android.graphics.Typeface
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -21,6 +23,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.unit.dp
@@ -65,6 +68,15 @@ fun AuraConsoleRobot(
     val headRotation = remember { Animatable(0f) }
     val armAngle = remember { Animatable(20f) }
     var isAnimating by remember { mutableStateOf(false) }
+    val textPaint = remember {
+        Paint().apply {
+            color = android.graphics.Color.parseColor("#14171C")
+            textSize = 14f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
+            isAntiAlias = true
+        }
+    }
 
     LaunchedEffect(eventCount, isResumed) {
         if (eventCount > 0 && isResumed && !isAnimating) {
@@ -158,14 +170,11 @@ fun AuraConsoleRobot(
             size = Size(44f * scale, 22f * scale),
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(5f * scale)
         )
-        drawContext.canvas.nativeCanvas.let {
-            val paint = android.graphics.Paint().apply {
-                color = android.graphics.Color.rgb(77, 216, 230)
-                textSize = 10f * scale
-                typeface = android.graphics.Typeface.MONOSPACE
-                textAlign = android.graphics.Paint.Align.CENTER
-            }
-            it.drawText("AURA", center.x, torsoTop + 35f * scale, paint)
-        }
+        drawContext.canvas.nativeCanvas.drawText(
+            "AURA",
+            center.x,
+            torsoTop + 35f * scale,
+            textPaint
+        )
     }
 }
