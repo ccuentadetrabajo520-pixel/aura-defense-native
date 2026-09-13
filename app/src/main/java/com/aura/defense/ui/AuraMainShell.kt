@@ -6,6 +6,7 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -22,6 +23,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,8 +31,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.aura.defense.MainActivity
 import com.aura.defense.apps.AppScanResult
@@ -53,6 +58,9 @@ import com.aura.defense.ui.components.NotificationGuardDialog
 import com.aura.defense.ui.components.QrScannerDialog
 import com.aura.defense.monitor.AuraCorrelationEngine
 import com.aura.defense.monitor.CorrelationAlert
+import com.aura.defense.monitor.AuraProcessLog
+import com.aura.defense.ui.components.aura.AuraConsoleRobot
+import com.aura.defense.ui.components.aura.AuraTerminal
 import com.aura.defense.vpn.DnsFirewallStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -99,6 +107,7 @@ fun AuraMainShell(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val appScanner = remember { AppScanner(context) }
+    val processEntries by AuraProcessLog.entries.collectAsState()
     var tabIndex by remember { mutableStateOf(0) }
     var moduleDialog by remember { mutableStateOf<Pair<String, String>?>(null) }
     var showGuardian by remember { mutableStateOf(false) }
@@ -247,29 +256,22 @@ fun AuraMainShell(
     ) { padding ->
         Column(Modifier.padding(padding)) {
             when (tabIndex) {
-                0 -> {
-                    HomeScreen(
-                        result = emergencyPosture,
-                        guardianAssessment = guardianAssessment,
-                        correlationAlerts = emergencyAlerts,
-                        historyCount = historyEntries.size,
-                        onGuardianAnalysis = { showGuardian = true },
-                        onStartScan = onScan,
-                        onModuleDialog = dialogLambda,
-                        onEmergency = ::startEmergency,
-                        onToolsHub = { showTools = true }
-                    )
-                    TextButton(onClick = { showGuardian = true }) { Text("Guardián Aura") }
-                    TextButton(onClick = { showNotificationGuard = true }) {
-                        Text("Alertas de notificaciones: ${boot.notificationAlerts.size}")
-                    }
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        TextButton(onClick = { showLinkAnalyzer = true }) { Text("Enlace") }
-                        TextButton(onClick = { showQrScanner = true }) { Text("QR") }
-                        TextButton(onClick = { showVault = true }) { Text("Bóveda") }
-                        TextButton(onClick = { showHistory = true }) { Text("Historial") }
-                    }
-                }
+                0 -> AuraConsoleScreen(
+                    entries = processEntries,
+                    serious = guardianAssessment.level.name in setOf("ATENCION", "RIESGO_ALTO", "CRITICO"),
+                    scanning = scanningApps,
+                    guardianAssessment = guardianAssessment,
+                    alertCount = boot.notificationAlerts.size,
+                    onGuardianAnalysis = { showGuardian = true },
+                    onStartScan = onScan,
+                    onEmergency = ::startEmergency,
+                    onToolsHub = { showTools = true },
+                    onNotificationGuard = { showNotificationGuard = true },
+                    onLinkAnalyzer = { showLinkAnalyzer = true },
+                    onQrScanner = { showQrScanner = true },
+                    onVault = { showVault = true },
+                    onHistory = { showHistory = true }
+                )
                 1 -> DefenseScreen(
                     vpnStatus = if (isVpnRunning) "Protegido" else "VPN desactivada",
                     vpnRunning = isVpnRunning,
@@ -376,4 +378,56 @@ private fun linkAnalysisText(analysis: LinkAnalysis): String = buildString {
     appendLine("URL: ${analysis.url}")
     appendLine("Riesgo: ${analysis.risk}")
     append(analysis.reasons.joinToString("\n"))
+}
+
+@Composable
+private fun AuraConsoleScreen(
+    entries: List<AuraProcessLog.ProcessEntry>,
+    serious: Boolean,
+    scanning: Boolean,
+    guardianAssessment: com.aura.defense.guardian.AuraGuardianAssessment,
+    alertCount: Int,
+    onGuardianAnalysis: () -> Unit,
+    onStartScan: () -> Unit,
+    onEmergency: () -> Unit,
+    onToolsHub: () -> Unit,
+    onNotificationGuard: () -> Unit,
+    onLinkAnalyzer: () -> Unit,
+    onQrScanner: () -> Unit,
+    onVault: () -> Unit,
+    onHistory: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        AuraConsoleRobot(
+            modifier = Modifier.fillMaxWidth(),
+            serious = serious,
+            scanning = scanning,
+            eventCount = entries.size
+        )
+        Text(
+            "${guardianAssessment.level.name} · ${entries.size} eventos · $alertCount alertas",
+            color = if (serious) Color(0xFFF87171) else Color(0xFF22C55E),
+            fontFamily = FontFamily.Monospace,
+            fontSize = 11.sp
+        )
+        AuraTerminal(entries = entries, modifier = Modifier.fillMaxWidth())
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(onClick = onStartScan) { Text("SCAN") }
+            TextButton(onClick = onEmergency) { Text("EMERGENCIA") }
+            TextButton(onClick = onToolsHub) { Text("TOOLS") }
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(onClick = onGuardianAnalysis) { Text("GUARDIÁN") }
+            TextButton(onClick = onNotificationGuard) { Text("NOTIFICACIONES") }
+            TextButton(onClick = onHistory) { Text("HISTORIAL") }
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(onClick = onLinkAnalyzer) { Text("ENLACE") }
+            TextButton(onClick = onQrScanner) { Text("QR") }
+            TextButton(onClick = onVault) { Text("BÓVEDA") }
+        }
+    }
 }
