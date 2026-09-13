@@ -314,7 +314,9 @@ private fun AuraDefenseApp(
                         historyEntries = historyStore.getEntries()
                     }
                 }
-                delay(2000)
+                scope.launch {
+                    delay(2000)
+                }
             }
         }
     }
