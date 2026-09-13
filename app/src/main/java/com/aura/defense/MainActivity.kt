@@ -128,6 +128,7 @@ class MainActivity : ComponentActivity() {
         sharedText = extractSharedText(intent)
         sharedFile = extractSharedFile(intent)
         if (BuildConfig.DEBUG) Timber.plant(Timber.DebugTree())
+        com.aura.defense.scheduler.ensureScheduled(this)
         ProfileManager.loadProfile(this)
         val preferences = AuraPreferences(this)
         setContent {

@@ -19,3 +19,19 @@ fun scheduleAuraChecks(context: Context, schedule: AuraSchedule) = runCatching {
 }.getOrDefault(false)
 
 private const val WORK_NAME = "aura_guardian_checks"
+
+fun ensureScheduled(context: Context) = runCatching {
+    val manager = WorkManager.getInstance(context)
+    val existing = manager.getWorkInfosForUniqueWork(WORK_NAME).get()
+    if (existing.none {
+            it.state == androidx.work.WorkInfo.State.ENQUEUED ||
+                it.state == androidx.work.WorkInfo.State.RUNNING
+        }) {
+        manager.enqueueUniquePeriodicWork(
+            WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<AuraCheckWorker>(1, TimeUnit.DAYS).build()
+        )
+    }
+    true
+}.getOrDefault(false)

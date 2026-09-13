@@ -36,6 +36,7 @@ class AuraVpnService : VpnService() {
         startForeground(NOTIFICATION_ID, notification())
         VpnDebugger.log("✅ AURA VPN SERVICE INICIADO")
         ThreatFeedManager.init(this)
+        IpBlocklistLoader.init(this)
         ThreatEngine = ThreatIntelligenceEngine(this)
         dnsStore = DnsFirewallStore(this)
         establishVpn()

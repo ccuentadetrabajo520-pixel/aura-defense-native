@@ -80,8 +80,8 @@ class AuraFullTunnelEngine(private val context: Context) {
                                                                                     }
                                                                         }
 
-                                                                            fun isSuspiciousIp(ip: String): Boolean =
-                                                                                    synchronized(suspiciousIpCache) { suspiciousIpCache.contains(ip) }
+                                                                                fun isSuspiciousIp(ip: String): Boolean =
+                                                                                    com.aura.defense.vpn.IpBlocklistLoader.isSuspicious(ip)
 
                                                                                         fun clearLogs() {
                                                                                                     synchronized(logQueue) { logQueue.clear() }
