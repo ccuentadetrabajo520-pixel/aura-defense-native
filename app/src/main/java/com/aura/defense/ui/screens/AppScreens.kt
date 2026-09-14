@@ -96,6 +96,12 @@ fun HomeScreen(
     onEmergency: () -> Unit,
     onToolsHub: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var previousCorrelationCount by remember { mutableStateOf(correlationAlerts.size) }
+    LaunchedEffect(correlationAlerts.size) {
+        if (correlationAlerts.size > previousCorrelationCount) Haptics.alert(context)
+        previousCorrelationCount = correlationAlerts.size
+    }
     val blink = if (inBackground) {
         0.4f
     } else {
