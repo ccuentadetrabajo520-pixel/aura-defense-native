@@ -16,6 +16,13 @@ class AuraCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
     override suspend fun doWork(): Result = runCatching {
         ThreatIntelligenceRepository(applicationContext).refresh()
         com.aura.defense.vpn.ThreatFeedManager.refresh(applicationContext)
+        val selfDefenseThreats = com.aura.defense.monitor.SelfDefenseWatcher.selfCheck(
+            applicationContext,
+            com.aura.defense.MainActivity.auraVpnActiveStatic(applicationContext)
+        )
+        if (selfDefenseThreats.isNotEmpty()) {
+            com.aura.defense.monitor.SelfDefenseWatcher.notifyThreats(applicationContext, selfDefenseThreats)
+        }
         val telemetry = DeviceTelemetryProvider(applicationContext).read()
         val posture = SecurityPostureEngine().evaluate(telemetry)
         val appSummary = runCatching { AppScanner(applicationContext).scan() }.getOrNull()

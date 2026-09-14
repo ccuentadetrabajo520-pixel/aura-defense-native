@@ -130,8 +130,16 @@ fun AuraAppRoot(
     }
 
     LaunchedEffect(Unit) {
+        var checks = 0
         while (true) {
             isVpnRunning = MainActivity.auraVpnActiveStatic(context)
+            if (++checks % 5 == 0) {
+                val threats = com.aura.defense.monitor.SelfDefenseWatcher
+                    .selfCheck(context, isVpnRunning)
+                if (threats.isNotEmpty()) {
+                    com.aura.defense.monitor.SelfDefenseWatcher.notifyThreats(context, threats)
+                }
+            }
             delay(1500)
         }
     }

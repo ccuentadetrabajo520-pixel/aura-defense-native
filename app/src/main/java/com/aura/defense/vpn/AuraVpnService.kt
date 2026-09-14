@@ -57,6 +57,8 @@ class AuraVpnService : VpnService() {
     }
 
     override fun onRevoke() {
+        com.aura.defense.data.SecurePrefs.get(this)
+            .edit().putBoolean("aura_vpn_expected", false).apply()
         VpnDebugger.log("VPN revocada por el sistema o por otra app")
         isRunning = false
         DnsFirewallStore(this).setServiceActive(false)
@@ -83,6 +85,8 @@ class AuraVpnService : VpnService() {
                 .establish()
                 ?: error("No se pudo establecer el túnel VPN")
         }.onSuccess {
+            com.aura.defense.data.SecurePrefs.get(this)
+                .edit().putBoolean("aura_vpn_expected", true).apply()
             com.aura.defense.monitor.AuraProcessLog.log("Túnel VPN activado: el tráfico DNS pasa por el cortafuegos", "VPN")
             DnsFirewallStore(this).apply {
                 clearSession()
@@ -98,6 +102,8 @@ class AuraVpnService : VpnService() {
     }
 
     fun stopVpn() {
+        com.aura.defense.data.SecurePrefs.get(this)
+            .edit().putBoolean("aura_vpn_expected", false).apply()
         com.aura.defense.monitor.AuraProcessLog.log("Túnel VPN desactivado", "VPN")
         isRunning = false
         DnsFirewallStore(this).setServiceActive(false)
