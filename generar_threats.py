@@ -59,6 +59,7 @@ payload = {
     "source": "URLhaus (abuse.ch) + OpenPhish Community — dominios activos reportados",
     "indicators": indicators,
 }
-with open("threats.json", "w", encoding="utf-8") as output:
-    json.dump(payload, output, ensure_ascii=False, indent=1)
+for output_path in ("threats.json", "feed/threats.json"):
+    with open(output_path, "w", encoding="utf-8") as output:
+        json.dump(payload, output, ensure_ascii=False, indent=1)
 print(f"OK: {len(indicators)} indicadores REALES escritos ({TODAY})")
