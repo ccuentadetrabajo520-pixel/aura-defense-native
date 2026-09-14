@@ -1,5 +1,13 @@
 # Aura Defense — ProGuard / R8 Keep Rules
 
+-keep class com.aura.defense.threats.** { *; }
+-keep class com.aura.defense.ai.** { *; }
+-keep class com.aura.defense.data.** { *; }
+-keep class org.json.** { *; }
+-keepattributes Signature, InnerClasses, EnclosingMethod, *Annotation*
+-dontwarn org.json.**
+-keepclassmembers class * implements android.os.Parcelable { public static final ** CREATOR; }
+
 # Timber
 -dontwarn timber.log.Timber
 -keep class timber.log.TimberTree { *; }

@@ -106,6 +106,7 @@ fun AuraAppRoot(
             val telemetry = DeviceTelemetryProvider(context).read()
             val posture = SecurityPostureEngine().evaluate(telemetry)
             com.aura.defense.scheduler.ensureScheduled(context)
+            com.aura.defense.security.IntegrityCheck.report(context)
             Timber.i("BOOT:5/6 bootstrap IO completado")
             com.aura.defense.monitor.AuraProcessLog.log(
                 "Bootstrap completado: ${posture.findings.size} hallazgos, score ${posture.score}",

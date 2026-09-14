@@ -53,6 +53,10 @@ Requisitos: Android SDK con API 35, JDK 17 y acceso a las dependencias de Gradle
 
 El APK se genera en `app/build/outputs/apk/debug/` o `app/build/outputs/apk/release/`. El flujo de Codemagic ejecuta `assembleRelease`; para distribuirlo hay que configurar el keystore y los secretos de firma en Codemagic. Sin ellos, el artefacto no debe considerarse firmado para publicación.
 
+## Integridad
+
+AURA registra al iniciar la aplicación la huella SHA-256 del certificado con el que fue instalada. Para verificar una distribución, compara el valor `Integridad de AURA: firma SHA-256 = ...` del registro local con la huella publicada junto al release firmado. Un valor distinto indica que el APK debe considerarse reempaquetado o firmado con otro certificado. La huella oficial se publicará con el primer release firmado de distribución.
+
 ## Codemagic
 
 El workflow `aura-android-release` prepara el SDK, limpia el proyecto y compila release. La firma de distribución está pendiente de configurar mediante secretos y un keystore protegidos en Codemagic.
