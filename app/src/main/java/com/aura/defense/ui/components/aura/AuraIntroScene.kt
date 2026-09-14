@@ -42,7 +42,12 @@ private val AuraCyan = Color(0xFF4DD8E6)
 private val AuraText = Color(0xFFE8EAED)
 
 @Composable
-fun IntroScene(imageRes: Int, title: String, subtitle: String) {
+fun IntroScene(
+    imageRes: Int,
+    title: String,
+    subtitle: String,
+    showText: Boolean = false
+) {
     val transition = rememberInfiniteTransition(label = "ken-burns")
     val scale by transition.animateFloat(
         1f,
@@ -74,7 +79,7 @@ fun IntroScene(imageRes: Int, title: String, subtitle: String) {
             IntroSceneCanvas(title, subtitle) {}
             return
         }
-        IntroCopy(title, subtitle)
+        if (showText) IntroCopy(title, subtitle)
     }
 }
 

@@ -45,11 +45,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aura.defense.R
 import com.aura.defense.data.AuraPreferences
 import com.aura.defense.ui.components.aura.AuraMotion
 import com.aura.defense.ui.components.aura.AuraTermsDialog
-import com.aura.defense.ui.components.aura.IntroSceneCanvas
-import com.aura.defense.ui.components.aura.VenezuelaFlagCanvas
+import com.aura.defense.ui.components.aura.IntroScene
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.cos
@@ -72,13 +72,11 @@ fun AuraIntroScreen(preferences: AuraPreferences, onFinished: () -> Unit) {
                 Modifier.fillMaxSize().clickable { if (page < 5) advance() }
             ) {
                 when (page) {
-                    0 -> IntroSceneCanvas("Hola, soy AURA", "Seré tu asistente de ciber defensa para tu dispositivo") {}
-                    1 -> IntroSceneCanvas("Esto es lo que hago por ti", "Vigilo tu red · Analizo tus apps · Cuido tu sistema · En tiempo real") {}
-                    2 -> IntroSceneCanvas("Bloqueo lo peligroso", "Antes de que toque tus datos. Escudo rojo: amenaza filtrada. Escudo verde: tu información segura.") {}
-                    3 -> IntroSceneCanvas("Dentro de tu teléfono", "Protección en tiempo real. Todo se procesa en tu dispositivo: nada de tus datos sale de aquí. Nunca.") {}
-                    4 -> IntroSceneCanvas("Orgullo venezolano", "Hecho con orgullo para Venezuela y toda América Latina. Nuestra gente merece estar protegida.") {
-                        VenezuelaFlagCanvas(Modifier.fillMaxWidth().height(220.dp).padding(top = 24.dp))
-                    }
+                    0 -> IntroScene(R.drawable.intro_presentacion, "Hola, soy AURA", "Seré tu asistente de ciber defensa para tu dispositivo")
+                    1 -> IntroScene(R.drawable.intro_capacidades, "Esto es lo que hago por ti", "Vigilo tu red, analizo tus apps y cuido tu sistema en tiempo real")
+                    2 -> IntroScene(R.drawable.intro_proteccion, "Bloqueo lo peligroso", "Protección antes de que una amenaza toque tus datos")
+                    3 -> IntroScene(R.drawable.intro_datos, "Tus datos se quedan aquí", "Todo se procesa en tu dispositivo")
+                    4 -> IntroScene(R.drawable.intro_cuerpo, "Protección hecha para ti", "AURA te acompaña en cada defensa")
                     else -> FinalScene(
                         termsAccepted = termsAccepted,
                         onTermsChanged = { termsAccepted = it },

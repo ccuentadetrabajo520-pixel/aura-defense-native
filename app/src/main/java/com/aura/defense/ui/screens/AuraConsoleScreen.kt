@@ -1,6 +1,7 @@
 package com.aura.defense.ui.screens
 
 import android.content.Context
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +37,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,8 +52,9 @@ import com.aura.defense.ui.AuraMuted
 import com.aura.defense.ui.AuraSurface
 import com.aura.defense.ui.AuraText
 import com.aura.defense.ui.components.aura.AuraConsoleRobot
-import com.aura.defense.ui.components.aura.AuraTerminal
+import com.aura.defense.ui.components.aura.AuraFace
 import com.aura.defense.ui.components.aura.AuraMood
+import com.aura.defense.ui.components.aura.AuraTerminal
 import com.aura.defense.vpn.DnsFirewallProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -78,30 +82,29 @@ fun AuraConsoleScreen(
     val lifecycleState by androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsStateWithLifecycle()
     val isResumed = lifecycleState == Lifecycle.State.RESUMED
     var proud by remember { mutableStateOf(false) }
-    var handledRedTimestamp by remember {
-        mutableStateOf(entries.lastOrNull { it.category == "RED" }?.timestamp)
+    var handledSecurityEventTimestamp by remember {
+        mutableStateOf(entries.lastOrNull { it.category == "RED" || (it.category == "SCAN" && it.message.startsWith("Escaneo completado")) }?.timestamp)
     }
     var input by remember { mutableStateOf("") }
     val brain = remember(posture, vpnRunning) {
         CopilotBrain(context, { posture }, { vpnRunning }, null)
     }
-    val lastRed = entries.lastOrNull { it.category == "RED" }
-    LaunchedEffect(lastRed?.timestamp, isResumed) {
-        if (lastRed != null && lastRed.timestamp != handledRedTimestamp) {
-            handledRedTimestamp = lastRed.timestamp
+    val lastSecurityEvent = entries.lastOrNull { it.category == "RED" || (it.category == "SCAN" && it.message.startsWith("Escaneo completado")) }
+    LaunchedEffect(lastSecurityEvent?.timestamp, isResumed) {
+        if (lastSecurityEvent != null && lastSecurityEvent.timestamp != handledSecurityEventTimestamp) {
+            handledSecurityEventTimestamp = lastSecurityEvent.timestamp
             proud = true
             if (isResumed) {
-                kotlinx.coroutines.delay(1500)
+                kotlinx.coroutines.delay(2000)
                 proud = false
             }
         }
     }
     val mood = when {
-        scanning -> "SCANNING"
-        voiceSpeaking -> "HABLANDO"
-        proud -> "ORGULLOSO"
-        guardianSerious -> "SERIO"
-        else -> "IDLE"
+        voiceSpeaking -> AuraMood.THINKING
+        proud -> AuraMood.ORGULLOSO
+        guardianSerious -> AuraMood.SERIO
+        else -> AuraMood.IDLE
     }
 
     fun addMessage(isUser: Boolean, text: String) {
@@ -165,8 +168,15 @@ fun AuraConsoleScreen(
         onDispose { voiceEngine.destroy() }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+    Box(Modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(com.aura.defense.R.drawable.aura_console),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
@@ -184,13 +194,18 @@ fun AuraConsoleScreen(
                 eventCount = entries.size
             )
         }
+        Box(
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            contentAlignment = Alignment.CenterEnd
+        ) {
+            AuraFace(mood = mood, modifier = Modifier.size(56.dp))
+        }
         Text(
             "¿En qué puedo ayudarte hoy?",
             color = Color(0xFF4DD8E6),
             fontFamily = FontFamily.Monospace,
             fontSize = 13.sp
         )
-        AuraMood(mood = mood)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             listOf("¿Por qué mi score?", "Escanea mis apps", "¿Cómo está mi red?", "¿Qué es phishing?").forEach { chip ->
                 Text(
@@ -244,6 +259,7 @@ fun AuraConsoleScreen(
                 Icon(Icons.Default.Send, contentDescription = "Enviar")
             }
         }
+    }
     }
 }
 
