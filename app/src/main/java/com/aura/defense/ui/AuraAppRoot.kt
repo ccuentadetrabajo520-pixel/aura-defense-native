@@ -10,6 +10,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -21,6 +22,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.aura.defense.MainActivity
 import com.aura.defense.apps.AppScanResult
 import com.aura.defense.apps.AppScanner
@@ -39,6 +43,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import com.aura.defense.util.Haptics
 
 data class AuraBootstrap(
     val ready: Boolean = false,
@@ -72,9 +77,23 @@ fun AuraAppRoot(
     var scanningApps by remember { mutableStateOf(false) }
     var appScanResult by remember { mutableStateOf<AppScanResult?>(null) }
     var isVpnRunning by remember { mutableStateOf(false) }
+    var inBackground by remember { mutableStateOf(false) }
     var sharedAnalysis by remember { mutableStateOf<Pair<String, String>?>(null) }
     val appScanner = remember { AppScanner(context) }
     val prefs = remember { AuraPreferences(context) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP -> inBackground = true
+                Lifecycle.Event.ON_START -> inBackground = false
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     LaunchedEffect(Unit) {
         boot = withContext(Dispatchers.IO) {
@@ -160,6 +179,7 @@ fun AuraAppRoot(
                 scanningApps = scanningApps,
                 appScanResult = appScanResult,
                 isVpnRunning = isVpnRunning,
+                inBackground = inBackground,
                 onScan = {
                     if (!scanningApps) scope.launch {
                         scanningApps = true
@@ -167,6 +187,9 @@ fun AuraAppRoot(
                             "Iniciando escaneo solicitado por el usuario", "SCAN"
                         )
                         appScanResult = withContext(Dispatchers.Default) { appScanner.scan() }
+                        appScanResult?.let { result ->
+                            if (result.highRiskApps.isEmpty()) Haptics.confirm(context) else Haptics.alert(context)
+                        }
                         scanningApps = false
                     }
                 },

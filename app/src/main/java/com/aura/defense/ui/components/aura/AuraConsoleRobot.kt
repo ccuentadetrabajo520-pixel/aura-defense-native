@@ -39,20 +39,22 @@ fun AuraConsoleRobot(
     modifier: Modifier,
     serious: Boolean,
     scanning: Boolean,
-    eventCount: Int
+    eventCount: Int,
+    inBackground: Boolean = false
 ) {
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsStateWithLifecycle()
     val isResumed = lifecycleState == Lifecycle.State.RESUMED
+    val animationActive = isResumed && !inBackground
     val transition = rememberInfiniteTransition(label = "aura_robot")
     val scanPosition by transition.animateFloat(
         initialValue = 0.18f,
-        targetValue = if (isResumed) 0.82f else 0.18f,
+        targetValue = if (animationActive) 0.82f else 0.18f,
         animationSpec = infiniteRepeatable(tween(1200), RepeatMode.Reverse),
         label = "scan_position"
     )
     val blinkScale by transition.animateFloat(
         initialValue = 1f,
-        targetValue = if (isResumed) 0.15f else 1f,
+        targetValue = if (animationActive) 0.15f else 1f,
         animationSpec = infiniteRepeatable(
             animation = keyframes {
                 durationMillis = 3500
@@ -78,8 +80,8 @@ fun AuraConsoleRobot(
         }
     }
 
-    LaunchedEffect(eventCount, isResumed) {
-        if (eventCount > 0 && isResumed && !isAnimating) {
+    LaunchedEffect(eventCount, animationActive) {
+        if (eventCount > 0 && animationActive && !isAnimating) {
             isAnimating = true
             try {
                 headRotation.animateTo(-4f, tween(200))

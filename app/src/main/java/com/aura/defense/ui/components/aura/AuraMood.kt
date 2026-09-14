@@ -56,7 +56,7 @@ fun AuraMood(
         "SERIO" -> Color(0xFFFBBF24)
         "HABLANDO" -> Color(0xFF4DD8E6)
         "ORGULLOSO" -> Color(0xFF86EFAC)
-        "SCANNING" -> Color(0xFF22C55E)
+        "ESCANEANDO" -> Color(0xFF22C55E)
         else -> Color(0xFF4DD8E6)
     }
     Canvas(modifier.fillMaxWidth().height(28.dp)) {
@@ -68,7 +68,7 @@ fun AuraMood(
         if (mood == "SERIO") {
             drawLine(color, center.copy(x = center.x - 12.dp.toPx(), y = center.y - 2.dp.toPx()), center.copy(x = center.x - 3.dp.toPx(), y = center.y + 2.dp.toPx()), 2.dp.toPx(), StrokeCap.Round)
             drawLine(color, center.copy(x = center.x + 3.dp.toPx(), y = center.y + 2.dp.toPx()), center.copy(x = center.x + 12.dp.toPx(), y = center.y - 2.dp.toPx()), 2.dp.toPx(), StrokeCap.Round)
-        } else if (mood == "SCANNING") {
+        } else if (mood == "ESCANEANDO") {
             drawCircle(Color.Transparent, radius * 1.8f, center, style = Stroke(1.5.dp.toPx()))
         } else {
             drawCircle(color.copy(alpha = if (isResumed) blink.value else 1f), radius * 1.55f, center, style = Stroke(1.dp.toPx()))

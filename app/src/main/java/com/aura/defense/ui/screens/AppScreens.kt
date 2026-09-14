@@ -69,6 +69,7 @@ import com.aura.defense.ui.AuraSurfaceRaised
 import com.aura.defense.ui.components.Metric
 import com.aura.defense.guardian.AuraGuardianAssessment
 import com.aura.defense.ui.components.AuraGuardianPanel
+import com.aura.defense.util.Haptics
 import com.aura.defense.apps.AppScanResult
 import com.aura.defense.apps.AppRiskSeverity
 import com.aura.defense.apps.InstalledAppInfo
@@ -88,13 +89,23 @@ fun HomeScreen(
     guardianAssessment: AuraGuardianAssessment,
     correlationAlerts: List<CorrelationAlert> = emptyList(),
     historyCount: Int,
+    inBackground: Boolean = false,
     onGuardianAnalysis: () -> Unit,
     onStartScan: () -> Unit,
     onModuleDialog: (String, String) -> Unit,
     onEmergency: () -> Unit,
     onToolsHub: () -> Unit
 ) {
-    val blink by rememberInfiniteTransition(label = "hb").animateFloat(0.4f, 1f, infiniteRepeatable(tween(1200), RepeatMode.Reverse), label = "bl")
+    val blink = if (inBackground) {
+        0.4f
+    } else {
+        rememberInfiniteTransition(label = "hb").animateFloat(
+            0.4f,
+            1f,
+            infiniteRepeatable(tween(1200), RepeatMode.Reverse),
+            label = "bl"
+        ).value
+    }
     val scoreColor = if (result.score >= 85) AuraGreen else if (result.score >= 60) AuraAmber else AuraRed
     val findings = result.findings.take(4)
 
@@ -115,12 +126,12 @@ fun HomeScreen(
                 }
             }
         }
-        Row(
+            Box(
             modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(if (logs.isEmpty()) "Sin bloqueos todavía — eso es buena señal, no significa que no funcione." else logs.takeLast(8).joinToString("\n"), color = if (logs.isEmpty()) AuraMuted else Color(0xFF00FF41), fontFamily = FontFamily.Monospace, fontSize = 10.sp, lineHeight = 14.sp)
                 Box(modifier = Modifier.size(6.dp).background(scoreColor.copy(alpha = blink), CircleShape))
                 Text(guardianAssessment.level.name, color = scoreColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
@@ -208,7 +219,7 @@ fun HomeScreen(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf(
                 Pair("ESCANEAR", onStartScan),
-                Pair("TOOLS", onToolsHub),
+                Pair("HERRAMIENTAS", onToolsHub),
                 Pair("EMERGENCIA", onEmergency)
             ).forEach { (label, action) ->
                 Surface(
@@ -266,6 +277,17 @@ fun AurasScreen(
                     Text(value, color = color, fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                 }
             }
+        }
+
+        if (historyEntries.isEmpty()) {
+            Text(
+                "Cada diagnóstico que ejecutes se guardará aquí.",
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                color = AuraMuted,
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace,
+                textAlign = TextAlign.Center
+            )
         }
 
         if (lanPeers.isNotEmpty()) {
@@ -382,6 +404,8 @@ fun DefenseScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsStateWithLifecycle()
     val vpnArc = remember { androidx.compose.animation.core.Animatable(0f) }
+    val vpnArcAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
+    val vpnOffFlash = remember { androidx.compose.animation.core.Animatable(0f) }
     var previousVpnRunning by remember { mutableStateOf<Boolean?>(null) }
     var previousBlockPulse by remember { mutableStateOf(blockPulse) }
 
@@ -389,20 +413,31 @@ fun DefenseScreen(
         val wasRunning = previousVpnRunning
         previousVpnRunning = vpnRunning
         if (wasRunning == false && vpnRunning) {
-            vibrate(context)
+            Haptics.confirm(context)
             if (lifecycleState == Lifecycle.State.RESUMED) {
                 vpnArc.snapTo(0f)
+                vpnArcAlpha.snapTo(1f)
                 vpnArc.animateTo(1f, tween(600))
+                vpnArcAlpha.animateTo(0f, tween(300))
             } else {
                 vpnArc.snapTo(1f)
+                vpnArcAlpha.snapTo(0f)
+            }
+        } else if (wasRunning == true && !vpnRunning) {
+            vpnArc.snapTo(0f)
+            vpnArcAlpha.snapTo(0f)
+            if (lifecycleState == Lifecycle.State.RESUMED) {
+                vpnOffFlash.snapTo(1f)
+                vpnOffFlash.animateTo(0f, tween(200))
             }
         } else if (!vpnRunning) {
             vpnArc.snapTo(0f)
+            vpnArcAlpha.snapTo(0f)
         }
     }
 
     LaunchedEffect(blockPulse, lifecycleState) {
-        if (blockPulse > previousBlockPulse) vibrate(context)
+        if (blockPulse > previousBlockPulse) Haptics.alert(context)
         previousBlockPulse = blockPulse
     }
 
@@ -424,7 +459,30 @@ fun DefenseScreen(
                 .background(AuraSurface, RoundedCornerShape(14.dp))
                 .border(BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.15f)), RoundedCornerShape(14.dp))
         ) {
-            SentinelCanvas(Modifier.fillMaxSize(), blockPulse, vpnArc.value)
+            SentinelCanvas(Modifier.fillMaxSize(), blockPulse)
+            Canvas(Modifier.fillMaxSize()) {
+                val center = Offset(size.width / 2f, size.height / 2f)
+                val baseRadius = size.minDimension * 0.26f
+                val radius = baseRadius * (0.4f + vpnArc.value * 0.6f)
+                listOf(0.12f, 0.24f, 0.4f).forEach { alpha ->
+                    drawArc(
+                        color = AuraCyan.copy(alpha = alpha * vpnArcAlpha.value),
+                        startAngle = -90f,
+                        sweepAngle = 360f * vpnArc.value,
+                        useCenter = false,
+                        topLeft = Offset(center.x - radius, center.y - radius),
+                        size = androidx.compose.ui.geometry.Size(radius * 2f, radius * 2f),
+                        style = Stroke(6.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                }
+                if (vpnOffFlash.value > 0f) {
+                    drawRoundRect(
+                        color = AuraRed.copy(alpha = 0.5f * vpnOffFlash.value),
+                        style = Stroke(3.dp.toPx()),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(14.dp.toPx())
+                    )
+                }
+            }
         }
 
         Surface(
@@ -498,7 +556,7 @@ fun DefenseScreen(
 }
 
 @Composable
-private fun SentinelCanvas(modifier: Modifier, blockPulse: Int, vpnArcProgress: Float) {
+private fun SentinelCanvas(modifier: Modifier, blockPulse: Int) {
     var pulseActive by remember { mutableStateOf(false) }
     LaunchedEffect(blockPulse) {
         if (blockPulse > 0) {
@@ -514,33 +572,12 @@ private fun SentinelCanvas(modifier: Modifier, blockPulse: Int, vpnArcProgress: 
         drawCircle(AuraGreen.copy(alpha = 0.12f + pulse * 0.16f), radius * (1.55f + pulse * 0.2f), center)
         drawCircle(AuraGreen.copy(alpha = 0.35f), radius, center, style = Stroke(2.dp.toPx()))
         drawCircle(AuraGreen, radius * 0.32f, center)
-        if (vpnArcProgress > 0f) {
-            drawArc(
-                color = AuraCyan,
-                startAngle = -90f,
-                sweepAngle = 360f * vpnArcProgress,
-                useCenter = false,
-                topLeft = Offset(center.x - radius * vpnArcProgress, center.y - radius * vpnArcProgress),
-                size = androidx.compose.ui.geometry.Size(radius * 2f * vpnArcProgress, radius * 2f * vpnArcProgress),
-                style = Stroke(3.dp.toPx(), cap = StrokeCap.Round)
-            )
-        }
         listOf(0f, 90f, 180f, 270f).forEachIndexed { index, angle ->
             val radians = Math.toRadians(angle.toDouble())
             val node = Offset(center.x + kotlin.math.cos(radians).toFloat() * radius * 1.48f, center.y + kotlin.math.sin(radians).toFloat() * radius * 1.48f)
             drawLine(AuraGreen.copy(alpha = 0.45f), center, node, 1.dp.toPx(), StrokeCap.Round)
             drawCircle(if (index == 2) AuraAmber else AuraGreen, 8.dp.toPx(), node)
         }
-    }
-}
-
-private fun vibrate(context: android.content.Context) {
-    val vibrator = context.getSystemService(android.content.Context.VIBRATOR_SERVICE)
-        as? android.os.Vibrator ?: return
-    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-        vibrator.vibrate(android.os.VibrationEffect.createOneShot(30L, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
-    } else {
-        @Suppress("DEPRECATION") vibrator.vibrate(30L)
     }
 }
 
@@ -584,19 +621,22 @@ fun AppsScreen(
             }
         } ?: run {
             Box(modifier = Modifier.fillMaxWidth().background(AuraSurface, RoundedCornerShape(10.dp)).padding(vertical = 20.dp), contentAlignment = Alignment.Center) {
-                Text("Aún no he escaneado tus aplicaciones. Cuando quieras, las revisamos.", color = AuraMuted, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Aún no escaneé tus aplicaciones. ¿Empezamos?", color = AuraMuted, fontSize = 12.sp, fontFamily = FontFamily.Monospace, textAlign = TextAlign.Center)
+                    TextButton(onClick = onScan) { Text("EMPEZAR ESCANEO", color = AuraCyan) }
+                }
             }
         }
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Surface(modifier = Modifier.weight(1f).clickable(onClick = onScan), shape = RoundedCornerShape(10.dp), color = AuraCyan.copy(alpha = 0.12f), border = BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.35f))) {
                 Box(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
-                    Text(if (scanning) "ESCANEANDO..." else "ESCANEAR APLICACIONES", color = AuraCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+                    Text(if (scanning) "Escaneando…" else "ESCANEAR APLICACIONES", color = AuraCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
                 }
             }
             Surface(modifier = Modifier.weight(1f).clickable(onClick = onViewRisks), shape = RoundedCornerShape(10.dp), color = AuraSurface, border = BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.12f))) {
                 Box(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
-                    Text("VIEW RISKS", color = AuraMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+                    Text("VER RIESGOS", color = AuraMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
                 }
             }
         }

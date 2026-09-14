@@ -66,6 +66,7 @@ fun AuraConsoleScreen(
     guardianSerious: Boolean,
     scanning: Boolean,
     vpnRunning: Boolean,
+    inBackground: Boolean = false,
     onScan: () -> Unit,
     onVpnToggle: () -> Unit,
     onProfileChange: (DnsFirewallProfile) -> Unit,
@@ -191,14 +192,15 @@ fun AuraConsoleScreen(
                 modifier = Modifier.weight(0.38f),
                 serious = guardianSerious,
                 scanning = scanning,
-                eventCount = entries.size
+                eventCount = entries.size,
+                inBackground = inBackground
             )
         }
         Box(
             modifier = Modifier.fillMaxWidth().height(56.dp),
             contentAlignment = Alignment.CenterEnd
         ) {
-            AuraFace(mood = mood, modifier = Modifier.size(56.dp))
+            AuraFace(mood = mood, inBackground = inBackground, modifier = Modifier.size(56.dp))
         }
         Text(
             "¿En qué puedo ayudarte hoy?",

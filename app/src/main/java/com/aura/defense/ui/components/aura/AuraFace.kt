@@ -34,6 +34,7 @@ public enum class AuraMood(val res: Int) {
 @Composable
 fun AuraFace(
     mood: AuraMood,
+    inBackground: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val ringColor by animateColorAsState(
@@ -48,13 +49,16 @@ fun AuraFace(
     )
     val period = if (mood == AuraMood.ALERTA) 600 else if (mood == AuraMood.ORGULLOSO) 900 else 2800
     val target = if (mood == AuraMood.ALERTA) 1.08f else if (mood == AuraMood.ORGULLOSO) 1.12f else 1.03f
-    val transition = rememberInfiniteTransition(label = "aura-face-breathing")
-    val breathing by transition.animateFloat(
-        initialValue = 1f,
-        targetValue = target,
-        animationSpec = infiniteRepeatable(tween(period), RepeatMode.Reverse),
-        label = "aura-face-scale"
-    )
+    val breathing = if (inBackground) {
+        1f
+    } else {
+        rememberInfiniteTransition(label = "aura-face-breathing").animateFloat(
+            initialValue = 1f,
+            targetValue = target,
+            animationSpec = infiniteRepeatable(tween(period), RepeatMode.Reverse),
+            label = "aura-face-scale"
+        ).value
+    }
 
     Box(
         modifier = modifier
