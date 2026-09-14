@@ -18,6 +18,7 @@ import java.net.InetAddress
 import java.net.SocketTimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import com.aura.defense.threats.ThreatIntelligenceEngine
+import com.aura.defense.data.SecurePrefs
 
 class AuraVpnService : VpnService() {
     private var tunnel: ParcelFileDescriptor? = null
@@ -44,7 +45,7 @@ class AuraVpnService : VpnService() {
     }
 
     override fun onDestroy() {
-        val prefs = getSharedPreferences("aura_killswitch", MODE_PRIVATE)
+        val prefs = SecurePrefs.get(this)
         prefs.edit().putBoolean("vpn_was_running", true).apply()
         stopVpn()
         super.onDestroy()

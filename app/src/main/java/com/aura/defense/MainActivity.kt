@@ -7,6 +7,7 @@ import android.net.NetworkCapabilities
 import android.net.Uri
 import android.net.VpnService
 import android.os.Bundle
+import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -63,7 +64,31 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+        // Deliberado: AURA no permite screenshots ni grabación de pantalla; en recientes se muestra en blanco.
+        window.setFlags(
+            android.view.WindowManager.LayoutParams.FLAG_SECURE,
+            android.view.WindowManager.LayoutParams.FLAG_SECURE
+        )
         Timber.i("BOOT:3 setContent programado")
+    }
+
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        val partiallyObscured = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            ev.flags and android.view.MotionEvent.FLAG_WINDOW_IS_PARTIALLY_OBSCURED != 0
+        if (ev.flags and android.view.MotionEvent.FLAG_WINDOW_IS_OBSCURED != 0 || partiallyObscured) {
+            Timber.w("Toque bloqueado: overlay sobre AURA (tapjacking)")
+            com.aura.defense.monitor.AuraProcessLog.log(
+                "⚠ Overlay detectado sobre AURA: posible tapjacking. Interacción bloqueada.",
+                "SISTEMA"
+            )
+            android.widget.Toast.makeText(
+                this,
+                "AURA bloqueó un toque: otra app está superpuesta",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+            return false
+        }
+        return super.dispatchTouchEvent(ev)
     }
 
     override fun onNewIntent(intent: Intent) {
