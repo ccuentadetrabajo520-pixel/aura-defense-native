@@ -60,7 +60,8 @@ object SecurityKnowledgeBase {
         entry("safe-browsing", "Safe Browsing", "Proteccion que compara sitios y descargas con listas de riesgo.", "Puede advertir sobre amenazas conocidas, pero los dominios nuevos o ataques dirigidos pueden no aparecer.", "Respeta los avisos y verifica el dominio aunque no haya alerta.", listOf("navegacion segura", "navegacion protegida"))
     ) + additionalEntries
 
-    private val additionalEntries = listOf(
+    private val additionalEntries: List<KnowledgeEntry> by lazy {
+        listOf(
         compact("sim-swapping", "SIM swapping", "sim swap"), compact("credential-stuffing", "Credential stuffing", "password reuse"),
         compact("brute-force", "Fuerza bruta", "brute force"), compact("password-spraying", "Password spraying", "spraying"),
         compact("credential-phishing", "Robo de credenciales", "credential theft"), compact("business-email-compromise", "Fraude de correo corporativo", "bec"),
@@ -114,7 +115,8 @@ object SecurityKnowledgeBase {
         compact("private-dns", "DNS privado", "private dns"), compact("vpn-security", "Seguridad VPN", "vpn security"),
         compact("wifi-security", "Seguridad Wi-Fi", "wifi security"), compact("bluetooth-security", "Seguridad Bluetooth", "bluetooth"),
         compact("nfc-security", "Seguridad NFC", "nfc"), compact("location-privacy", "Privacidad de ubicacion", "location privacy")
-    )
+        )
+    }
 
     private fun compact(id: String, title: String, vararg synonyms: String) = entry(
         id,
