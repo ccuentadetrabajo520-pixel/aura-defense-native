@@ -10,7 +10,8 @@ object SecurityKnowledgeBase {
         val synonyms: List<String>
     )
 
-    val entries: List<KnowledgeEntry> = listOf(
+    val entries: List<KnowledgeEntry> by lazy {
+        listOf(
         entry("phishing", "Phishing", "Suplantacion para robar credenciales o datos.", "El atacante imita una entidad confiable mediante mensajes, paginas o dominios parecidos y crea urgencia.", "Escribe manualmente la direccion oficial y nunca entregues credenciales desde un enlace recibido.", listOf("suplantacion", "enlace falso", "pagina falsa")),
         entry("smishing", "Smishing", "Phishing enviado por SMS.", "El mensaje suele fingir ser un banco, courier o premio y dirige a un enlace o telefono controlado por el atacante.", "No abras el enlace; verifica el aviso desde la aplicacion o web oficial.", listOf("sms sospechoso", "mensaje falso")),
         entry("troyano-bancario", "Troyano bancario", "Malware que intenta robar operaciones y credenciales bancarias.", "Puede llegar como APK externa y abusar de accesibilidad, SMS o superposicion para leer pantallas y simular toques.", "No concedas accesibilidad ni instales APK fuera de una fuente confiable.", listOf("banca", "mekotio", "grandoreiro")),
@@ -58,10 +59,11 @@ object SecurityKnowledgeBase {
         entry("play-protect", "Google Play Protect", "Servicio que analiza aplicaciones y comportamientos en Android.", "Ayuda a detectar amenazas, pero no conoce todo y no sustituye permisos, actualizaciones ni criterio.", "Mantenlo activo y no interpretes su silencio como garantia absoluta.", listOf("play protect", "proteccion play")),
         entry("modo-seguro", "Modo seguro", "Arranque que limita aplicaciones de terceros.", "Ayuda a comprobar si un problema desaparece al impedir que apps instaladas se ejecuten normalmente.", "Usalo para diagnostico y desinstala solo lo que identifiques.", listOf("safe mode", "arranque seguro")),
         entry("safe-browsing", "Safe Browsing", "Proteccion que compara sitios y descargas con listas de riesgo.", "Puede advertir sobre amenazas conocidas, pero los dominios nuevos o ataques dirigidos pueden no aparecer.", "Respeta los avisos y verifica el dominio aunque no haya alerta.", listOf("navegacion segura", "navegacion protegida"))
-    ) + additionalEntries
+        ) + additionalEntries
+    }
 
-    private val additionalEntries: List<KnowledgeEntry> by lazy {
-        listOf(
+    private val additionalEntries: List<KnowledgeEntry> = buildList {
+        addAll(listOf(
         compact("sim-swapping", "SIM swapping", "sim swap"), compact("credential-stuffing", "Credential stuffing", "password reuse"),
         compact("brute-force", "Fuerza bruta", "brute force"), compact("password-spraying", "Password spraying", "spraying"),
         compact("credential-phishing", "Robo de credenciales", "credential theft"), compact("business-email-compromise", "Fraude de correo corporativo", "bec"),
@@ -115,7 +117,7 @@ object SecurityKnowledgeBase {
         compact("private-dns", "DNS privado", "private dns"), compact("vpn-security", "Seguridad VPN", "vpn security"),
         compact("wifi-security", "Seguridad Wi-Fi", "wifi security"), compact("bluetooth-security", "Seguridad Bluetooth", "bluetooth"),
         compact("nfc-security", "Seguridad NFC", "nfc"), compact("location-privacy", "Privacidad de ubicacion", "location privacy")
-        )
+        ))
     }
 
     private fun compact(id: String, title: String, vararg synonyms: String) = entry(
