@@ -66,7 +66,9 @@ fun ReportDialog(
                         )
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
-                    context.startActivity(Intent.createChooser(shareIntent, "Compartir informe HTML"))
+                    runCatching {
+                        context.startActivity(Intent.createChooser(shareIntent, "Compartir informe HTML"))
+                    }.onFailure { timber.log.Timber.e(it, "No se pudo compartir el informe HTML") }
                 }) { Text("Compartir informe HTML") }
                 TextButton(onClick = onDismiss) { Text("Cerrar") }
             }

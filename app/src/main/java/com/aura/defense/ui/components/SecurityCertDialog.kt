@@ -75,7 +75,9 @@ fun SecurityCertDialog(certificate: SecurityCertificate, onDismiss: () -> Unit) 
                                                                                                                                         putExtra(Intent.EXTRA_TEXT, certificate.toText())
                                                                                                                                                             putExtra(Intent.EXTRA_SUBJECT, "Aura Defense - Security Certificate")
                                                                                             }
-                                                                                                            ctx.startActivity(Intent.createChooser(intent, "Compartir certificado"))
+                                                                                                                                                                                                                        runCatching {
+                                                                                                                                                                                                                                ctx.startActivity(Intent.createChooser(intent, "Compartir certificado"))
+                                                                                                                                                                                                                        }.onFailure { timber.log.Timber.e(it, "No se pudo compartir el certificado") }
                                                                         }) { Text("Compartir") }
                                                                                     TextButton(onClick = {
                                                                                                         val clipboard = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
