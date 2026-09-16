@@ -132,16 +132,6 @@ fun HomeScreen(
                 }
             }
         }
-            Box(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-                Text(if (logs.isEmpty()) "Sin bloqueos todavía — eso es buena señal, no significa que no funcione." else logs.takeLast(8).joinToString("\n"), color = if (logs.isEmpty()) AuraMuted else Color(0xFF00FF41), fontFamily = FontFamily.Monospace, fontSize = 10.sp, lineHeight = 14.sp)
-                Box(modifier = Modifier.size(6.dp).background(scoreColor.copy(alpha = blink), CircleShape))
-                Text(guardianAssessment.level.name, color = scoreColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            }
-            Text(guardianAssessment.confidence.name, color = AuraCyan.copy(alpha = 0.5f), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
         }
 
         Box(
@@ -241,7 +231,6 @@ fun HomeScreen(
             }
         }
     }
-}
 
 @Composable
 fun AurasScreen(

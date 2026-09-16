@@ -89,15 +89,15 @@ object ThreatFeedManager {
     fun isBlocked(domain: String): Boolean = categoryOf(domain) != null
 
     fun categoryOf(domain: String): String? {
-        var d = domain.lowercase().trim().trimEnd('.')
-        val map = blockedMap
-        while (d.isNotEmpty()) {
-            map[d]?.let { return it }
-            val dot = d.indexOf('.')
-            if (dot <= 0) return null
-            d = d.substring(dot + 1)
-        }
-        return null
+        return matchDomain(blockedMap, domain)
+    }
+
+    fun matchDomain(map: Map<String, String>, domain: String): String? {
+        val normalized = domain.lowercase().trim().trimEnd('.')
+        return map.entries.firstOrNull { (candidate, _) ->
+            val key = candidate.lowercase().trim().trimEnd('.')
+            normalized == key || normalized.endsWith(".$key")
+        }?.value
     }
 
     fun size(): Int = blockedMap.size

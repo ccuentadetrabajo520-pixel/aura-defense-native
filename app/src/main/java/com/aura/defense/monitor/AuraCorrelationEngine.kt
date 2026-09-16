@@ -101,13 +101,23 @@ object AuraCorrelationEngine {
     fun detectStalkerwarePattern(
         context: Context,
         scan: AppScanResult?
+    ): List<CorrelationAlert> = detectStalkerwarePattern(
+        deviceAdminPackages(context),
+        foreignNotificationListeners(context),
+        scan?.apps.orEmpty().filter { it.findings.isNotEmpty() }.map { it.packageName }.toSet()
+    )
+
+    fun detectStalkerwarePattern(
+        adminPackages: List<String>,
+        notificationListeners: List<String>,
+        flaggedAdminPackages: Set<String>
     ): List<CorrelationAlert> {
         val knownSystem = listOf("com.android.", "com.google.android.", "com.samsung.", "com.miui.", "com.xiaomi.", "com.huawei.")
-        val suspiciousAdmins = deviceAdminPackages(context).filter { admin ->
+        val suspiciousAdmins = adminPackages.filter { admin ->
             knownSystem.none { admin.startsWith(it) } &&
-                scan?.apps?.any { it.packageName == admin && it.findings.isNotEmpty() } == true
+                admin in flaggedAdminPackages
         }
-        val listeners = foreignNotificationListeners(context)
+        val listeners = notificationListeners
         if (suspiciousAdmins.isEmpty()) return emptyList()
 
         return listOf(
@@ -119,9 +129,7 @@ object AuraCorrelationEngine {
                 evidence = buildList {
                     add("ADMIN DEVICE: ${suspiciousAdmins.joinToString(", ")}")
                     if (listeners.isNotEmpty()) add("LISTENER NOTIFICACIONES: ${listeners.joinToString(", ")}")
-                    scan?.apps?.filter { it.packageName in suspiciousAdmins }?.forEach { app ->
-                        if (app.findings.isNotEmpty()) add("ESCÁNER ${app.packageName}: ${app.findings.joinToString("; ") { it.reason }}")
-                    }
+                    suspiciousAdmins.forEach { add("ESCÁNER: señales de riesgo en $it") }
                 }
             )
         )

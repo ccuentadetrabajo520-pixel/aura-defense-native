@@ -105,11 +105,31 @@ fun AuraAppRoot(
             val engine = ThreatIntelligenceEngine(context)
             val telemetry = DeviceTelemetryProvider(context).read()
             val posture = SecurityPostureEngine().evaluate(telemetry)
+            val integrityFindings = com.aura.defense.security.DeviceIntegrityChecker(context).check().checks
+                .filterNot { it.passed }
+                .map { check ->
+                    val severity = when {
+                        check.name.contains("Root", ignoreCase = true) -> com.aura.defense.security.FindingSeverity.CRITICAL
+                        check.name.contains("Debug", ignoreCase = true) -> com.aura.defense.security.FindingSeverity.HIGH
+                        check.name.contains("Bloqueo", ignoreCase = true) || check.name.contains("Cifrado", ignoreCase = true) -> com.aura.defense.security.FindingSeverity.HIGH
+                        check.name.contains("Google", ignoreCase = true) -> com.aura.defense.security.FindingSeverity.LOW
+                        else -> com.aura.defense.security.FindingSeverity.MEDIUM
+                    }
+                    com.aura.defense.security.SecurityFinding(
+                        title = check.name,
+                        severity = severity,
+                        evidence = check.detail,
+                        explanation = "Comprobación de integridad del dispositivo.",
+                        recommendedAction = "Revisa esta configuración en los ajustes de Android.",
+                        settingsAction = if (check.name.contains("Desarrollador", ignoreCase = true)) com.aura.defense.security.SettingsAction.DESARROLLADOR else com.aura.defense.security.SettingsAction.SEGURIDAD
+                    )
+                }
+            val postureWithIntegrity = SecurityPostureEngine().addFindings(posture, integrityFindings)
             com.aura.defense.scheduler.ensureScheduled(context)
             com.aura.defense.security.IntegrityCheck.report(context)
             Timber.i("BOOT:5/6 bootstrap IO completado")
             com.aura.defense.monitor.AuraProcessLog.log(
-                "Bootstrap completado: ${posture.findings.size} hallazgos, score ${posture.score}",
+                "Bootstrap completado: ${postureWithIntegrity.findings.size} hallazgos, score ${postureWithIntegrity.score}",
                 "SISTEMA"
             )
             AuraBootstrap(
@@ -117,7 +137,7 @@ fun AuraAppRoot(
                 termsAccepted = prefs.hasAcceptedTerms(),
                 hasCompletedOnboarding = prefs.hasCompletedOnboarding(),
                 auraId = prefs.getAuraId(),
-                posture = posture,
+                posture = postureWithIntegrity,
                 dnsProfile = dnsStore.profile(),
                 blockedDns = dnsStore.blockedEvents(),
                 blockedDnsCount = dnsStore.blockedCount(),

@@ -309,7 +309,27 @@ fun AuraMainShell(
                     scanning = scanningApps,
                     onScan = onScan,
                     onViewRisks = { showRisks = true },
-                    onExport = { moduleDialog = "Exportación" to "Disponible próximamente en esta versión." },
+                    onExport = {
+                        val report = AuraReportBuilder().json(
+                            auraId = boot.auraId,
+                            posture = boot.posture,
+                            apps = appScanResult,
+                            links = emptyList(),
+                            password = null,
+                            notifications = boot.notificationAlerts,
+                            history = historyEntries
+                        )
+                        runCatching {
+                            val output = File(context.cacheDir, "aura-report.json").apply { writeText(report) }
+                            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", output)
+                            val share = Intent(Intent.ACTION_SEND).apply {
+                                type = "application/json"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(share, "Compartir informe AURA"))
+                        }.onFailure { moduleDialog = "Exportación" to "No se pudo compartir el informe: ${it.message ?: "error desconocido"}" }
+                    },
                     onModuleDialog = dialogLambda
                 )
                 4 -> AurasScreen(

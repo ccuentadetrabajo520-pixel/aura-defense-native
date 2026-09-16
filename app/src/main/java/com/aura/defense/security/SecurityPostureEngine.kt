@@ -52,6 +52,7 @@ data class PostureResult(
 
 class SecurityPostureEngine {
     fun evaluate(telemetry: DeviceTelemetrySnapshot, riskyApps: Int = 0, highRiskApps: Int = 0): PostureResult {
+        if (telemetry == PostureResult.pending().telemetry) return PostureResult.pending()
         val findings = buildList {
             if (!telemetry.batteryLevel.contains("%")) add(SecurityFinding("Batería no disponible", FindingSeverity.LOW, "No se pudo leer el nivel de batería.", "Esta señal no está disponible en este dispositivo.", "Vuelve a ejecutar el diagnóstico más tarde."))
             if (!telemetry.vpnActive) add(SecurityFinding("VPN", FindingSeverity.LOW, "No se detecta una VPN activa.", "El motor solo informa del estado observado.", "Activa una VPN de confianza si necesitas proteger el tráfico.", SettingsAction.VPN))
@@ -73,6 +74,13 @@ class SecurityPostureEngine {
         }
         val score = (100 - findings.sumOf { severityPenalty(it.severity) }).coerceIn(0, 100)
         return PostureResult(score, statusFor(score), findings, telemetry, java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(java.util.Date()))
+    }
+
+    fun addFindings(result: PostureResult, additional: List<SecurityFinding>): PostureResult {
+        if (result.score < 0) return result
+        val findings = result.findings + additional
+        val score = (100 - findings.sumOf { severityPenalty(it.severity) }).coerceIn(0, 100)
+        return result.copy(score = score, status = statusFor(score), findings = findings)
     }
 
     private fun severityPenalty(severity: FindingSeverity) = when (severity) {
