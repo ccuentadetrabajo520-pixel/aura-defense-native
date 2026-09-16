@@ -39,8 +39,11 @@ import com.aura.defense.vpn.DnsFirewallProfile
 import com.aura.defense.vpn.DnsFirewallStore
 import com.aura.defense.ui.components.ModuleDialog
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import com.aura.defense.util.Haptics
@@ -72,7 +75,16 @@ fun AuraAppRoot(
     onStopVpn: () -> Unit
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val safeScope = remember {
+        CoroutineScope(
+            SupervisorJob() + Dispatchers.Main + CoroutineExceptionHandler { _, exception ->
+                Timber.e(exception, "Excepción no manejada en UI")
+                com.aura.defense.monitor.AuraProcessLog.log(
+                    "⚠ Error interno recuperado: ${exception.message}", "SISTEMA"
+                )
+            }
+        )
+    }
     var boot by remember { mutableStateOf(AuraBootstrap()) }
     var scanningApps by remember { mutableStateOf(false) }
     var appScanResult by remember { mutableStateOf<AppScanResult?>(null) }
@@ -191,7 +203,7 @@ fun AuraAppRoot(
             AuraIntroScreen(
                 preferences = prefs,
                 onFinished = {
-                scope.launch {
+                safeScope.launch {
                     boot = withContext(Dispatchers.IO) {
                         boot.copy(
                             termsAccepted = prefs.hasAcceptedTerms(),
@@ -210,22 +222,31 @@ fun AuraAppRoot(
                 isVpnRunning = isVpnRunning,
                 inBackground = inBackground,
                 onScan = {
-                    if (!scanningApps) scope.launch {
+                    if (!scanningApps) safeScope.launch {
                         scanningApps = true
-                        com.aura.defense.monitor.AuraProcessLog.log(
-                            "Iniciando escaneo solicitado por el usuario", "SCAN"
-                        )
-                        appScanResult = withContext(Dispatchers.Default) { appScanner.scan() }
-                        appScanResult?.let { result ->
-                            if (result.highRiskApps.isEmpty()) Haptics.confirm(context) else Haptics.alert(context)
+                        try {
+                            com.aura.defense.monitor.AuraProcessLog.log(
+                                "Iniciando escaneo solicitado por el usuario", "SCAN"
+                            )
+                            appScanResult = withContext(Dispatchers.Default) { appScanner.scan() }
+                            appScanResult?.let { result ->
+                                if (result.highRiskApps.isEmpty()) Haptics.confirm(context) else Haptics.alert(context)
+                            }
+                            appScanResult?.let { result ->
+                                withContext(Dispatchers.IO) {
+                                    com.aura.defense.history.ScoreHistoryStore(context)
+                                        .saveScore(boot.posture.score, boot.posture.status)
+                                }
+                            }
+                        } finally {
+                            scanningApps = false
                         }
-                        scanningApps = false
                     }
                 },
                 onVpnToggle = { if (isVpnRunning) onStopVpn() else onRequestVpn { } },
                 onProfileChange = { profile ->
                     boot = boot.copy(dnsProfile = profile)
-                    scope.launch(Dispatchers.IO) { DnsFirewallStore(context).saveProfile(profile) }
+                    safeScope.launch(Dispatchers.IO) { DnsFirewallStore(context).saveProfile(profile) }
                 },
                 sharedText = sharedText,
                 onSharedTextConsumed = onSharedTextConsumed,

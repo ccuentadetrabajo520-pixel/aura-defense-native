@@ -65,6 +65,7 @@ import com.aura.defense.ui.AuraSurfaceRaised
 import java.net.URI
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import timber.log.Timber
 
 @Composable
 fun QrScannerDialog(onAnalysis: (LinkAnalysis) -> Unit, onDismiss: () -> Unit) {
@@ -140,7 +141,9 @@ fun QrScannerDialog(onAnalysis: (LinkAnalysis) -> Unit, onDismiss: () -> Unit) {
         dismissButton = {
             if (!permissionGranted) {
                 TextButton(onClick = {
-                    context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
+                    runCatching {
+                        context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
+                    }.onFailure { Timber.e(it, "No se pudieron abrir los ajustes de cámara") }
                 }) { Text("Abrir ajustes") }
             } else if (detectedValue != null) {
                 TextButton(onClick = onDismiss) { Text("Cerrar") }

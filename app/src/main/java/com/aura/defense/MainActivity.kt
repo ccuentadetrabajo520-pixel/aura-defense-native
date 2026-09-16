@@ -23,6 +23,7 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == RESULT_OK) {
+            if (isFinishing || isDestroyed) return@registerForActivityResult
             startAuraVpn(onFailure = { vpnPermissionDeniedCallback?.invoke() })
         } else {
             vpnPermissionDeniedCallback?.invoke()
@@ -118,10 +119,12 @@ class MainActivity : ComponentActivity() {
     }
 
     fun stopAuraVpn() {
-        startService(
-            Intent(this, com.aura.defense.vpn.AuraVpnService::class.java)
-                .setAction(com.aura.defense.vpn.AuraVpnService.ACTION_STOP)
-        )
+        runCatching {
+            startService(
+                Intent(this, com.aura.defense.vpn.AuraVpnService::class.java)
+                    .setAction(com.aura.defense.vpn.AuraVpnService.ACTION_STOP)
+            )
+        }.onFailure { Timber.e(it, "stopAuraVpn falló") }
     }
 
     companion object {

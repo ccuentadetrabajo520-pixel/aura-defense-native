@@ -32,6 +32,12 @@ class AuraPreferences(context: Context) {
 
     fun setTermsAccepted() { preferences?.edit()?.putBoolean("terms_accepted", true)?.apply() }
 
+    fun isLanVisible(): Boolean = preferences?.getBoolean("lan_visible", true) ?: true
+
+    fun setLanVisible(visible: Boolean) {
+        preferences?.edit()?.putBoolean("lan_visible", visible)?.apply()
+    }
+
     fun exportBackup(context: Context): String = runCatching {
         val prefs = context.getSharedPreferences("aura_defense_preferences", Context.MODE_PRIVATE)
         val dnsPrefs = context.getSharedPreferences("aura_dns_firewall", Context.MODE_PRIVATE)

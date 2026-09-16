@@ -2,6 +2,8 @@ package com.aura.defense.ui
 
 import android.content.Context
 import android.content.Intent
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.layout.Column
@@ -53,6 +55,7 @@ import com.aura.defense.ui.components.LinkAnalyzerDialog
 import com.aura.defense.ui.components.ModuleDialog
 import com.aura.defense.ui.components.NotificationGuardDialog
 import com.aura.defense.ui.components.QrScannerDialog
+import com.aura.defense.ui.components.AuraFileAnalyzerDialog
 import com.aura.defense.monitor.AuraCorrelationEngine
 import com.aura.defense.monitor.CorrelationAlert
 import com.aura.defense.monitor.AuraProcessLog
@@ -64,9 +67,14 @@ import com.aura.defense.ui.screens.HomeScreen
 import com.aura.defense.ui.components.aura.AuraAvatarMini
 import com.aura.defense.vpn.DnsFirewallStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import timber.log.Timber
 
 private val emergencySteps = listOf(
     "Telemetría del dispositivo",
@@ -107,7 +115,13 @@ fun AuraMainShell(
     onSharedFileConsumed: () -> Unit
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val safeScope = remember {
+        CoroutineScope(
+            SupervisorJob() + Dispatchers.Main + CoroutineExceptionHandler { _, exception ->
+                com.aura.defense.monitor.AuraProcessLog.log("⚠ Error interno recuperado: ${exception.message}", "SISTEMA")
+            }
+        )
+    }
     val appScanner = remember { AppScanner(context) }
     val processEntries by AuraProcessLog.entries.collectAsState()
     var tabIndex by remember { mutableStateOf(0) }
@@ -121,6 +135,21 @@ fun AuraMainShell(
     var showQrScanner by remember { mutableStateOf(false) }
     var showVault by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
+    var showFileAnalyzer by remember { mutableStateOf(false) }
+    var lanSearching by remember { mutableStateOf(false) }
+    var lanPeers by remember { mutableStateOf<List<com.aura.defense.lan.AuraLanPeer>>(emptyList()) }
+    var lanSearchJob by remember { mutableStateOf<Job?>(null) }
+    val preferences = remember { com.aura.defense.data.AuraPreferences(context) }
+    var lanVisible by remember { mutableStateOf(preferences.isLanVisible()) }
+    var locationActive by remember {
+        mutableStateOf(
+            androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val locationLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions -> locationActive = permissions.values.any { it } }
     var emergencyRunning by remember { mutableStateOf(false) }
     var emergencyStep by remember { mutableStateOf(0) }
     var emergencyResult by remember { mutableStateOf<EmergencyModeResult?>(null) }
@@ -152,7 +181,7 @@ fun AuraMainShell(
         emergencyRunning = true
         emergencyStep = 0
         emergencyResult = null
-        scope.launch {
+        safeScope.launch {
             emergencyStep = 1
             val (posture, scan, alerts) = runEmergencyScan(context, appScanner)
             emergencyPosture = posture
@@ -208,15 +237,17 @@ fun AuraMainShell(
     }
 
     fun openAppSettings(packageName: String) {
-        context.startActivity(
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
-        )
+        runCatching {
+            context.startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
+            )
+        }.onFailure { Timber.e(it, "No se pudieron abrir los ajustes de $packageName") }
     }
 
     fun requestUninstall(packageName: String) {
-        context.startActivity(
-            Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName"))
-        )
+        runCatching {
+            context.startActivity(Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName")))
+        }.onFailure { Timber.e(it, "No se pudo solicitar la desinstalación de $packageName") }
     }
 
     Scaffold(
@@ -229,17 +260,19 @@ fun AuraMainShell(
                 Text(boot.auraId, modifier = Modifier.padding(start = 10.dp).weight(1f), color = AuraMuted)
                 AuraAvatarMini(onClick = { tabIndex = 0 })
                 IconButton(onClick = {
-                    scope.launch(Dispatchers.IO) {
+                    safeScope.launch(Dispatchers.IO) {
                         MainActivity.sharedDiagTree.flushNow()
                         val logFile = File(context.filesDir, "aura_diagnostico.log")
                         if (logFile.exists()) {
                             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", logFile)
                             withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_STREAM, uri)
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }, "Compartir diagnóstico"))
+                                runCatching {
+                                    context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }, "Compartir diagnóstico"))
+                                }.onFailure { Timber.e(it, "No se pudo compartir el diagnóstico") }
                             }
                         }
                     }
@@ -296,10 +329,10 @@ fun AuraMainShell(
                     blockedManuallyDomains = boot.blockedManuallyDomains,
                     blockPulse = processEntries.count { it.category == "RED" },
                     onProfileChange = onProfileChange,
-                    onAllowlistAdd = { domain -> scope.launch(Dispatchers.IO) { DnsFirewallStore(context).addAllowlistedDomain(domain) } },
-                    onAllowlistRemove = { domain -> scope.launch(Dispatchers.IO) { DnsFirewallStore(context).removeAllowlistedDomain(domain) } },
-                    onBlocklistAdd = { domain -> scope.launch(Dispatchers.IO) { DnsFirewallStore(context).addBlockedDomain(domain) } },
-                    onBlocklistRemove = { domain -> scope.launch(Dispatchers.IO) { DnsFirewallStore(context).removeBlockedDomain(domain) } },
+                    onAllowlistAdd = { domain -> safeScope.launch(Dispatchers.IO) { DnsFirewallStore(context).addAllowlistedDomain(domain) } },
+                    onAllowlistRemove = { domain -> safeScope.launch(Dispatchers.IO) { DnsFirewallStore(context).removeAllowlistedDomain(domain) } },
+                    onBlocklistAdd = { domain -> safeScope.launch(Dispatchers.IO) { DnsFirewallStore(context).addBlockedDomain(domain) } },
+                    onBlocklistRemove = { domain -> safeScope.launch(Dispatchers.IO) { DnsFirewallStore(context).removeBlockedDomain(domain) } },
                     onVpnToggle = onVpnToggle,
                     onModuleDialog = dialogLambda,
                     onEmergency = ::startEmergency
@@ -333,16 +366,40 @@ fun AuraMainShell(
                     onModuleDialog = dialogLambda
                 )
                 4 -> AurasScreen(
-                    locationActive = false,
-                    lanSearching = false,
-                    lanPeers = emptyList(),
+                    locationActive = locationActive,
+                    lanSearching = lanSearching,
+                    lanPeers = lanPeers,
                     lastLanScan = null,
                     historyEntries = historyEntries,
-                    visible = true,
-                    onActivateLocation = {},
-                    onVisibilityToggle = {},
-                    onSearchLan = {},
-                    onStopLanSearch = {},
+                    visible = lanVisible,
+                    onActivateLocation = {
+                        locationLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                    },
+                    onVisibilityToggle = {
+                        lanVisible = !lanVisible
+                        preferences.setLanVisible(lanVisible)
+                    },
+                    onSearchLan = {
+                        lanSearchJob?.cancel()
+                        lanPeers = emptyList()
+                        lanSearching = true
+                        lanSearchJob = safeScope.launch(Dispatchers.IO) {
+                            com.aura.defense.lan.AuraLanDiscovery(context).discover(
+                                auraId = boot.auraId,
+                                guardianLevel = guardianAssessment.level.name,
+                                visible = lanVisible,
+                                onPeer = { peer ->
+                                    withContext(Dispatchers.Main) {
+                                        if (lanPeers.none { it.auraId == peer.auraId }) {
+                                            lanPeers = (lanPeers + peer).takeLast(20)
+                                        }
+                                    }
+                                }
+                            )
+                            withContext(Dispatchers.Main) { lanSearching = false }
+                        }
+                    },
+                    onStopLanSearch = { lanSearchJob?.cancel(); lanSearching = false },
                     onModuleDialog = dialogLambda
                 )
             }
@@ -359,7 +416,17 @@ fun AuraMainShell(
     if (showGuardian) AuraGuardianDialog(guardianAssessment) { showGuardian = false }
     if (showNotificationGuard) NotificationGuardDialog { showNotificationGuard = false }
     if (showTools) {
-        AuraToolsHubDialog(onDismiss = { showTools = false })
+        AuraToolsHubDialog(
+            onDismiss = { showTools = false },
+            posture = boot.posture,
+            appScan = appScanResult,
+            vpnActive = isVpnRunning,
+            onHistory = { showTools = false; showHistory = true },
+            onVault = { showTools = false; showVault = true },
+            onQrScanner = { showTools = false; showQrScanner = true },
+            onFileAnalyzer = { showTools = false; showFileAnalyzer = true },
+            onNotificationGuard = { showTools = false; showNotificationGuard = true }
+        )
     }
     if (showRisks) {
         AppRisksDialog(
@@ -391,6 +458,16 @@ fun AuraMainShell(
             links = emptyList(),
             onUpdated = { historyEntries = it },
             onDismiss = { showHistory = false }
+        )
+    }
+    if (showFileAnalyzer) {
+        AuraFileAnalyzerDialog(
+            initialUri = null,
+            onAnalysis = { analysis ->
+                moduleDialog = "Análisis de archivo" to
+                    "${analysis.name}\nSHA-256: ${analysis.sha256.take(16)}…\nRiesgo: ${analysis.risk}"
+            },
+            onDismiss = { showFileAnalyzer = false }
         )
     }
     if (showEmergency) {

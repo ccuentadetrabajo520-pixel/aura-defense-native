@@ -41,6 +41,8 @@ import com.aura.defense.security.PermissionAuditor
 import com.aura.defense.security.PermissionAuditResult
 import com.aura.defense.security.SecurityCertGenerator
 import com.aura.defense.security.SecurityCertificate
+import com.aura.defense.apps.AppScanResult
+import com.aura.defense.security.PostureResult
 import com.aura.defense.ui.AuraAmber
 import com.aura.defense.ui.AuraCyan
 import com.aura.defense.ui.AuraGreen
@@ -54,7 +56,15 @@ import java.io.File
 fun AuraToolsHubDialog(
     onDismiss: () -> Unit,
     onAssistant: () -> Unit = {},
-    onVoiceCommands: () -> Unit = {}
+    onVoiceCommands: () -> Unit = {},
+    posture: PostureResult? = null,
+    appScan: AppScanResult? = null,
+    vpnActive: Boolean = false,
+    onHistory: () -> Unit = {},
+    onVault: () -> Unit = {},
+    onQrScanner: () -> Unit = {},
+    onFileAnalyzer: () -> Unit = {},
+    onNotificationGuard: () -> Unit = {}
 ) {
     var activeTool by remember { mutableStateOf<String?>(null) }
     var integrityResult by remember { mutableStateOf<IntegrityResult?>(null) }
@@ -168,6 +178,11 @@ fun AuraToolsHubDialog(
                             scoreHistory = scoreStore.getScores()
                             activeTool = "scores"
                         }
+                        ToolButton("Historial inteligente", onHistory)
+                        ToolButton("Bóveda cifrada", onVault)
+                        ToolButton("QR Anti-Phishing", onQrScanner)
+                        ToolButton("Analizador de archivos", onFileAnalyzer)
+                        ToolButton("Protección de notificaciones", onNotificationGuard)
 
                         ToolButton("Asistente Aura", onAssistant)
 
@@ -176,13 +191,19 @@ fun AuraToolsHubDialog(
                         ToolButton("Generar reporte PDF") {
                             val output = File(ctx.filesDir, "aura-report-${System.currentTimeMillis()}.pdf")
                             val generated = AuraPdfReportBuilder(ctx).generate(
-                                score = 0,
-                                status = "Pendiente",
-                                findings = emptyList(),
-                                appCount = 0,
-                                riskyAppCount = 0,
-                                vpnActive = false,
-                                dnsStatus = "Desconocido",
+                                score = posture?.score ?: -1,
+                                status = posture?.status ?: "No disponible",
+                                findings = posture?.findings?.map {
+                                    com.aura.defense.reports.FindingsItem(
+                                        it.severity.name,
+                                        it.title,
+                                        it.evidence
+                                    )
+                                }.orEmpty(),
+                                appCount = appScan?.apps?.size ?: 0,
+                                riskyAppCount = appScan?.riskyApps?.size ?: 0,
+                                vpnActive = vpnActive,
+                                dnsStatus = posture?.telemetry?.privateDnsStatus ?: "No disponible",
                                 outputPath = output
                             )
                             if (generated) {

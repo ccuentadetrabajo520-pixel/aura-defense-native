@@ -20,6 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -46,6 +48,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aura.defense.ai.CopilotBrain
+import com.aura.defense.ai.AuraVoice
 import com.aura.defense.ai.voice.VoiceCommandEngine
 import com.aura.defense.monitor.AuraProcessLog
 import com.aura.defense.security.PostureResult
@@ -76,6 +79,7 @@ fun AuraConsoleScreen(
     val context = LocalContext.current
     val entries by AuraProcessLog.entries.collectAsState()
     val voiceEngine = remember { VoiceCommandEngine(context) }
+    val voice = remember { AuraVoice(context) }
     val voiceResult by voiceEngine.commandResult.collectAsState()
     val voiceSpeaking by voiceEngine.isProcessing.collectAsState()
     val voiceError by voiceEngine.error.collectAsState()
@@ -88,6 +92,8 @@ fun AuraConsoleScreen(
         mutableStateOf(entries.lastOrNull { it.category == "RED" || (it.category == "SCAN" && it.message.startsWith("Escaneo completado")) }?.timestamp)
     }
     var input by remember { mutableStateOf("") }
+    var voiceEnabled by remember { mutableStateOf(false) }
+    var auraSpeaking by remember { mutableStateOf(false) }
     val brain = remember(posture, vpnRunning) {
         CopilotBrain(context, { posture }, { vpnRunning }, null)
     }
@@ -108,6 +114,8 @@ fun AuraConsoleScreen(
         guardianSerious -> AuraMood.SERIO
         else -> AuraMood.IDLE
     }
+
+    LaunchedEffect(Unit) { voice.onSpeakingChanged = { auraSpeaking = it } }
 
     fun addMessage(isUser: Boolean, text: String) {
         if (text.isBlank()) return
@@ -131,7 +139,11 @@ fun AuraConsoleScreen(
         if (text.isBlank()) return
         addMessage(true, text)
         scope.launch(Dispatchers.IO) {
-            val response = brain.process(text)
+            val response = runCatching { brain.process(text) }.getOrElse {
+                com.aura.defense.ai.CopilotResponse(
+                    "Tuve un problema procesando eso. Inténtalo de nuevo.", false
+                )
+            }
             withContext(Dispatchers.Main) {
                 if (response.needsConfirmation != true) {
                     when (response.pendingAction) {
@@ -147,6 +159,7 @@ fun AuraConsoleScreen(
                         }
                 }
                 addMessage(false, response.text)
+                if (voiceEnabled) voice.speak(response.text)
             }
         }
     }
@@ -167,7 +180,10 @@ fun AuraConsoleScreen(
         }
     }
     DisposableEffect(voiceEngine) {
-        onDispose { voiceEngine.destroy() }
+        onDispose {
+            voiceEngine.destroy()
+            voice.destroy()
+        }
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -202,6 +218,7 @@ fun AuraConsoleScreen(
             contentAlignment = Alignment.CenterEnd
         ) {
             AuraFace(mood = mood, inBackground = inBackground, modifier = Modifier.size(56.dp))
+            if (auraSpeaking) Text("●", color = Color(0xFF4DD8E6), modifier = Modifier.padding(end = 4.dp))
         }
         Text(
             "¿En qué puedo ayudarte hoy?",
@@ -257,6 +274,15 @@ fun AuraConsoleScreen(
             )
             IconButton(onClick = { voiceEngine.startListening() }) {
                 Icon(Icons.Default.Mic, contentDescription = "Hablar")
+            }
+            IconButton(onClick = {
+                voiceEnabled = !voiceEnabled
+                if (!voiceEnabled) voice.stop() else addMessage(false, "Voz activada. Te responderé hablando.")
+            }) {
+                Icon(
+                    if (voiceEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                    contentDescription = if (voiceEnabled) "Desactivar voz" else "Activar voz"
+                )
             }
             IconButton(onClick = { processInput(input); input = "" }) {
                 Icon(Icons.Default.Send, contentDescription = "Enviar")

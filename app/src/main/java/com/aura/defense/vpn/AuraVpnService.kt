@@ -19,6 +19,9 @@ import java.net.SocketTimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import com.aura.defense.threats.ThreatIntelligenceEngine
 import com.aura.defense.data.SecurePrefs
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class AuraVpnService : VpnService() {
     private var tunnel: ParcelFileDescriptor? = null
@@ -33,15 +36,31 @@ class AuraVpnService : VpnService() {
             return START_NOT_STICKY
         }
 
-        createNotificationChannel()
-        startForeground(NOTIFICATION_ID, notification())
-        VpnDebugger.log("✅ AURA VPN SERVICE INICIADO")
-        ThreatFeedManager.init(this)
-        IpBlocklistLoader.init(this)
-        ThreatEngine = ThreatIntelligenceEngine(this)
-        dnsStore = DnsFirewallStore(this)
-        establishVpn()
-        return START_STICKY
+        return try {
+            createNotificationChannel()
+            startForeground(NOTIFICATION_ID, notification())
+            VpnDebugger.log("✅ AURA VPN SERVICE INICIADO")
+            CoroutineScope(Dispatchers.IO).launch {
+                runCatching {
+                    ThreatFeedManager.init(this@AuraVpnService)
+                    IpBlocklistLoader.init(this@AuraVpnService)
+                    ThreatEngine = ThreatIntelligenceEngine(this@AuraVpnService)
+                }.onFailure { throwable ->
+                    Timber.e(throwable, "Error cargando inteligencia en servicio")
+                    VpnDebugger.log("Error de inteligencia: ${throwable.message}")
+                }
+            }
+            dnsStore = DnsFirewallStore(this)
+            establishVpn()
+            START_STICKY
+        } catch (exception: Exception) {
+            Timber.e(exception, "CRASH en onStartCommand del servicio VPN")
+            com.aura.defense.monitor.AuraProcessLog.log(
+                "⚠ Error al iniciar el túnel: ${exception.message}", "SISTEMA"
+            )
+            stopSelf()
+            START_NOT_STICKY
+        }
     }
 
     override fun onDestroy() {
@@ -228,11 +247,13 @@ class AuraVpnService : VpnService() {
         .build()
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            getSystemService(NotificationManager::class.java).createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "Protección VPN", NotificationManager.IMPORTANCE_LOW)
-            )
-        }
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                getSystemService(NotificationManager::class.java)?.createNotificationChannel(
+                    NotificationChannel(CHANNEL_ID, "Protección VPN", NotificationManager.IMPORTANCE_LOW)
+                )
+            }
+        }.onFailure { Timber.e(it, "No se pudo crear el canal de notificación VPN") }
     }
 
     companion object {
