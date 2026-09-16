@@ -389,7 +389,7 @@ fun AuraMainShell(
                                 guardianLevel = guardianAssessment.level.name,
                                 visible = lanVisible,
                                 onPeer = { peer ->
-                                    withContext(Dispatchers.Main) {
+                                      safeScope.launch(Dispatchers.Main) {
                                         if (lanPeers.none { it.auraId == peer.auraId }) {
                                             lanPeers = (lanPeers + peer).takeLast(20)
                                         }
