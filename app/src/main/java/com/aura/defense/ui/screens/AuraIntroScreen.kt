@@ -76,7 +76,7 @@ fun AuraIntroScreen(preferences: AuraPreferences, onFinished: () -> Unit) {
                     1 -> IntroScene(R.drawable.intro_capacidades, "Esto es lo que hago por ti", "Vigilo tu red, analizo tus apps y cuido tu sistema en tiempo real")
                     2 -> IntroScene(R.drawable.intro_proteccion, "Bloqueo lo peligroso", "Protección antes de que una amenaza toque tus datos")
                     3 -> IntroScene(R.drawable.intro_datos, "Tus datos se quedan aquí", "Todo se procesa en tu dispositivo")
-                    4 -> IntroScene(R.drawable.intro_cuerpo, "Protección hecha para ti", "AURA te acompaña en cada defensa")
+                    4 -> IntroScene(R.drawable.intro_cuerpo, "Hola, soy AURA", "AURA te acompaña en cada defensa", showText = true)
                     else -> FinalScene(
                         termsAccepted = termsAccepted,
                         onTermsChanged = { termsAccepted = it },

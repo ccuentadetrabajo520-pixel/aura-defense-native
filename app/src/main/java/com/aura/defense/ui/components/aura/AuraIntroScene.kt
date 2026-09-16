@@ -2,6 +2,7 @@ package com.aura.defense.ui.components.aura
 
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -48,13 +49,17 @@ fun IntroScene(
     subtitle: String,
     showText: Boolean = false
 ) {
+    var entered by remember(imageRes) { mutableStateOf(false) }
+    LaunchedEffect(imageRes) { entered = true }
     val transition = rememberInfiniteTransition(label = "ken-burns")
     val scale by transition.animateFloat(
         1f,
-        1.06f,
-        infiniteRepeatable(tween(8000, easing = AuraMotion.AuraEase), RepeatMode.Reverse),
+        1.12f,
+        infiniteRepeatable(tween(5000, easing = AuraMotion.AuraEase), RepeatMode.Reverse),
         label = "ken-burns-scale"
     )
+    val entranceAlpha by animateFloatAsState(if (entered) 1f else 0f, tween(350), label = "intro-alpha")
+    val entranceScale by animateFloatAsState(if (entered) 1f else 0.94f, tween(450, easing = AuraMotion.AuraEase), label = "intro-scale")
     Box(Modifier.fillMaxSize()) {
         if (imageRes != 0) {
             Image(
@@ -64,6 +69,9 @@ fun IntroScene(
                 modifier = Modifier.fillMaxSize().graphicsLayer {
                     scaleX = scale
                     scaleY = scale
+                    alpha = entranceAlpha
+                    scaleX *= entranceScale
+                    scaleY *= entranceScale
                 }.drawWithContent {
                     drawContent()
                     drawRect(
@@ -79,7 +87,7 @@ fun IntroScene(
             IntroSceneCanvas(title, subtitle) {}
             return
         }
-        if (showText) IntroCopy(title, subtitle)
+        if (showText) IntroCopy(title, subtitle, entranceAlpha, entranceScale)
     }
 }
 
@@ -96,13 +104,13 @@ fun IntroSceneCanvas(title: String, subtitle: String, content: @Composable () ->
 }
 
 @Composable
-private fun IntroCopy(title: String, subtitle: String) {
+private fun IntroCopy(title: String, subtitle: String, alpha: Float = 1f, scale: Float = 1f) {
     var visibleTitle by remember(title) { mutableStateOf("") }
     LaunchedEffect(title) {
         visibleTitle = ""
         title.forEach { character ->
             visibleTitle += character
-            delay(40)
+            delay(28)
         }
     }
     var subtitleVisible by remember(title) { mutableStateOf(false) }
@@ -110,7 +118,13 @@ private fun IntroCopy(title: String, subtitle: String) {
         if (visibleTitle == title) subtitleVisible = true
     }
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 56.dp),
+        modifier = Modifier.fillMaxSize().graphicsLayer {
+            this.alpha = alpha
+            scaleX = scale
+            scaleY = scale
+        }.background(
+            Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f)))
+        ).padding(horizontal = 28.dp, vertical = 56.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.weight(1f))
@@ -125,7 +139,7 @@ private fun IntroCopy(title: String, subtitle: String) {
         Spacer(Modifier.height(12.dp))
         Text(
             subtitle,
-            color = AuraText.copy(alpha = if (subtitleVisible) 0.88f else 0f),
+            color = Color.White.copy(alpha = if (subtitleVisible) 1f else 0f),
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center
         )

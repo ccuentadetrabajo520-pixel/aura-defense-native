@@ -103,7 +103,6 @@ class AuraVpnService : VpnService() {
                 .addRoute(VPN_DNS_V6, 128)
                 .establish()
                 ?: error("No se pudo establecer el túnel VPN")
-        }.onSuccess {
             com.aura.defense.data.SecurePrefs.get(this)
                 .edit().putBoolean("aura_vpn_expected", true).apply()
             com.aura.defense.monitor.AuraProcessLog.log("Túnel VPN activado: el tráfico DNS pasa por el cortafuegos", "VPN")
@@ -113,10 +112,12 @@ class AuraVpnService : VpnService() {
             }
             isRunning = true
             packetThread = Thread(::runDnsProxy, "AuraDnsFirewall").also { it.start() }
-        }.onFailure {
+        }.onFailure { throwable ->
+            Timber.e(throwable, "No se pudo establecer el túnel VPN")
             isRunning = false
-            DnsFirewallStore(this).setServiceActive(false)
-            stopSelf()
+            runCatching { DnsFirewallStore(this).setServiceActive(false) }
+                .onFailure { cleanupError -> Timber.e(cleanupError, "No se pudo limpiar el estado VPN") }
+            runCatching { stopSelf() }
         }
     }
 
