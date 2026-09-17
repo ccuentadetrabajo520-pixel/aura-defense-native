@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -184,7 +185,10 @@ private fun processInput(
                     "ACTIVATE_VPN", "DEACTIVATE_VPN" -> onVpnToggle()
                     "RUN_SCAN" -> onScan()
                 }
-                response.pendingAction?.substringAfter("SET_PROFILE:", "").takeIf { it.isNotBlank() }?.let { name ->
+                response.pendingAction?.takeIf { it.startsWith("SET_PROFILE:") }
+                    ?.substringAfter(':')
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { name ->
                     DnsFirewallProfile.entries.firstOrNull { it.name == name }?.let(onProfileChange)
                 }
             }
