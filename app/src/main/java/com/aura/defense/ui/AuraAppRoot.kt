@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -37,6 +38,9 @@ import com.aura.defense.threats.ThreatIntelligenceEngine
 import com.aura.defense.ui.screens.AuraIntroScreen
 import com.aura.defense.vpn.DnsFirewallProfile
 import com.aura.defense.vpn.DnsFirewallStore
+import com.aura.defense.vpn.DnsProtectionStateStore
+import com.aura.defense.vpn.DnsProtectionStatus
+import com.aura.defense.vpn.DnsDegradedReason
 import com.aura.defense.ui.components.ModuleDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -62,7 +66,8 @@ data class AuraBootstrap(
     val blockedManuallyDomains: List<String> = emptyList(),
     val notificationAlerts: List<com.aura.defense.notifications.NotificationAlert> = emptyList(),
     val historyEntries: List<com.aura.defense.history.AuraHistoryEntry> = emptyList(),
-    val threatEngine: ThreatIntelligenceEngine? = null
+    val threatEngine: ThreatIntelligenceEngine? = null,
+    val threatFeedUpdatedAt: String = "No disponible"
 )
 
 @Composable
@@ -89,6 +94,8 @@ fun AuraAppRoot(
     var scanningApps by remember { mutableStateOf(false) }
     var appScanResult by remember { mutableStateOf<AppScanResult?>(null) }
     var isVpnRunning by remember { mutableStateOf(false) }
+    var threatFeedEntries by remember { mutableStateOf(0) }
+    val dnsState by DnsProtectionStateStore.state.collectAsState()
     var inBackground by remember { mutableStateOf(false) }
     var sharedAnalysis by remember { mutableStateOf<Pair<String, String>?>(null) }
     val appScanner = remember { AppScanner(context) }
@@ -99,7 +106,17 @@ fun AuraAppRoot(
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_STOP -> inBackground = true
-                Lifecycle.Event.ON_START -> inBackground = false
+                Lifecycle.Event.ON_START -> {
+                    inBackground = false
+                    isVpnRunning = MainActivity.auraVpnActiveStatic(context)
+                    if (!isVpnRunning && dnsState.status in setOf(DnsProtectionStatus.ACTIVE_DNS_ONLY, DnsProtectionStatus.DEGRADED)) {
+                        DnsProtectionStateStore.transition(
+                            DnsProtectionStatus.ERROR,
+                            DnsDegradedReason.VPN_REVOKED,
+                            "Android ya no observa el túnel DNS activo"
+                        )
+                    }
+                }
                 else -> Unit
             }
         }
@@ -157,7 +174,8 @@ fun AuraAppRoot(
                 blockedManuallyDomains = dnsStore.blocklist(),
                 notificationAlerts = alertStore.getAll(),
                 historyEntries = historyStore.getEntries(),
-                threatEngine = engine
+                threatEngine = engine,
+                threatFeedUpdatedAt = engine.lastUpdatedAt
             )
         }
     }
@@ -166,6 +184,14 @@ fun AuraAppRoot(
         var checks = 0
         while (true) {
             isVpnRunning = MainActivity.auraVpnActiveStatic(context)
+            threatFeedEntries = com.aura.defense.vpn.ThreatFeedManager.size()
+            if (boot.ready) {
+                val dnsStore = DnsFirewallStore(context)
+                boot = boot.copy(
+                    blockedDns = dnsStore.blockedEvents(),
+                    blockedDnsCount = dnsStore.blockedCount()
+                )
+            }
             if (++checks % 5 == 0) {
                 val threats = com.aura.defense.monitor.SelfDefenseWatcher
                     .selfCheck(context, isVpnRunning)
@@ -220,6 +246,8 @@ fun AuraAppRoot(
                 scanningApps = scanningApps,
                 appScanResult = appScanResult,
                 isVpnRunning = isVpnRunning,
+                dnsState = dnsState,
+                threatFeedEntries = threatFeedEntries,
                 inBackground = inBackground,
                 onScan = {
                     if (!scanningApps) safeScope.launch {
@@ -243,7 +271,10 @@ fun AuraAppRoot(
                         }
                     }
                 },
-                onVpnToggle = { if (isVpnRunning) onStopVpn() else onRequestVpn { } },
+                onVpnToggle = {
+                    if (dnsState.status in setOf(DnsProtectionStatus.STARTING, DnsProtectionStatus.ACTIVE_DNS_ONLY, DnsProtectionStatus.DEGRADED)) onStopVpn()
+                    else onRequestVpn { }
+                },
                 onProfileChange = { profile ->
                     boot = boot.copy(dnsProfile = profile)
                     safeScope.launch(Dispatchers.IO) { DnsFirewallStore(context).saveProfile(profile) }

@@ -66,6 +66,7 @@ import com.aura.defense.ui.screens.DefenseScreen
 import com.aura.defense.ui.screens.HomeScreen
 import com.aura.defense.ui.components.aura.AuraAvatarMini
 import com.aura.defense.vpn.DnsFirewallStore
+import com.aura.defense.vpn.displayLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -105,6 +106,8 @@ fun AuraMainShell(
     scanningApps: Boolean,
     appScanResult: AppScanResult?,
     isVpnRunning: Boolean,
+    dnsState: com.aura.defense.vpn.DnsProtectionState,
+    threatFeedEntries: Int,
     inBackground: Boolean,
     onScan: () -> Unit,
     onVpnToggle: () -> Unit,
@@ -167,6 +170,7 @@ fun AuraMainShell(
         boot.historyEntries,
         boot.blockedDns
     )
+    val protectionReady = dnsState.status == com.aura.defense.vpn.DnsProtectionStatus.ACTIVE_DNS_ONLY
     val dialogLambda: (String, String) -> Unit = { title, message -> moduleDialog = title to message }
     val labels = listOf("Consola", "Inicio", "Defensa", "Apps", "Auras")
     val icons = listOf(Icons.Default.Home, Icons.Default.Home, Icons.Default.Security, Icons.Default.Apps, Icons.Default.Public)
@@ -227,7 +231,7 @@ fun AuraMainShell(
                 appScan = scan,
                 guardian = guardian,
                 recentLinkCount = boot.notificationAlerts.size,
-                vpnStatus = if (isVpnRunning) "Protegido" else "VPN desactivada",
+                vpnStatus = dnsState.displayLabel(),
                 reportText = reportText,
                 reportJson = reportJson,
                 reportSaved = reportSaved
@@ -258,7 +262,7 @@ fun AuraMainShell(
             ) {
                 Text("AURA DEFENS", color = AuraCyan)
                 Text(boot.auraId, modifier = Modifier.padding(start = 10.dp).weight(1f), color = AuraMuted)
-                AuraAvatarMini(onClick = { tabIndex = 0 })
+                AuraAvatarMini(onClick = { tabIndex = 0 }, protectionState = dnsState.status.name)
                 IconButton(onClick = {
                     safeScope.launch(Dispatchers.IO) {
                         MainActivity.sharedDiagTree.flushNow()
@@ -309,6 +313,7 @@ fun AuraMainShell(
                 )
                 1 -> HomeScreen(
                     result = emergencyPosture,
+                    protectionReady = protectionReady,
                     guardianAssessment = guardianAssessment,
                     correlationAlerts = emergencyAlerts,
                     historyCount = historyEntries.size,
@@ -320,8 +325,10 @@ fun AuraMainShell(
                     onToolsHub = { showTools = true }
                 )
                 2 -> DefenseScreen(
-                    vpnStatus = if (isVpnRunning) "Protegido" else "VPN desactivada",
-                    vpnRunning = isVpnRunning,
+                    vpnStatus = dnsState.displayLabel(),
+                    dnsState = dnsState,
+                    vpnRunning = dnsState.status in setOf(com.aura.defense.vpn.DnsProtectionStatus.ACTIVE_DNS_ONLY, com.aura.defense.vpn.DnsProtectionStatus.DEGRADED),
+                    feedUpdatedAt = boot.threatFeedUpdatedAt,
                     firewallProfile = boot.dnsProfile,
                     blockedDomains = boot.blockedDns,
                     blockedDomainCount = boot.blockedDnsCount,
@@ -333,6 +340,8 @@ fun AuraMainShell(
                     onAllowlistRemove = { domain -> safeScope.launch(Dispatchers.IO) { DnsFirewallStore(context).removeAllowlistedDomain(domain) } },
                     onBlocklistAdd = { domain -> safeScope.launch(Dispatchers.IO) { DnsFirewallStore(context).addBlockedDomain(domain) } },
                     onBlocklistRemove = { domain -> safeScope.launch(Dispatchers.IO) { DnsFirewallStore(context).removeBlockedDomain(domain) } },
+                    onAllowTemporary = { domain -> safeScope.launch(Dispatchers.IO) { DnsFirewallStore(context).allowTemporarily(domain, 15 * 60 * 1000L, "Permitido por el usuario durante 15 minutos") } },
+                    onClearActivity = { safeScope.launch(Dispatchers.IO) { DnsFirewallStore(context).clearActivity(); boot = boot.copy(blockedDns = emptyList(), blockedDnsCount = 0) } },
                     onVpnToggle = onVpnToggle,
                     onModuleDialog = dialogLambda,
                     onEmergency = ::startEmergency

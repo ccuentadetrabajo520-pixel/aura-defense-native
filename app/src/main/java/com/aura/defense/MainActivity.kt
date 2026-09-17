@@ -17,6 +17,9 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import timber.log.Timber
+import com.aura.defense.vpn.DnsProtectionStateStore
+import com.aura.defense.vpn.DnsProtectionStatus
+import com.aura.defense.vpn.DnsDegradedReason
 
 class MainActivity : ComponentActivity() {
     private val vpnPermissionLauncher = registerForActivityResult(
@@ -26,6 +29,7 @@ class MainActivity : ComponentActivity() {
             if (isFinishing || isDestroyed) return@registerForActivityResult
             startAuraVpn(onFailure = { vpnPermissionDeniedCallback?.invoke() })
         } else {
+            DnsProtectionStateStore.transition(DnsProtectionStatus.OFF)
             vpnPermissionDeniedCallback?.invoke()
         }
     }
@@ -101,30 +105,54 @@ class MainActivity : ComponentActivity() {
 
     fun requestAuraVpn(onDenied: () -> Unit) {
         vpnPermissionDeniedCallback = onDenied
+        DnsProtectionStateStore.transition(DnsProtectionStatus.REQUESTING_PERMISSION)
         runCatching { VpnService.prepare(this) }
             .onSuccess { preparationIntent ->
                 if (preparationIntent == null) startAuraVpn(onFailure = onDenied)
                 else vpnPermissionLauncher.launch(preparationIntent)
             }
-            .onFailure { onDenied() }
+            .onFailure {
+                DnsProtectionStateStore.transition(
+                    DnsProtectionStatus.ERROR,
+                    DnsDegradedReason.INTERNAL_FAILURE,
+                    "No se pudo solicitar el permiso VPN"
+                )
+                onDenied()
+            }
     }
 
     private fun startAuraVpn(onFailure: () -> Unit) {
+        DnsProtectionStateStore.transition(DnsProtectionStatus.STARTING)
         runCatching {
             ContextCompat.startForegroundService(
                 this,
                 Intent(this, com.aura.defense.vpn.AuraVpnService::class.java)
             )
-        }.onFailure { onFailure() }
+        }.onFailure {
+            DnsProtectionStateStore.transition(
+                DnsProtectionStatus.ERROR,
+                DnsDegradedReason.INTERNAL_FAILURE,
+                "No se pudo iniciar el servicio DNS"
+            )
+            onFailure()
+        }
     }
 
     fun stopAuraVpn() {
+        DnsProtectionStateStore.transition(DnsProtectionStatus.STOPPING)
         runCatching {
             startService(
                 Intent(this, com.aura.defense.vpn.AuraVpnService::class.java)
                     .setAction(com.aura.defense.vpn.AuraVpnService.ACTION_STOP)
             )
-        }.onFailure { Timber.e(it, "stopAuraVpn falló") }
+        }.onFailure {
+            DnsProtectionStateStore.transition(
+                DnsProtectionStatus.ERROR,
+                DnsDegradedReason.INTERNAL_FAILURE,
+                "No se pudo detener el servicio DNS"
+            )
+            Timber.e(it, "stopAuraVpn falló")
+        }
     }
 
     companion object {

@@ -1,49 +1,102 @@
-# AURA DEFENSE
+# AURA DEFENS
 
-## Estado real
+> El primer asistente virtual de ciberdefensa 100% local, con rostro y voz,
+> que ejecuta acciones reales y muestra evidencia verificable — para
+> Android sin root. Hecho en Venezuela. 🇻🇪
 
-AURA DEFENSE es una aplicación Android nativa en Jetpack Compose. El proyecto compila la base de la interfaz y contiene funciones locales de auditoría, análisis de aplicaciones, escaneo QR, informes, historial, bóveda, TOTP, descubrimiento LAN, monitorización de notificaciones y un servicio VPN de filtrado DNS.
+## Qué es AURA
 
-Estas funciones son herramientas de apoyo y diagnóstico. No sustituyen al sistema de seguridad de Android, a un antivirus, a una auditoría profesional ni a copias de seguridad.
+AURA no es un antivirus tradicional ni una VPN comercial. Es un asistente conversacional de ciberdefensa que vive en el dispositivo Android y combina un firewall DNS local, análisis de aplicaciones, postura de seguridad, herramientas de red y orientación de seguridad en español.
 
-## Qué protege y qué no protege
+Su defensa de red usa una `VpnService` local para filtrar consultas DNS, con inteligencia embebida y feeds públicos actualizables. También reúne señales de aplicaciones, red, notificaciones, integridad y estado del dispositivo para producir hallazgos trazables. La interfaz es conversacional y tiene un núcleo holográfico animado, rostro y voz.
 
-- El generador de contraseñas usa `SecureRandom` y no guarda las contraseñas generadas.
-- Las entradas TOTP se cifran con Android Keystore y fallan explícitamente si el Keystore no está disponible.
-- El servicio VPN actual inspecciona principalmente consultas DNS locales sobre UDP/53 y las reenvía a un DNS ascendente. No es un túnel completo.
-- La VPN no afirma bloquear DoH, DoT, QUIC, IPv6 ni todo el tráfico de aplicaciones. El modo de túnel completo no debe considerarse implementado hasta contar con reenvío y pruebas de todo el tráfico.
-- La limpieza reforzada sobrescribe y elimina archivos de la aplicación, pero en almacenamiento flash, wear-leveling, snapshots o copias de seguridad no se puede garantizar la destrucción física de los datos.
-- Los análisis de aplicaciones, enlaces, red, notificaciones y amenazas son heurísticos y pueden producir falsos positivos o no detectar una amenaza.
+Todas las capacidades están limitadas por las APIs de Android y por los permisos que el usuario concede. AURA procura decir cuando un dato no está disponible y no presenta una inferencia como una certeza.
 
-## Funciones implementadas
+## Características (verificadas en código)
 
-Auditoría de postura, escaneo local de aplicaciones y permisos, análisis de enlaces y archivos compartidos, escáner QR, informes TXT/JSON/HTML/PDF, historial, modo emergencia, monitorización opcional de notificaciones, escáner Bluetooth, herramientas TOTP y bóveda cifrada.
+### Defensa de red
 
-## Funciones demo o limitadas
+- Firewall DNS local mediante `VpnService`, con bloqueo por categorías y feeds públicos actualizables de StevenBlack y URLhaus, además de inteligencia embebida.
+- El estado observable es único: `OFF`, `REQUESTING_PERMISSION`, `STARTING`, `ACTIVE_DNS_ONLY`, `DEGRADED`, `STOPPING` o `ERROR`. Solo `ACTIVE_DNS_ONLY` se muestra como **Protección DNS activa**.
+- La cobertura demostrable es DNS UDP/53 IPv4 que atraviesa el descriptor de AURA. La interfaz muestra como no cubiertos HTTPS/TLS, DoH, DoT, QUIC, TCP/UDP arbitrario e IPv6.
+- Cada bloqueo conserva evidencia local mínima: motivo, categoría, fuente, versión/fecha del feed y hora. Los eventos tienen retención limitada, pueden permitirse temporalmente y pueden borrarse desde Defensa.
+- Feeds de dominios y una blocklist de IP de URLhaus; el código conserva caché y registra el estado de las fuentes.
+- Perfiles por categoría: Equilibrado, Estricto y Permitir todo, con allowlist y blocklist manual.
+- Detección de posible DNS hijacking mediante comparación entre resolución del sistema y una consulta DoH de Cloudflare.
+- Detección de red insegura y evaluación de la postura de seguridad, con sugerencias para revisar o reforzar la configuración.
+- Registro de bloqueos DNS y procesos observables en la consola de AURA.
 
-La inteligencia de amenazas local depende de los datos disponibles en `assets/threats.json` y de la conectividad configurada. La VPN es un filtro DNS local, no una VPN de privacidad integral. El escáner LAN, las comprobaciones de integridad, la generación de certificados y los contadores de seguridad no constituyen una certificación de seguridad.
+### Defensa del dispositivo
 
-## Permisos sensibles
+- Escáner de aplicaciones instaladas: permisos declarados, instalador de origen y señales de riesgo.
+- Detección heurística de un patrón de troyano bancario mediante instalación reciente, origen externo y señales de accesibilidad, SMS o superposición.
+- Correlación de señales para identificar un posible stalkerware: administrador del dispositivo, listener de notificaciones y señales del escáner.
+- Verificación de postura: root, Magisk, depuración USB, bloqueo de pantalla, servicios de accesibilidad y otras señales visibles para Android.
+- Edad de dominios mediante RDAP; los dominios recientes pueden generar una alerta de riesgo.
+- Monitor de tráfico por aplicación con `NetworkStats`, incluyendo bytes transferidos en las últimas 24 horas.
+- Análisis local de enlaces, archivos compartidos y códigos QR, además de herramientas de red, Bluetooth y LAN.
 
-- `QUERY_ALL_PACKAGES`: permite enumerar aplicaciones instaladas para el escáner y la auditoría de permisos; es especialmente restrictivo en Google Play.
-- `CAMERA`: se solicita solo para el escáner QR.
-- `ACCESS_COARSE_LOCATION` y `ACCESS_FINE_LOCATION`: se usan para funciones de ubicación y descubrimiento LAN/Bluetooth; Android puede exigir ubicación para ciertos resultados Bluetooth/Wi-Fi.
-- `BLUETOOTH` hasta Android 11 y `BLUETOOTH_CONNECT` en versiones nuevas: permiten leer dispositivos Bluetooth vinculados.
-- `INTERNET` y `ACCESS_NETWORK_STATE`: se usan para comprobaciones de red, consultas DNS y fuentes de amenazas.
-- `CHANGE_WIFI_MULTICAST_STATE`: se usa para descubrimiento LAN.
-- `FOREGROUND_SERVICE` y `FOREGROUND_SERVICE_SPECIAL_USE`: mantienen activo el servicio VPN iniciado por el usuario.
-- Servicio de notificaciones: el usuario debe habilitar manualmente el acceso de notification listener en Ajustes; las notificaciones pueden contener datos privados.
-- VPN: Android muestra y controla el consentimiento para crear el túnel local.
+### Asistente (Aura Copilot)
 
-No se solicitan permisos SMS: la auditoría solo revisa permisos declarados por otras aplicaciones y no lee mensajes del usuario.
+- Conversación local en español, con una base de conocimiento curada de 49 llamadas `entry(` verificadas en código y conceptos adicionales compactos; incluye señales, explicaciones y recomendaciones.
+- Consulta real de dominios contra la inteligencia disponible: el asistente puede responder si un dominio aparece en los feeds y consultar su edad por RDAP.
+- Ejecución de acciones con confirmación desde la interfaz: escaneo de aplicaciones, control de la VPN DNS, perfiles, bloqueo o permiso de dominios y herramientas de red disponibles.
+- Voz bidireccional: reconocimiento de voz mediante el servicio de Android y respuesta hablada mediante TTS cuando el dispositivo lo permite.
+- Informes exportables y herramientas de diagnóstico; no existe en el código actual una capacidad independiente identificable como "modo pánico".
+
+### Autodefensa
+
+- Anti-screenshot mediante `FLAG_SECURE` y protección contra interacción con overlays, para reducir riesgos de captura y tapjacking sobre su propia interfaz.
+- Vigía propio: comprueba si la VPN dejó de estar activa, si el acceso de notificaciones fue revocado, si hay señales de cambio de paquete o si la aplicación está siendo retirada.
+- Verificación de integridad de su propia firma mediante SHA-256.
+- Datos sensibles protegidos con `EncryptedSharedPreferences` y Android Keystore, con manejo explícito cuando Keystore no está disponible.
+- Caja negra y registros exportables mediante `FileProvider`, incluyendo el log de procesos y diagnósticos disponibles.
+
+### Transparencia radical
+
+- Consola con registros reales de procesos y bloqueos observables en tiempo de ejecución.
+- Score determinista: los hallazgos y sus severidades alimentan el cálculo de postura; el valor no equivale a una certificación de seguridad.
+- Confianza declarada: cuando falta un dato, AURA lo expresa y no inventa una respuesta.
+
+## Qué AURA NO hace (límites reales de Android sin root)
+
+- No inspecciona la memoria privada de otras aplicaciones ni puede garantizar la detección de rootkits o componentes ocultos fuera de su alcance.
+- No lee ni descifra el tráfico cifrado de otras aplicaciones. La protección implementada es DNS local UDP/53 IPv4; no es un túnel completo ni una VPN comercial de privacidad integral.
+- No cubre automáticamente DNS cifrado de otras aplicaciones (DoH/DoT), QUIC, TCP/UDP arbitrario, IPv6 ni tráfico que no atraviese `VpnService`.
+- No elimina malware ya instalado ni desinstala aplicaciones por el usuario.
+- No garantiza detectar todas las amenazas, troyanos, stalkerware, fraudes, hijacking o exfiltraciones. Sus detectores son heurísticos y pueden producir falsos positivos.
+- No puede asegurar la destrucción física de archivos en almacenamiento flash, snapshots o copias de seguridad.
+- No sustituye las protecciones del sistema Android, un antivirus especializado, una auditoría profesional ni un proceso de respuesta a incidentes.
+
+La honestidad sobre estos límites es parte del diseño.
 
 ## Privacidad
 
-Los informes pueden incluir telemetría del dispositivo, nombres de aplicaciones, dominios bloqueados y resultados de análisis. Revísalos antes de compartirlos. El acceso a notificaciones, cámara, ubicación, Bluetooth y aplicaciones instaladas es opcional según la función. No incluyas secretos TOTP ni contraseñas en incidencias o informes.
+El procesamiento principal y la base de conocimiento funcionan localmente. No hay cuentas, analytics ni telemetría operativa de AURA. Las conexiones salientes verificables en el código son:
 
-## Compilación
+- Descarga de feeds públicos de dominios e IP maliciosos desde GitHub/StevenBlack y URLhaus, más el feed remoto propio de AURA.
+- Resolución DNS de comparación mediante DoH de Cloudflare.
+- Consulta RDAP del dominio que el usuario solicita verificar.
+- Verificación opcional de un correo mediante Have I Been Pwned, solo si el usuario introduce una API key y ejecuta la herramienta.
+- Verificación opcional de contraseñas mediante el endpoint de rangos de Have I Been Pwned, sin enviar la contraseña completa.
 
-Requisitos: Android SDK con API 35, JDK 17 y acceso a las dependencias de Gradle.
+No existe integración con MalwareBazaar en el código actual. Las notificaciones, aplicaciones instaladas, cámara, ubicación, Bluetooth y red solo se consultan para las funciones que el usuario activa y autoriza. Los eventos DNS locales no se escriben en logs de diagnóstico con dominios, URLs, IPs o payloads; la actividad conservada tiene retención limitada y borrado manual. Nada más sale del dispositivo según las conexiones identificadas en el código.
+
+## Documentación de la Fase 1
+
+- [Línea base de seguridad](BASELINE_SECURITY_AUDIT.md)
+- [Diseño de protección DNS](DNS_PROTECTION_DESIGN.md)
+- [Matriz manual de pruebas DNS](DNS_PROTECTION_TEST_MATRIX.md)
+
+## Requisitos
+
+Android 8.0+ (API 26). Sin root. Sin cuenta. Compilación actual con `compileSdk` y `targetSdk` 34, JDK 17 y Android SDK. La voz depende de los servicios disponibles en el dispositivo.
+
+## Compilación y distribución
+
+- CI/CD: Codemagic (`codemagic.yaml`).
+- Canal de pruebas: APK debug generada por `assembleDebug` y firmada por el sistema de compilación.
+- Release con keystore estable: en preparación; el flujo actual de Codemagic compila la APK debug.
 
 ```bash
 ./gradlew test
@@ -51,18 +104,52 @@ Requisitos: Android SDK con API 35, JDK 17 y acceso a las dependencias de Gradle
 ./gradlew assembleRelease
 ```
 
-El APK se genera en `app/build/outputs/apk/debug/` o `app/build/outputs/apk/release/`. El flujo de Codemagic ejecuta `assembleRelease`; para distribuirlo hay que configurar el keystore y los secretos de firma en Codemagic. Sin ellos, el artefacto no debe considerarse firmado para publicación.
+Los artefactos aparecen en `app/build/outputs/apk/debug/` o `app/build/outputs/apk/release/`. La firma de distribución debe configurarse antes de publicar un release.
 
-## Integridad
+## Verificación de integridad
 
-AURA registra al iniciar la aplicación la huella SHA-256 del certificado con el que fue instalada. Para verificar una distribución, compara el valor `Integridad de AURA: firma SHA-256 = ...` del registro local con la huella publicada junto al release firmado. Un valor distinto indica que el APK debe considerarse reempaquetado o firmado con otro certificado. La huella oficial se publicará con el primer release firmado de distribución.
+AURA registra al iniciar la aplicación la huella SHA-256 del certificado con el que fue instalada. Para verificar una distribución, compara el valor `Integridad de AURA: firma SHA-256 = ...` del registro local con la huella publicada junto al release firmado. Un valor distinto indica que la APK debe considerarse reempaquetada o firmada con otro certificado. La huella oficial se publicará con el primer release firmado de distribución.
 
-## Codemagic
+## Inteligencia de amenazas — atribuciones
 
-El workflow `aura-android-release` prepara el SDK, limpia el proyecto y compila release. La firma de distribución está pendiente de configurar mediante secretos y un keystore protegidos en Codemagic.
+- StevenBlack hosts (MIT).
+- URLhaus de abuse.ch.
+- OpenPhish Community, presente en los datos de inteligencia embebidos.
 
-## Licencia
+Gracias a sus mantenedores. Las listas pueden contener errores ajenos a AURA; permite o bloquea dominios manualmente y revisa el contexto de cada hallazgo.
 
-Este repositorio todavía no incluye una licencia. No se debe reutilizar ni redistribuir el código hasta que el propietario elija y añada una licencia explícita.
+## Estructura del proyecto
+
+```text
+com.aura.defense/
+├── vpn/             # VPN local y firewall DNS
+├── threats/         # Inteligencia y feeds de amenazas
+├── apps/            # Escáner de aplicaciones
+├── security/        # Postura, integridad y herramientas de seguridad
+├── ai/              # Copilot, conocimiento, voz y edad de dominios
+├── monitor/         # Correlación, logs y autodefensa
+├── guardian/        # Evaluación y recomendaciones del guardián
+├── scheduler/       # Comprobaciones programadas
+├── notifications/   # Listener y protección de notificaciones
+├── files/           # Análisis de archivos
+├── tools/           # Herramientas de análisis
+├── vault/           # Bóveda local
+├── lan/             # Descubrimiento LAN
+├── history/         # Historial y línea base
+├── reports/         # Informes
+├── ui/              # Interfaz Compose y núcleo holográfico
+└── data/            # Preferencias, telemetría y repositorios
+```
+
+## Roadmap
+
+- v1.2: firma del feed de inteligencia, integración de Play Integrity y Protección Avanzada de Android (AAPM).
+- v2.0: firewall por aplicación, con bloqueo de Internet para aplicaciones individuales.
+
+Estas metas no se presentan como funciones disponibles en la versión actual.
+
+## Estado
+
+Proyecto público en desarrollo activo. La rama `main` contiene una auditoría ofensiva interna y capacidades verificables en el código fuente de este repositorio. Los resultados siguen dependiendo de la versión de Android, permisos, conectividad, datos disponibles y comportamiento de cada dispositivo.
 
 Las vulnerabilidades deben reportarse según [SECURITY.md](SECURITY.md).

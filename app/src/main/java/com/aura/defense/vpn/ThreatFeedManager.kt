@@ -94,10 +94,14 @@ object ThreatFeedManager {
 
     fun matchDomain(map: Map<String, String>, domain: String): String? {
         val normalized = domain.lowercase().trim().trimEnd('.')
-        return map.entries.firstOrNull { (candidate, _) ->
-            val key = candidate.lowercase().trim().trimEnd('.')
-            normalized == key || normalized.endsWith(".$key")
-        }?.value
+        var candidate = normalized
+        while (candidate.isNotBlank()) {
+            map[candidate]?.let { return it }
+            val separator = candidate.indexOf('.')
+            if (separator < 0) break
+            candidate = candidate.substring(separator + 1)
+        }
+        return null
     }
 
     fun size(): Int = blockedMap.size

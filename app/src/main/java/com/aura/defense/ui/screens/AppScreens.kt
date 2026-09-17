@@ -86,6 +86,7 @@ import java.util.Locale
 @Composable
 fun HomeScreen(
     result: com.aura.defense.security.PostureResult,
+    protectionReady: Boolean,
     guardianAssessment: AuraGuardianAssessment,
     correlationAlerts: List<CorrelationAlert> = emptyList(),
     historyCount: Int,
@@ -164,7 +165,13 @@ fun HomeScreen(
                 Text(if (result.score >= 0) "${result.score}" else "--", color = scoreColor, fontSize = 52.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                 Text("/100", color = AuraMuted, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
                 Spacer(Modifier.height(2.dp))
-                Text(result.status, color = scoreColor.copy(alpha = 0.8f), fontSize = 12.sp, fontWeight = FontWeight.Medium, letterSpacing = 2.sp)
+                Text(
+                    if (result.status == "Protegido" && !protectionReady) "Protección incompleta" else result.status,
+                    color = scoreColor.copy(alpha = 0.8f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 2.sp
+                )
             }
         }
 
@@ -378,7 +385,9 @@ private fun HonestTacticalMap(modifier: Modifier, peers: List<AuraLanPeer>, sear
 @Composable
 fun DefenseScreen(
     vpnStatus: String,
+    dnsState: com.aura.defense.vpn.DnsProtectionState,
     vpnRunning: Boolean,
+    feedUpdatedAt: String,
     firewallProfile: DnsFirewallProfile,
     blockedDomains: List<DnsBlockedEvent>,
     blockedDomainCount: Int,
@@ -390,12 +399,20 @@ fun DefenseScreen(
     onAllowlistRemove: (String) -> Unit,
     onBlocklistAdd: (String) -> Unit,
     onBlocklistRemove: (String) -> Unit,
+    onAllowTemporary: (String) -> Unit,
+    onClearActivity: () -> Unit,
     onVpnToggle: () -> Unit,
     onModuleDialog: (String, String) -> Unit,
     onEmergency: () -> Unit
 ) {
     val logs by VpnDebugger.logs.collectAsState()
-    val statusColor = if (vpnStatus == "Protegido") AuraGreen else AuraAmber
+    val statusColor = when (dnsState.status) {
+        com.aura.defense.vpn.DnsProtectionStatus.ACTIVE_DNS_ONLY -> AuraGreen
+        com.aura.defense.vpn.DnsProtectionStatus.DEGRADED,
+        com.aura.defense.vpn.DnsProtectionStatus.STARTING,
+        com.aura.defense.vpn.DnsProtectionStatus.REQUESTING_PERMISSION -> AuraAmber
+        else -> AuraMuted
+    }
     val context = androidx.compose.ui.platform.LocalContext.current
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsStateWithLifecycle()
     val vpnArc = remember { androidx.compose.animation.core.Animatable(0f) }
@@ -454,7 +471,7 @@ fun DefenseScreen(
                 .background(AuraSurface, RoundedCornerShape(14.dp))
                 .border(BorderStroke(0.5.dp, AuraCyan.copy(alpha = 0.15f)), RoundedCornerShape(14.dp))
         ) {
-            SentinelCanvas(Modifier.fillMaxSize(), blockPulse)
+            SentinelCanvas(Modifier.fillMaxSize(), blockPulse, vpnRunning, dnsState.status == com.aura.defense.vpn.DnsProtectionStatus.DEGRADED)
             Canvas(Modifier.fillMaxSize()) {
                 val center = Offset(size.width / 2f, size.height / 2f)
                 val baseRadius = size.minDimension * 0.26f
@@ -487,7 +504,20 @@ fun DefenseScreen(
             border = BorderStroke(0.5.dp, if (vpnRunning) AuraGreen.copy(alpha = 0.35f) else AuraCyan.copy(alpha = 0.12f))
         ) {
             Box(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
-                Text(if (vpnRunning) "DESACTIVAR TÚNEL DNS" else "ACTIVAR TÚNEL DNS", color = if (vpnRunning) AuraGreen else AuraCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+                Text(if (vpnRunning) "DESACTIVAR PROTECCIÓN DNS" else "ACTIVAR PROTECCIÓN DNS", color = if (vpnRunning) AuraGreen else AuraCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+            }
+        }
+
+        Column(
+            modifier = Modifier.fillMaxWidth().background(AuraSurface, RoundedCornerShape(10.dp)).padding(AuraSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text("COBERTURA OBSERVABLE", color = AuraCyan.copy(alpha = 0.7f), fontSize = 9.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
+            Text("Cubierto: consultas DNS UDP/53 IPv4 que atraviesan AURA", color = AuraText, fontSize = 12.sp)
+            Text("No cubierto: HTTPS/TLS, DoH, DoT, QUIC, TCP/UDP arbitrario e IPv6", color = AuraAmber, fontSize = 12.sp)
+            Text("Feed: ${feedUpdatedAt.ifBlank { "No disponible" }}", color = AuraMuted, fontSize = 11.sp)
+            if (dnsState.status == com.aura.defense.vpn.DnsProtectionStatus.DEGRADED) {
+                Text(dnsState.detail.ifBlank { "Cobertura reducida" }, color = AuraAmber, fontSize = 11.sp)
             }
         }
 
@@ -535,6 +565,22 @@ fun DefenseScreen(
             ) {
                 Text(if (logs.isEmpty()) "Aún no veo bloqueos DNS. Sigo vigilando." else logs.takeLast(8).joinToString("\n"), color = Color(0xFF00FF41), fontFamily = FontFamily.Monospace, fontSize = 10.sp, lineHeight = 14.sp)
             }
+            if (blockedDomains.isEmpty()) {
+                Text("Actividad vacía: todavía no hay bloqueos conservados.", color = AuraMuted, fontSize = 11.sp)
+            } else {
+                blockedDomains.takeLast(6).reversed().forEach { event ->
+                    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+                        Text("${minimizeDomain(event.domain)} · ${event.category} · ${formatDnsTime(event.timestamp)}", color = AuraText, fontSize = 11.sp)
+                        Text("${event.reason} · fuente ${event.source} · feed ${event.feedVersion}", color = AuraMuted, fontSize = 10.sp)
+                    }
+                }
+                blockedDomains.lastOrNull()?.let { event ->
+                    TextButton(onClick = { onAllowTemporary(event.domain) }) {
+                        Text("Permitir ${minimizeDomain(event.domain)} durante 15 min")
+                    }
+                }
+            }
+            TextButton(onClick = onClearActivity) { Text("Borrar actividad local") }
         }
 
         Surface(
@@ -551,7 +597,7 @@ fun DefenseScreen(
 }
 
 @Composable
-private fun SentinelCanvas(modifier: Modifier, blockPulse: Int) {
+private fun SentinelCanvas(modifier: Modifier, blockPulse: Int, active: Boolean, degraded: Boolean) {
     var pulseActive by remember { mutableStateOf(false) }
     LaunchedEffect(blockPulse) {
         if (blockPulse > 0) {
@@ -562,18 +608,28 @@ private fun SentinelCanvas(modifier: Modifier, blockPulse: Int) {
     }
     val pulse by animateFloatAsState(if (pulseActive) 1f else 0f, tween(350), label = "bloqueo")
     Canvas(modifier) {
+        val sentinelColor = when {
+            degraded -> AuraAmber
+            active -> AuraGreen
+            else -> AuraMuted
+        }
         val center = Offset(size.width / 2f, size.height / 2f)
         val radius = size.minDimension * (0.26f + pulse * 0.04f)
-        drawCircle(AuraGreen.copy(alpha = 0.12f + pulse * 0.16f), radius * (1.55f + pulse * 0.2f), center)
-        drawCircle(AuraGreen.copy(alpha = 0.35f), radius, center, style = Stroke(2.dp.toPx()))
-        drawCircle(AuraGreen, radius * 0.32f, center)
+        drawCircle(sentinelColor.copy(alpha = 0.12f + pulse * 0.16f), radius * (1.55f + pulse * 0.2f), center)
+        drawCircle(sentinelColor.copy(alpha = 0.35f), radius, center, style = Stroke(2.dp.toPx()))
+        drawCircle(sentinelColor, radius * 0.32f, center)
         listOf(0f, 90f, 180f, 270f).forEachIndexed { index, angle ->
             val radians = Math.toRadians(angle.toDouble())
             val node = Offset(center.x + kotlin.math.cos(radians).toFloat() * radius * 1.48f, center.y + kotlin.math.sin(radians).toFloat() * radius * 1.48f)
-            drawLine(AuraGreen.copy(alpha = 0.45f), center, node, 1.dp.toPx(), StrokeCap.Round)
-            drawCircle(if (index == 2) AuraAmber else AuraGreen, 8.dp.toPx(), node)
+            drawLine(sentinelColor.copy(alpha = 0.45f), center, node, 1.dp.toPx(), StrokeCap.Round)
+            drawCircle(if (index == 2 && degraded) AuraAmber else sentinelColor, 8.dp.toPx(), node)
         }
     }
+}
+
+private fun minimizeDomain(domain: String): String {
+    val labels = domain.split('.')
+    return if (labels.size <= 2) domain else "…" + labels.takeLast(2).joinToString(".")
 }
 
 private fun formatDnsTime(timestamp: Long): String = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
