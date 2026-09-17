@@ -50,9 +50,9 @@ fun AuraIntroScreen(preferences: AuraPreferences, onFinished: () -> Unit) {
 
     LaunchedEffect(step) {
         when (step) {
-            0 -> { delay(2500); step = 1 }
-            1 -> { delay(3000); step = 2 }
-            2 -> { delay(3000); step = 3 }
+            0 -> { delay(12000); step = 1 }
+            1 -> { delay(5000); step = 2 }
+            2 -> { delay(8500); step = 3 }
         }
     }
 
@@ -95,30 +95,59 @@ private fun BootTerminal() {
         "> Calibrando sensores... OK",
         "> Estableciendo vínculo seguro... OK"
     )
-    var visibleLines by remember { mutableStateOf(0) }
+    var completedLines by remember { mutableStateOf(emptyList<String>()) }
+    var currentLine by remember { mutableStateOf("") }
+    val cursorTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "boot-cursor")
+    val cursorAlpha by cursorTransition.animateFloat(
+        1f, 0.3f,
+        androidx.compose.animation.core.infiniteRepeatable(
+            androidx.compose.animation.core.tween(400),
+            androidx.compose.animation.core.RepeatMode.Reverse
+        ),
+        label = "boot-cursor-alpha"
+    )
     LaunchedEffect(Unit) {
-        lines.forEachIndexed { index, line ->
-            delay(if (index == 0) 120 else line.length * 25L)
-            visibleLines = index + 1
+        lines.forEach { line ->
+            currentLine = ""
+            line.forEachIndexed { index, character ->
+                currentLine = line.take(index + 1)
+                delay(45)
+            }
+            completedLines = completedLines + currentLine
+            currentLine = ""
+            delay(900)
         }
     }
     Column(
         Modifier.fillMaxSize().padding(top = 64.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        lines.take(visibleLines).forEachIndexed { index, line ->
+        completedLines.forEachIndexed { index, line ->
             Text(line, color = if (index == 0) Color(0xFF4DD8E6) else Color(0xFF22C55E), fontFamily = FontFamily.Monospace, fontSize = if (index == 0) 20.sp else 13.sp)
         }
-        Text("_", color = Color(0xFF22C55E), fontFamily = FontFamily.Monospace)
+        if (currentLine.isNotEmpty()) {
+            Row {
+                Text(currentLine, color = if (completedLines.isEmpty()) Color(0xFF4DD8E6) else Color(0xFF22C55E), fontFamily = FontFamily.Monospace, fontSize = if (completedLines.isEmpty()) 20.sp else 13.sp)
+                Text("█", color = Color(0xFF22C55E).copy(alpha = cursorAlpha), fontFamily = FontFamily.Monospace)
+            }
+        }
     }
 }
 
 @Composable
 private fun OnlineScene() {
     val alpha by animateFloatAsState(1f, tween(600), label = "core-boot-alpha")
+    var visibleTitle by remember { mutableStateOf("") }
+    LaunchedEffect(Unit) {
+        val title = "AURA EN LÍNEA"
+        title.forEachIndexed { index, _ ->
+            visibleTitle = title.take(index + 1)
+            delay(45)
+        }
+    }
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         AuraCoreHologram(CoreMood.BOOT, Modifier.size(280.dp).then(Modifier), eventPulse = 0)
-        Text("AURA EN LÍNEA", color = Color(0xFF4DD8E6).copy(alpha = alpha), fontFamily = FontFamily.Monospace, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Text(visibleTitle, color = Color(0xFF4DD8E6).copy(alpha = alpha), fontFamily = FontFamily.Monospace, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.size(14.dp))
         Text("Hola, soy AURA. Seré tu primer asistente de ciber defensa.", color = Color.White.copy(alpha = alpha), textAlign = TextAlign.Center, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
     }
@@ -133,7 +162,7 @@ private fun CapabilitiesScene() {
     )
     var visible by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) {
-        capabilities.forEachIndexed { index, _ -> delay(400L); visible = index + 1 }
+        capabilities.forEachIndexed { _, _ -> delay(800L); visible += 1 }
     }
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         AuraCoreHologram(CoreMood.IDLE, Modifier.size(250.dp))

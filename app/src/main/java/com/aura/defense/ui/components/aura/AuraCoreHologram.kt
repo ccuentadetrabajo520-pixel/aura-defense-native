@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
@@ -55,11 +57,17 @@ fun AuraCoreHologram(
         label = "core-pulse"
     )
     val particlePhase by infinite.animateFloat(0f, 1f, infiniteRepeatable(tween(8000, easing = LinearEasing)), label = "particle-phase")
+    val eyeX by infinite.animateFloat(-0.8f, 0.8f, infiniteRepeatable(tween(2100), RepeatMode.Reverse), label = "eye-x")
+    val eyeY by infinite.animateFloat(-0.5f, 0.5f, infiniteRepeatable(tween(3300), RepeatMode.Reverse), label = "eye-y")
+    val eyeJitter by infinite.animateFloat(-0.15f, 0.15f, infiniteRepeatable(tween(80), RepeatMode.Reverse), label = "eye-jitter")
+    val heartBeat by infinite.animateFloat(1f, 1.18f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "heart-beat")
+    val scanPhase by infinite.animateFloat(0f, 1f, infiniteRepeatable(tween(1100), RepeatMode.Restart), label = "eye-scan")
+    val dataPhase by infinite.animateFloat(0f, 1f, infiniteRepeatable(tween(1800), RepeatMode.Restart), label = "data-lines")
     val eyeBlink = remember { Animatable(1f) }
     val eventWave = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(mood) {
         while (true) {
-            kotlinx.coroutines.delay(3500)
+            kotlinx.coroutines.delay(if (mood == CoreMood.HABLANDO) 1800 else 4000)
             eyeBlink.animateTo(0.1f, tween(120))
             eyeBlink.animateTo(1f, tween(120))
         }
@@ -129,32 +137,107 @@ fun AuraCoreHologram(
         glowCircle(coreR, accent, maxR * 0.012f)
         drawCircle(Color.Black.copy(alpha = 0.55f), coreR, c)
         drawCircle(accent.copy(alpha = 0.10f), coreR, c)
-        val eyeR = coreR * 0.45f
+        val eyeUnit = coreR / 10f
+        val eyeSeparation = coreR * 0.42f
+        val eyeOffsetX = when (mood) {
+            CoreMood.SCANNING -> (scanPhase * 2f - 1f) * 1.8f * eyeUnit
+            else -> eyeX * eyeUnit
+        }
+        val eyeOffsetY = when (mood) {
+            CoreMood.THINKING -> -1.5f * eyeUnit + eyeJitter * eyeUnit
+            CoreMood.ALERTA -> eyeJitter * eyeUnit
+            else -> eyeY * eyeUnit
+        }
+        val scleraWidth = if (mood == CoreMood.ALERTA) 7f else 6f
+        val scleraHeight = if (mood == CoreMood.ALERTA) 5f else 4f
+        val irisRadius = if (mood == CoreMood.SERIO) 0.8f else 1.1f
+        val irisColor = if (mood == CoreMood.ALERTA) Color(0xFFE53935) else accent
         listOf(-1f, 1f).forEach { side ->
-            val eyeCenter = Offset(c.x + side * coreR * 0.38f, c.y - coreR * 0.05f)
-            drawArc(
-                color = accent.copy(alpha = eyeBlink.value),
-                startAngle = 180f,
-                sweepAngle = 180f,
-                useCenter = false,
-                topLeft = Offset(eyeCenter.x - eyeR, eyeCenter.y - eyeR),
-                size = Size(eyeR * 2f, eyeR * 2f),
-                style = Stroke(width = coreR * 0.10f, cap = StrokeCap.Round)
-            )
-            drawCircle(accent.copy(alpha = eyeBlink.value), coreR * 0.10f, Offset(eyeCenter.x, eyeCenter.y + eyeR * 0.35f))
+            val eyeCenter = Offset(c.x + side * eyeSeparation + eyeOffsetX, c.y - coreR * 0.05f + eyeOffsetY)
+            val eyeScaleY = eyeBlink.value
+            if (mood == CoreMood.ORGULLOSO) {
+                drawHeart(eyeCenter, 2f * eyeUnit * heartBeat, irisColor)
+            } else {
+                drawOval(
+                    color = cyan.copy(alpha = 0.5f * eyeScaleY),
+                    topLeft = Offset(eyeCenter.x - scleraWidth * eyeUnit / 2f, eyeCenter.y - scleraHeight * eyeUnit / 2f),
+                    size = Size(scleraWidth * eyeUnit, scleraHeight * eyeUnit * eyeScaleY),
+                    style = Stroke(width = 0.5f * eyeUnit)
+                )
+                val irisCenter = Offset(eyeCenter.x, eyeCenter.y + if (mood == CoreMood.SERIO) 0f else eyeOffsetY * 0.2f)
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        listOf(Color.White.copy(alpha = 0.9f), irisColor.copy(alpha = 0.8f), Color.Transparent),
+                        center = irisCenter,
+                        radius = irisRadius * eyeUnit
+                    ),
+                    radius = irisRadius * eyeUnit,
+                    center = irisCenter
+                )
+                drawCircle(Color.Black.copy(alpha = 0.8f), 0.9f * eyeUnit, irisCenter)
+                drawCircle(Color.White.copy(alpha = 0.95f), 0.4f * eyeUnit, Offset(irisCenter.x - 0.35f * eyeUnit, irisCenter.y - 0.35f * eyeUnit))
+                if (mood == CoreMood.SERIO) {
+                    drawLine(irisColor, Offset(eyeCenter.x - 3.2f * eyeUnit, eyeCenter.y - 1.2f * eyeUnit), Offset(eyeCenter.x + 3.2f * eyeUnit, eyeCenter.y - 1.2f * eyeUnit), 0.7f * eyeUnit, StrokeCap.Round)
+                }
+                if (mood == CoreMood.SCANNING) {
+                    drawArc(
+                        color = cyan.copy(alpha = 0.55f),
+                        startAngle = scanPhase * 360f,
+                        sweepAngle = 270f,
+                        useCenter = false,
+                        topLeft = Offset(eyeCenter.x - 4f * eyeUnit, eyeCenter.y - 4f * eyeUnit),
+                        size = Size(8f * eyeUnit, 8f * eyeUnit),
+                        style = Stroke(width = 0.35f * eyeUnit)
+                    )
+                }
+            }
+        }
+        if (mood == CoreMood.SCANNING) {
+            repeat(3) { index ->
+                val y = c.y - coreR * 0.42f + index * coreR * 0.42f
+                val x = c.x - coreR * 0.62f + ((dataPhase + index * 0.28f) % 1f) * coreR * 1.24f
+                drawLine(cyan.copy(alpha = 0.3f), Offset(x, y), Offset(x + coreR * 0.25f, y), coreR * 0.018f, StrokeCap.Round)
+            }
+        }
+        if (mood == CoreMood.THINKING || mood == CoreMood.SCANNING) {
+            repeat(20) { index ->
+                rotate(ring2 * 0.12f, c) {
+                    drawArc(
+                        color = accent.copy(alpha = 0.35f),
+                        startAngle = index.toFloat() * 18f,
+                        sweepAngle = 4f,
+                        useCenter = false,
+                        topLeft = Offset(c.x - coreR * 0.82f, c.y - coreR * 0.82f),
+                        size = Size(coreR * 1.64f, coreR * 1.64f),
+                        style = Stroke(width = coreR * 0.025f)
+                    )
+                }
+            }
         }
         when (mood) {
             CoreMood.SERIO -> drawLine(accent, Offset(c.x - coreR * 0.30f, c.y + coreR * 0.45f), Offset(c.x + coreR * 0.30f, c.y + coreR * 0.45f), coreR * 0.06f, StrokeCap.Round)
             CoreMood.ALERTA -> drawOval(accent, Offset(c.x - coreR * 0.12f, c.y + coreR * 0.28f), Size(coreR * 0.24f, coreR * 0.36f), style = Stroke(coreR * 0.06f))
-            CoreMood.HABLANDO -> drawOval(accent, Offset(c.x - coreR * 0.22f, c.y + coreR * 0.28f), Size(coreR * 0.44f, coreR * 0.18f + coreR * 0.18f * corePulse))
+            CoreMood.HABLANDO -> {
+                drawOval(accent.copy(alpha = 0.3f), Offset(c.x - coreR * 0.22f, c.y + coreR * 0.28f), Size(coreR * 0.44f, coreR * (0.15f + 0.45f * corePulse)))
+                drawOval(accent, Offset(c.x - coreR * 0.22f, c.y + coreR * 0.28f), Size(coreR * 0.44f, coreR * (0.15f + 0.45f * corePulse)), style = Stroke(coreR * 0.05f))
+            }
+            CoreMood.ORGULLOSO -> drawArc(
+                color = accent,
+                startAngle = 20f,
+                sweepAngle = 140f,
+                useCenter = false,
+                topLeft = Offset(c.x - coreR * 0.30f, c.y + coreR * 0.20f),
+                size = Size(coreR * 0.60f, coreR * 0.44f),
+                style = Stroke(width = coreR * 0.06f, cap = StrokeCap.Round)
+            )
             else -> drawArc(
                 color = accent,
-                startAngle = 25f,
-                sweepAngle = 100f,
+                startAngle = 45f,
+                sweepAngle = 90f,
                 useCenter = false,
-                topLeft = Offset(c.x - coreR * 0.24f, c.y + coreR * 0.25f),
-                size = Size(coreR * 0.48f, coreR * 0.30f),
-                style = Stroke(width = coreR * 0.06f, cap = StrokeCap.Round)
+                topLeft = Offset(c.x - coreR * 0.25f, c.y + coreR * 0.20f),
+                size = Size(coreR * 0.50f, coreR * 0.38f),
+                style = Stroke(width = coreR * 0.05f, cap = StrokeCap.Round)
             )
         }
         repeat(10) { index ->
@@ -177,4 +260,24 @@ fun AuraCoreHologram(
             }
         }
     }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawHeart(center: Offset, radius: Float, color: Color) {
+    val path = Path().apply {
+        moveTo(center.x, center.y + radius * 1.5f)
+        cubicTo(
+            center.x - radius * 2f, center.y,
+            center.x - radius, center.y - radius * 1.6f,
+            center.x, center.y - radius * 0.5f
+        )
+        cubicTo(
+            center.x + radius, center.y - radius * 1.6f,
+            center.x + radius * 2f, center.y,
+            center.x, center.y + radius * 1.5f
+        )
+    }
+    drawPath(
+        path,
+        Brush.radialGradient(listOf(Color.White.copy(alpha = 0.9f), color, Color.Transparent), center, radius * 2f)
+    )
 }
