@@ -48,9 +48,9 @@ import com.aura.defense.ai.voice.VoiceCommandEngine
 import com.aura.defense.monitor.AuraProcessLog
 import com.aura.defense.security.PostureResult
 import com.aura.defense.ui.AuraText
-import com.aura.defense.ui.components.aura.AuraBot
+import com.aura.defense.ui.components.aura.AuraCoreHologram
 import com.aura.defense.ui.components.aura.AuraTerminal
-import com.aura.defense.ui.components.aura.BotMood
+import com.aura.defense.ui.components.aura.CoreMood
 import com.aura.defense.vpn.DnsFirewallProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -86,6 +86,7 @@ fun AuraConsoleScreen(
     var processingQuestion by remember { mutableStateOf(false) }
     var handledEvent by remember { mutableStateOf<Long?>(null) }
     val redEvents = entries.count { it.category == "RED" }
+    val selfDefenseAlert = entries.any { it.category == "SISTEMA" && it.message.contains("AUTODEFENSA") }
     val lastSecurityEvent = entries.lastOrNull { it.category == "RED" || it.category == "SCAN" && it.message.startsWith("Escaneo completado") }
     val brain = remember(posture, vpnRunning) { CopilotBrain(context, { posture }, { vpnRunning }, null) }
 
@@ -113,22 +114,23 @@ fun AuraConsoleScreen(
     DisposableEffect(voiceEngine) { onDispose { voiceEngine.destroy(); voice.destroy() } }
 
     val mood = when {
-        speaking -> BotMood.HABLANDO
-        scanning -> BotMood.SCANNING
-        guardianSerious -> BotMood.SERIO
-        processingQuestion || voiceProcessing -> BotMood.THINKING
-        proud -> BotMood.ORGULLOSO
-        else -> BotMood.IDLE
+        scanning -> CoreMood.SCANNING
+        processingQuestion || voiceProcessing -> CoreMood.THINKING
+        guardianSerious -> CoreMood.SERIO
+        selfDefenseAlert -> CoreMood.ALERTA
+        proud -> CoreMood.ORGULLOSO
+        speaking || voiceEnabled -> CoreMood.HABLANDO
+        else -> CoreMood.IDLE
     }
     Column(
-        modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF0D1117), Color(0xFF10141B))))
+        modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF0A0E14), Color(0xFF0D1117))))
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Box(Modifier.fillMaxWidth().weight(0.42f), contentAlignment = Alignment.Center) {
-            AuraBot(mood = mood, modifier = Modifier.fillMaxSize(), isSpeaking = speaking, pointAtTerminalEvent = redEvents)
+        Box(Modifier.fillMaxWidth().weight(0.45f), contentAlignment = Alignment.Center) {
+            AuraCoreHologram(mood = mood, modifier = Modifier.fillMaxSize(), eventPulse = redEvents)
         }
-        Box(Modifier.fillMaxWidth().weight(0.18f)) { AuraTerminal(entries, Modifier.fillMaxSize()) }
+        Box(Modifier.fillMaxWidth().weight(0.15f)) { AuraTerminal(entries, Modifier.fillMaxSize()) }
         Column(Modifier.fillMaxWidth().weight(0.40f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 itemsIndexed(messages.takeLast(3)) { _, (isUser, text) ->

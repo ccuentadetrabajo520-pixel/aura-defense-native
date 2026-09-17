@@ -1,10 +1,10 @@
 package com.aura.defense.ui.screens
 
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,11 +12,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -29,124 +26,140 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.withTransform
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aura.defense.R
 import com.aura.defense.data.AuraPreferences
-import com.aura.defense.ui.components.aura.AuraMotion
+import com.aura.defense.ui.components.aura.AuraCoreHologram
 import com.aura.defense.ui.components.aura.AuraTermsDialog
-import com.aura.defense.ui.components.aura.IntroScene
+import com.aura.defense.ui.components.aura.CoreMood
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlin.math.cos
-import kotlin.math.sin
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AuraIntroScreen(preferences: AuraPreferences, onFinished: () -> Unit) {
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 6 })
-    val scope = rememberCoroutineScope()
+    var step by remember { mutableStateOf(0) }
     var termsAccepted by remember { mutableStateOf(false) }
     var showTerms by remember { mutableStateOf(false) }
-    fun advance() {
-        if (pagerState.currentPage < 5) scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
+
+    LaunchedEffect(step) {
+        when (step) {
+            0 -> { delay(2500); step = 1 }
+            1 -> { delay(3000); step = 2 }
+            2 -> { delay(3000); step = 3 }
+        }
     }
 
-    Box(Modifier.fillMaxSize().background(Color(0xFF14171C))) {
-        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-            Box(
-                Modifier.fillMaxSize().clickable { if (page < 5) advance() }
-            ) {
-                when (page) {
-                    0 -> IntroScene(R.drawable.intro_presentacion, "Hola, soy AURA", "Seré tu asistente de ciber defensa para tu dispositivo")
-                    1 -> IntroScene(R.drawable.intro_capacidades, "Esto es lo que hago por ti", "Vigilo tu red, analizo tus apps y cuido tu sistema en tiempo real")
-                    2 -> IntroScene(R.drawable.intro_proteccion, "Bloqueo lo peligroso", "Protección antes de que una amenaza toque tus datos")
-                    3 -> IntroScene(R.drawable.intro_datos, "Tus datos se quedan aquí", "Todo se procesa en tu dispositivo")
-                    4 -> IntroScene(R.drawable.intro_cuerpo, "Hola, soy AURA", "AURA te acompaña en cada defensa", showText = true)
-                    else -> FinalScene(
-                        termsAccepted = termsAccepted,
-                        onTermsChanged = { termsAccepted = it },
-                        onReadTerms = { showTerms = true },
-                        onStart = {
-                            preferences.setTermsAccepted()
-                            preferences.setOnboardingCompleted()
-                            onFinished()
-                        }
-                    )
+    Box(
+        Modifier.fillMaxSize().background(
+            Brush.verticalGradient(listOf(Color(0xFF05080C), Color(0xFF0D1117)))
+        ).padding(24.dp)
+    ) {
+        when (step) {
+            0 -> BootTerminal()
+            1 -> OnlineScene()
+            2 -> CapabilitiesScene()
+            else -> ReadyScene(
+                termsAccepted = termsAccepted,
+                onTermsChanged = { termsAccepted = it },
+                onReadTerms = { showTerms = true },
+                onStart = {
+                    preferences.setTermsAccepted()
+                    preferences.setOnboardingCompleted()
+                    onFinished()
                 }
-            }
+            )
         }
-        if (pagerState.currentPage < 5) {
-            Button(
-                onClick = ::advance,
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 34.dp)
-            ) { Text("Siguiente") }
-        }
-        Row(
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 28.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            repeat(6) { index ->
-                Box(Modifier.size(if (index == pagerState.currentPage) 22.dp else 7.dp, 7.dp).background(Color(0xFF4DD8E6).copy(alpha = if (index == pagerState.currentPage) 1f else 0.35f), RoundedCornerShape(8.dp)))
-            }
+        if (step < 3) {
+            TextButton(
+                onClick = { step = 3 },
+                modifier = Modifier.align(Alignment.BottomEnd)
+            ) { Text("Saltar", color = Color(0xFF657783), fontFamily = FontFamily.Monospace) }
         }
     }
     if (showTerms) AuraTermsDialog(onDismiss = { showTerms = false })
 }
 
 @Composable
-private fun FinalScene(
+private fun BootTerminal() {
+    val lines = listOf(
+        "AURA DEFENS v1.1",
+        "> Inicializando núcleo de defensa...",
+        "> Cargando inteligencia de amenazas... OK",
+        "> Calibrando sensores... OK",
+        "> Estableciendo vínculo seguro... OK"
+    )
+    var visibleLines by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        lines.forEachIndexed { index, line ->
+            delay(if (index == 0) 120 else line.length * 25L)
+            visibleLines = index + 1
+        }
+    }
+    Column(
+        Modifier.fillMaxSize().padding(top = 64.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        lines.take(visibleLines).forEachIndexed { index, line ->
+            Text(line, color = if (index == 0) Color(0xFF4DD8E6) else Color(0xFF22C55E), fontFamily = FontFamily.Monospace, fontSize = if (index == 0) 20.sp else 13.sp)
+        }
+        Text("_", color = Color(0xFF22C55E), fontFamily = FontFamily.Monospace)
+    }
+}
+
+@Composable
+private fun OnlineScene() {
+    val alpha by animateFloatAsState(1f, tween(600), label = "core-boot-alpha")
+    Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        AuraCoreHologram(CoreMood.BOOT, Modifier.size(280.dp).then(Modifier), eventPulse = 0)
+        Text("AURA EN LÍNEA", color = Color(0xFF4DD8E6).copy(alpha = alpha), fontFamily = FontFamily.Monospace, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.size(14.dp))
+        Text("Hola, soy AURA. Seré tu primer asistente de ciber defensa.", color = Color.White.copy(alpha = alpha), textAlign = TextAlign.Center, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
+    }
+}
+
+@Composable
+private fun CapabilitiesScene() {
+    val capabilities = listOf(
+        "• Filtra 200.000+ dominios peligrosos en tiempo real",
+        "• Detecta troyanos bancarios por su comportamiento",
+        "• Todo se procesa en tu dispositivo. Nada sale de aquí."
+    )
+    var visible by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        capabilities.forEachIndexed { index, _ -> delay(400L); visible = index + 1 }
+    }
+    Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        AuraCoreHologram(CoreMood.IDLE, Modifier.size(250.dp))
+        Spacer(Modifier.size(14.dp))
+        capabilities.take(visible).forEach { line ->
+            AnimatedVisibility(true, enter = fadeIn(tween(400))) {
+                Text(line, color = Color.White, fontFamily = FontFamily.Monospace, fontSize = 12.sp, modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReadyScene(
     termsAccepted: Boolean,
     onTermsChanged: (Boolean) -> Unit,
     onReadTerms: () -> Unit,
     onStart: () -> Unit
 ) {
-    val breath = androidx.compose.animation.core.rememberInfiniteTransition(label = "avatar-breath")
-    val avatarScale by breath.animateFloat(1f, 1.03f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(AuraMotion.Breath, easing = AuraMotion.AuraEase), androidx.compose.animation.core.RepeatMode.Reverse), label = "avatar-scale")
-    var blink by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(3500)
-            blink = true
-            delay(140)
-            blink = false
-        }
-    }
-    Column(Modifier.fillMaxSize().padding(26.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Canvas(Modifier.size(210.dp).graphicsLayerSafe(avatarScale)) {
-            val head = androidx.compose.ui.geometry.Size(size.width * 0.76f, size.height * 0.62f)
-            val topLeft = Offset((size.width - head.width) / 2f, size.height * 0.1f)
-            drawRoundRect(Color(0xFFE8EAED), topLeft, head, androidx.compose.ui.geometry.CornerRadius(34.dp.toPx()))
-            val screen = androidx.compose.ui.geometry.Size(head.width * 0.78f, head.height * 0.55f)
-            val screenTop = Offset(topLeft.x + head.width * 0.11f, topLeft.y + head.height * 0.22f)
-            drawRoundRect(Color(0xFF14171C), screenTop, screen, androidx.compose.ui.geometry.CornerRadius(20.dp.toPx()))
-            val eyeScale = if (blink) 0.15f else 1f
-            listOf(0.37f, 0.63f).forEach { x ->
-                withTransform({ scale(1f, eyeScale, Offset(screenTop.x + screen.width * x, screenTop.y + screen.height * 0.5f)) }) {
-                    drawCircle(Color(0xFF4DD8E6), 10.dp.toPx(), Offset(screenTop.x + screen.width * x, screenTop.y + screen.height * 0.5f))
-                }
-            }
-            drawLine(Color(0xFFB9C1C8), Offset(size.width * 0.35f, size.height * 0.78f), Offset(size.width * 0.65f, size.height * 0.78f), 3.dp.toPx(), StrokeCap.Round)
-        }
-        Spacer(Modifier.height(16.dp))
-        Text("Estoy listo para cuidarte.", color = Color(0xFF4DD8E6), fontSize = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(20.dp))
-        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        AuraCoreHologram(CoreMood.IDLE, Modifier.size(240.dp))
+        Spacer(Modifier.size(10.dp))
+        Text("Estoy listo para cuidarte.", color = Color(0xFF4DD8E6), fontSize = 23.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        Spacer(Modifier.size(18.dp))
+        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = onReadTerms) { Text("Leer Términos y Condiciones") }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = termsAccepted, onCheckedChange = onTermsChanged)
@@ -157,8 +170,3 @@ private fun FinalScene(
         }
     }
 }
-
-private fun Modifier.graphicsLayerSafe(scale: Float): Modifier = this.then(Modifier.graphicsLayer {
-    scaleX = scale
-    scaleY = scale
-})
