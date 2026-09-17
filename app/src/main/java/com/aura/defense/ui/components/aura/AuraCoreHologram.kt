@@ -86,11 +86,27 @@ fun AuraCoreHologram(
         rotate(ring1 * speedFactor, c) {
             repeat(8) { index ->
                 val topLeft = Offset(c.x - maxR * 0.92f, c.y - maxR * 0.92f)
-                drawArc(accent.copy(alpha = 0.55f), index * 45f, 28f, false, topLeft, Size(maxR * 1.84f, maxR * 1.84f), Stroke(maxR * 0.015f, cap = StrokeCap.Round))
+                drawArc(
+                    color = accent.copy(alpha = 0.55f),
+                    startAngle = index.toFloat() * 45f,
+                    sweepAngle = 28f,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = Size(maxR * 1.84f, maxR * 1.84f),
+                    style = Stroke(width = maxR * 0.015f, cap = StrokeCap.Round)
+                )
             }
         }
         rotate(ring2 * speedFactor, c) {
-            drawArc(cyan.copy(alpha = 0.35f), 210f, 300f, false, Offset(c.x - maxR * 0.70f, c.y - maxR * 0.70f), Size(maxR * 1.40f, maxR * 1.40f), Stroke(maxR * 0.008f))
+            drawArc(
+                color = cyan.copy(alpha = 0.35f),
+                startAngle = 210f,
+                sweepAngle = 300f,
+                useCenter = false,
+                topLeft = Offset(c.x - maxR * 0.70f, c.y - maxR * 0.70f),
+                size = Size(maxR * 1.40f, maxR * 1.40f),
+                style = Stroke(width = maxR * 0.008f)
+            )
             listOf(0f, 120f, 240f).forEach { angle ->
                 val radians = (angle + ring2 * speedFactor) * (PI.toFloat() / 180f)
                 val point = Offset(c.x + maxR * 0.70f * cos(radians), c.y + maxR * 0.70f * sin(radians))
@@ -116,14 +132,30 @@ fun AuraCoreHologram(
         val eyeR = coreR * 0.45f
         listOf(-1f, 1f).forEach { side ->
             val eyeCenter = Offset(c.x + side * coreR * 0.38f, c.y - coreR * 0.05f)
-            drawArc(accent.copy(alpha = eyeBlink.value), 180f, 180f, false, Offset(eyeCenter.x - eyeR, eyeCenter.y - eyeR), Size(eyeR * 2f, eyeR * 2f), Stroke(coreR * 0.10f, cap = StrokeCap.Round))
+            drawArc(
+                color = accent.copy(alpha = eyeBlink.value),
+                startAngle = 180f,
+                sweepAngle = 180f,
+                useCenter = false,
+                topLeft = Offset(eyeCenter.x - eyeR, eyeCenter.y - eyeR),
+                size = Size(eyeR * 2f, eyeR * 2f),
+                style = Stroke(width = coreR * 0.10f, cap = StrokeCap.Round)
+            )
             drawCircle(accent.copy(alpha = eyeBlink.value), coreR * 0.10f, Offset(eyeCenter.x, eyeCenter.y + eyeR * 0.35f))
         }
         when (mood) {
             CoreMood.SERIO -> drawLine(accent, Offset(c.x - coreR * 0.30f, c.y + coreR * 0.45f), Offset(c.x + coreR * 0.30f, c.y + coreR * 0.45f), coreR * 0.06f, StrokeCap.Round)
             CoreMood.ALERTA -> drawOval(accent, Offset(c.x - coreR * 0.12f, c.y + coreR * 0.28f), Size(coreR * 0.24f, coreR * 0.36f), style = Stroke(coreR * 0.06f))
             CoreMood.HABLANDO -> drawOval(accent, Offset(c.x - coreR * 0.22f, c.y + coreR * 0.28f), Size(coreR * 0.44f, coreR * 0.18f + coreR * 0.18f * corePulse))
-            else -> drawArc(accent, 25f, 100f, false, Offset(c.x - coreR * 0.24f, c.y + coreR * 0.25f), Size(coreR * 0.48f, coreR * 0.30f), Stroke(coreR * 0.06f, cap = StrokeCap.Round))
+            else -> drawArc(
+                color = accent,
+                startAngle = 25f,
+                sweepAngle = 100f,
+                useCenter = false,
+                topLeft = Offset(c.x - coreR * 0.24f, c.y + coreR * 0.25f),
+                size = Size(coreR * 0.48f, coreR * 0.30f),
+                style = Stroke(width = coreR * 0.06f, cap = StrokeCap.Round)
+            )
         }
         repeat(10) { index ->
             val direction = if (index % 2 == 0) 1f else -1.4f
@@ -134,7 +166,14 @@ fun AuraCoreHologram(
         }
         if (mood == CoreMood.SCANNING) {
             rotate(ring1 * 2f, c) {
-                drawArc(cyan.copy(alpha = 0.08f), -20f, 40f, true, Offset(c.x - maxR * 0.92f, c.y - maxR * 0.92f), Size(maxR * 1.84f, maxR * 1.84f))
+                drawArc(
+                    color = cyan.copy(alpha = 0.08f),
+                    startAngle = -20f,
+                    sweepAngle = 40f,
+                    useCenter = true,
+                    topLeft = Offset(c.x - maxR * 0.92f, c.y - maxR * 0.92f),
+                    size = Size(maxR * 1.84f, maxR * 1.84f)
+                )
             }
         }
     }
