@@ -8,6 +8,38 @@ android {
     namespace = "com.aura.defense"
     compileSdk = 34
 
+    flavorDimensions += "environment"
+
+    productFlavors {
+        create("dev") {
+            dimension = "environment"
+            applicationIdSuffix = ".debug"
+            buildConfigField(
+                "String",
+                "AURA_THREAT_PUBLIC_KEY",
+                "\"${project.findProperty("AURA_THREAT_PUBLIC_KEY_DEBUG") ?: ""}\""
+            )
+            buildConfigField(
+                "String",
+                "AURA_THREAT_MANIFEST_URL",
+                "\"https://example.invalid/aura-debug-manifest.json\""
+            )
+        }
+        create("prod") {
+            dimension = "environment"
+            buildConfigField(
+                "String",
+                "AURA_THREAT_PUBLIC_KEY",
+                "\"${project.findProperty("AURA_THREAT_PUBLIC_KEY") ?: ""}\""
+            )
+            buildConfigField(
+                "String",
+                "AURA_THREAT_MANIFEST_URL",
+                "\"${project.findProperty("AURA_THREAT_MANIFEST_URL") ?: ""}\""
+            )
+        }
+    }
+
     defaultConfig {
         applicationId = "com.aura.defense"
         minSdk = 26
@@ -16,8 +48,6 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "AURA_THREAT_PUBLIC_KEY", "\"\"")
-        buildConfigField("String", "AURA_THREAT_MANIFEST_URL", "\"\"")
     }
 
     buildTypes {

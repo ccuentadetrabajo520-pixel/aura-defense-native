@@ -45,7 +45,6 @@ class AuraVpnService : VpnService() {
             createNotificationChannel()
             startForeground(NOTIFICATION_ID, notification())
             dnsStore = DnsFirewallStore(this)
-            ThreatFeedManager.init(this)
             IpBlocklistLoader.init(this)
             ThreatEngine = ThreatIntelligenceEngine(this)
             decisionEngine = buildDecisionEngine()
@@ -109,7 +108,7 @@ class AuraVpnService : VpnService() {
             }
             isRunning = true
             packetThread = Thread(::runDnsProxy, "AuraDnsFirewall").also { it.start() }
-            val intelligenceReady = ThreatEngine?.indicators?.isNotEmpty() == true || ThreatFeedManager.size() > 0
+            val intelligenceReady = ThreatEngine?.indicators?.isNotEmpty() == true
             if (intelligenceReady) {
                 DnsProtectionStateStore.transition(DnsProtectionStatus.ACTIVE_DNS_ONLY)
                 VpnDebugger.log("Protección DNS activa: solo consultas DNS observadas")
@@ -144,7 +143,6 @@ class AuraVpnService : VpnService() {
         runCatching { tunnel?.close() }
         tunnel = null
         packetThread?.interrupt()
-        ThreatFeedManager.shutdown()
         decisionEngine = null
         ThreatEngine = null
         packetThread = null
@@ -290,12 +288,18 @@ class AuraVpnService : VpnService() {
     }
 
     private fun buildDecisionEngine(): DnsDecisionEngine {
-        val engine = ThreatEngine
-        val rules = buildList {
-            engine?.indicators?.forEach { indicator ->
-                add(DnsRule(indicator.indicator, indicator.category.name, indicator.source, indicator.updatedAt, indicator.severity.name))
-            }
-        }
+        val repository = com.aura.defense.threats.ThreatIntelligenceRepository(this)
+        val active = repository.activeFeed()
+        val rules = active?.indicators?.map { indicator ->
+            DnsRule(
+                domain = indicator.indicator,
+                category = indicator.category.name,
+                source = indicator.source,
+                feedVersion = active.version,
+                severity = indicator.severity.name,
+                validUntil = active.expiresAt
+            )
+        } ?: emptyList()
         val store = dnsStore ?: DnsFirewallStore(this)
         return DnsDecisionEngine(
             profile = store.profile(),
@@ -303,11 +307,7 @@ class AuraVpnService : VpnService() {
             blocklist = store.blocklist().toSet(),
             rules = rules,
             temporaryExceptions = store.temporaryExceptions(),
-            dynamicRuleLookup = { domain ->
-                ThreatFeedManager.categoryOf(domain)?.let { category ->
-                    DnsRule(domain, category, "HOSTS_FEED", "cache")
-                }
-            }
+            dynamicRuleLookup = null
         )
     }
 

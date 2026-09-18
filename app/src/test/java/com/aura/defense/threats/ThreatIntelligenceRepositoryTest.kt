@@ -243,5 +243,29 @@ class ThreatIntelligenceRepositoryTest {
         assertEquals("", result.manifestUrl)
         assertTrue(result.errors.isNotEmpty())
     }
+
+    @Test
+    fun `signed active feed controls dns blocking and invalid feed is rejected`() {
+        val repo = freshRepo()
+        val signed = signedValidFeed(signedIndicatorFeedWith(2), fixtureKeyPair)
+        val manifest = signedManifestJson(signed, fixtureKeyPair)
+        val snapshot = repo.updateFromSignedManifest(manifest)
+
+        assertEquals(ThreatRepositoryState.CURRENT, snapshot.state)
+        val rules = repo.activeFeed()!!.indicators.map {
+            com.aura.defense.vpn.DnsRule(it.indicator, it.category.name, it.source, repo.activeFeed()!!.version, it.severity.name, repo.activeFeed()!!.expiresAt)
+        }
+        val engine = DnsDecisionEngine(
+            DnsFirewallProfile.ESTRICTO,
+            emptySet(),
+            emptySet(),
+            rules
+        )
+        assertEquals(DnsDecision.BLOCK, engine.decide("login.example-phish.test").decision)
+
+        val broken = manifest.replace("\"signature\":\"${signed.signature}\"", "\"signature\":\"bad-signature\"")
+        val rejected = repo.updateFromSignedManifest(broken)
+        assertTrue(rejected.state == ThreatRepositoryState.STALE || rejected.state == ThreatRepositoryState.FAILED)
+    }
 }
 

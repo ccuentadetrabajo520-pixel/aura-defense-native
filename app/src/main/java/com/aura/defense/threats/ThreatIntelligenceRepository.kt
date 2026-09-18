@@ -63,6 +63,16 @@ object ThreatConfigResolver {
         val errors = buildList {
             if (resolvedPublicKey.isBlank()) add("AURA_THREAT_PUBLIC_KEY no configurada")
             if (resolvedManifestUrl.isBlank()) add("AURA_THREAT_MANIFEST_URL no configurada")
+            else {
+                val uri = runCatching { java.net.URI(resolvedManifestUrl) }.getOrNull()
+                if (uri == null || uri.scheme != "https" || uri.host.isNullOrBlank()) {
+                    add("AURA_THREAT_MANIFEST_URL debe ser HTTPS y contener host válido")
+                }
+            }
+            if (resolvedPublicKey.isNotBlank()) {
+                val base64 = runCatching { java.util.Base64.getDecoder().decode(resolvedPublicKey) }.getOrNull()
+                if (base64 == null || base64.size < 32) add("AURA_THREAT_PUBLIC_KEY no es una clave pública Ed25519 Base64 válida")
+            }
         }
         return ThreatConfigResolution(resolvedPublicKey, resolvedManifestUrl, errors)
     }
@@ -287,9 +297,15 @@ class ThreatIntelligenceRepository(
 
         val canonical = payload.canonicalPayloadString()
         if (sha256Hex(canonical) != checksum) return null
+        if (size != canonical.toByteArray(Charsets.UTF_8).size.toLong()) return null
         if (payload.indicators.isNotEmpty()) {
             val indicatorIds = payload.indicators.map { it.id }
             if (indicatorIds.distinct().size != indicatorIds.size) return null
+            if (payload.indicators.any { it.indicator.isBlank() }) return null
+            val invalidType = payload.indicators.any { runCatching { ThreatIndicatorType.valueOf(it.indicatorType.name) }.isFailure }
+            if (invalidType) return null
+            val invalidDate = payload.indicators.any { it.updatedAt.isBlank() || runCatching { java.time.Instant.parse(it.updatedAt) }.isFailure }
+            if (invalidDate) return null
         }
 
         val validation = SignedThreatFeedValidator(config.publicKeyBase64).validate(payload)
