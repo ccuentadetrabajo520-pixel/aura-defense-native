@@ -1,6 +1,8 @@
 package com.aura.defense.threats
 
 import android.content.Context
+import com.aura.defense.BuildConfig
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
@@ -46,17 +48,41 @@ interface ThreatNetworkClient {
     fun fetch(url: String, etag: String? = null, lastModified: String? = null): NetworkFetchResult?
 }
 
+data class ThreatConfigResolution(
+    val publicKeyBase64: String,
+    val manifestUrl: String,
+    val errors: List<String> = emptyList()
+) {
+    val isValid: Boolean get() = publicKeyBase64.isNotBlank() && manifestUrl.isNotBlank() && errors.isEmpty()
+}
+
+object ThreatConfigResolver {
+    fun resolve(publicKey: String? = null, manifestUrl: String? = null): ThreatConfigResolution {
+        val resolvedPublicKey = (publicKey ?: BuildConfig.AURA_THREAT_PUBLIC_KEY).orEmpty().trim()
+        val resolvedManifestUrl = (manifestUrl ?: BuildConfig.AURA_THREAT_MANIFEST_URL).orEmpty().trim()
+        val errors = buildList {
+            if (resolvedPublicKey.isBlank()) add("AURA_THREAT_PUBLIC_KEY no configurada")
+            if (resolvedManifestUrl.isBlank()) add("AURA_THREAT_MANIFEST_URL no configurada")
+        }
+        return ThreatConfigResolution(resolvedPublicKey, resolvedManifestUrl, errors)
+    }
+}
+
 class ThreatIntelligenceRepository(
     private val context: Context? = null,
-    private val publicKeyBase64: String = System.getenv("AURA_THREAT_PUBLIC_KEY") ?: "",
-    private val manifestUrl: String = System.getenv("AURA_THREAT_MANIFEST_URL") ?: "",
+    private val publicKeyBase64: String = BuildConfig.AURA_THREAT_PUBLIC_KEY,
+    private val manifestUrl: String = BuildConfig.AURA_THREAT_MANIFEST_URL,
     private val networkClient: ThreatNetworkClient = ThreatFeedService()
 ) {
     private val prefs = context?.getSharedPreferences("aura_threat_repository", Context.MODE_PRIVATE)
     private val tempDir by lazy { context?.let { File(it.filesDir, "threat_feed_tmp") } }
+    private val config = ThreatConfigResolver.resolve(publicKeyBase64, manifestUrl)
     private var currentState: ThreatRepositoryState = loadPersistedState()
     private var activeFeed: SignedThreatFeed? = loadPersistedFeed(ACTIVE_KEY)
     private var lastValidFeed: SignedThreatFeed? = loadPersistedFeed(LAST_VALID_KEY)
+    private var lastPersistedEtag: String? = prefs?.getString("last_etag", null)
+    private var lastPersistedLastModified: String? = prefs?.getString("last_last_modified", null)
+    private var atomicReplaceFails: Boolean = false
 
     fun activeFeed(): SignedThreatFeed? = activeFeed?.takeIf { it.expiresAt > System.currentTimeMillis() }
         ?: lastValidFeed?.takeIf { it.expiresAt > System.currentTimeMillis() }
@@ -67,23 +93,38 @@ class ThreatIntelligenceRepository(
 
     fun state(): ThreatRepositoryState = currentState
 
+    fun lastHttpEtag(): String? = lastPersistedEtag
+
+    fun lastHttpLastModified(): String? = lastPersistedLastModified
+
+    fun copyForTesting(atomicReplaceFails: Boolean = false): ThreatIntelligenceRepository {
+        return ThreatIntelligenceRepository(
+            context = context,
+            publicKeyBase64 = publicKeyBase64,
+            manifestUrl = manifestUrl,
+            networkClient = networkClient
+        ).apply {
+            this.currentState = this@ThreatIntelligenceRepository.currentState
+            this.activeFeed = this@ThreatIntelligenceRepository.activeFeed
+            this.lastValidFeed = this@ThreatIntelligenceRepository.lastValidFeed
+            this.lastPersistedEtag = this@ThreatIntelligenceRepository.lastPersistedEtag
+            this.lastPersistedLastModified = this@ThreatIntelligenceRepository.lastPersistedLastModified
+            this.atomicReplaceFails = atomicReplaceFails
+        }
+    }
+
     fun refresh(): ThreatRepositorySnapshot {
         currentState = ThreatRepositoryState.UPDATING
         persistState(currentState)
 
-        if (publicKeyBase64.isBlank()) {
+        if (!config.isValid) {
             currentState = ThreatRepositoryState.FAILED
             persistState(currentState)
-            return snapshot(currentState, activeFeed(), "Clave pública Ed25519 no configurada.")
-        }
-        if (manifestUrl.isBlank()) {
-            currentState = ThreatRepositoryState.FAILED
-            persistState(currentState)
-            return snapshot(currentState, activeFeed(), "URL del manifiesto no configurada.")
+            return snapshot(currentState, activeFeed(), config.errors.joinToString("; "))
         }
 
         val previous = activeFeed() ?: lastValidFeed
-        val result = networkClient.fetch(manifestUrl, prefs?.getString("last_etag", null), prefs?.getString("last_last_modified", null))
+        val result = networkClient.fetch(manifestUrl, lastPersistedEtag, lastPersistedLastModified)
             ?: return snapshot(
                 if (previous != null) ThreatRepositoryState.STALE else ThreatRepositoryState.FAILED,
                 previous,
@@ -116,7 +157,11 @@ class ThreatIntelligenceRepository(
             return snapshot(currentState, previous, "Se detecta replay tras reinicio o repetición del mismo feed.")
         }
 
-        val committed = installValidatedFeed(validated)
+        val committed = installValidatedFeed(validated, result.etag, result.lastModified)
+        if (currentState == ThreatRepositoryState.STALE) {
+            persistState(currentState)
+            return snapshot(currentState, committed, "No se pudo reemplazar el feed activo; se conserva el último válido.")
+        }
         currentState = if (committed.expiresAt <= System.currentTimeMillis()) ThreatRepositoryState.EXPIRED else ThreatRepositoryState.CURRENT
         persistState(currentState)
         return snapshot(currentState, committed, if (currentState == ThreatRepositoryState.CURRENT) "Feed actualizado y activado." else "Feed actualizado pero expirado.")
@@ -143,6 +188,10 @@ class ThreatIntelligenceRepository(
         }
 
         val committed = installValidatedFeed(validated)
+        if (currentState == ThreatRepositoryState.STALE) {
+            persistState(currentState)
+            return snapshot(currentState, committed, "No se pudo reemplazar el feed activo; se conserva el último válido.")
+        }
         currentState = if (committed.expiresAt <= System.currentTimeMillis()) ThreatRepositoryState.EXPIRED else ThreatRepositoryState.CURRENT
         persistState(currentState)
         return snapshot(currentState, committed, if (currentState == ThreatRepositoryState.CURRENT) "Feed almacenado y activado." else "Feed expirado tras almacenamiento.")
@@ -163,32 +212,47 @@ class ThreatIntelligenceRepository(
 
     fun lastValidFeed(): SignedThreatFeed? = lastValidFeed ?: activeFeed()
 
-    private fun installValidatedFeed(feed: SignedThreatFeed): SignedThreatFeed {
-        tempDir?.mkdirs()
-        val target = context?.let { File(it.filesDir, "threat_feed_active.json") }
-        val atomicFile = context?.let { File(it.filesDir, "threat_feed_active.json.tmp") }
-        val payload = jsonFor(feed)
-        atomicFile?.writeText(payload)
-        if (atomicFile != null && target != null) {
-            atomicFile.renameTo(target)
+    private fun installValidatedFeed(feed: SignedThreatFeed, etag: String? = null, lastModified: String? = null): SignedThreatFeed {
+        if (atomicReplaceFails) {
+            currentState = ThreatRepositoryState.STALE
+            persistState(currentState)
+            if (lastValidFeed != null) {
+                activeFeed = lastValidFeed
+            }
+            return lastValidFeed ?: feed
+        }
+
+        if (context != null) {
+            val target = File(context.filesDir, "threat_feed_active.json")
+            val atomicFile = File(context.filesDir, "threat_feed_active.json.tmp")
+            val payload = jsonFor(feed)
+            atomicFile.writeText(payload)
+            val replaced = atomicFile.renameTo(target)
+            if (!replaced) {
+                currentState = ThreatRepositoryState.STALE
+                persistState(currentState)
+                return lastValidFeed ?: feed
+            }
         }
 
         activeFeed = feed
         lastValidFeed = feed
+        lastPersistedEtag = etag ?: lastPersistedEtag
+        lastPersistedLastModified = lastModified ?: lastPersistedLastModified
         prefs?.edit()
-            ?.putString(ACTIVE_KEY, payload)
-            ?.putString(LAST_VALID_KEY, payload)
+            ?.putString(ACTIVE_KEY, jsonFor(feed))
+            ?.putString(LAST_VALID_KEY, jsonFor(feed))
             ?.putString("last_signature", feed.signature)
             ?.putString("last_version", feed.version)
             ?.putString("last_source", feed.source)
-            ?.putString("last_etag", prefs?.getString("last_etag", null) ?: "")
-            ?.putString("last_last_modified", prefs?.getString("last_last_modified", null) ?: "")
+            ?.putString("last_etag", lastPersistedEtag ?: "")
+            ?.putString("last_last_modified", lastPersistedLastModified ?: "")
             ?.apply()
         return feed
     }
 
     private fun parseAndValidate(rawJson: String): SignedThreatFeed? {
-        if (publicKeyBase64.isBlank()) return null
+        if (!config.isValid) return null
         if (rawJson.isBlank()) return null
         val objectJson = runCatching { JSONObject(rawJson.trim()) }.getOrNull() ?: return null
         val root = if (objectJson.has("feed")) objectJson.getJSONObject("feed") else objectJson
@@ -206,17 +270,8 @@ class ThreatIntelligenceRepository(
         if (ruleId.isBlank() || source.isBlank() || version.isBlank() || evidence.isBlank() || checksum.isBlank() || signature.isBlank()) return null
         if (expiresAt <= 0L || size <= 0L) return null
 
-        val payload = listOf(
-            ruleId,
-            source,
-            version,
-            evidence,
-            expiresAt.toString(),
-            size.toString()
-        ).joinToString("|")
-        if (sha256Hex(payload) != checksum) return null
-
-        val feed = SignedThreatFeed(
+        val indicatorList = parseIndicators(root)
+        val payload = SignedThreatFeed(
             ruleId = ruleId,
             source = source,
             version = version,
@@ -226,12 +281,49 @@ class ThreatIntelligenceRepository(
             size = size,
             signature = signature,
             publicKeyId = publicKeyId,
+            indicators = indicatorList,
             feedTimestamp = System.currentTimeMillis()
         )
 
-        val validation = SignedThreatFeedValidator(publicKeyBase64).validate(feed)
+        val canonical = payload.canonicalPayloadString()
+        if (sha256Hex(canonical) != checksum) return null
+        if (payload.indicators.isNotEmpty()) {
+            val indicatorIds = payload.indicators.map { it.id }
+            if (indicatorIds.distinct().size != indicatorIds.size) return null
+        }
+
+        val validation = SignedThreatFeedValidator(config.publicKeyBase64).validate(payload)
         if (!validation.valid) return null
-        return feed
+        return payload
+    }
+
+    private fun parseIndicators(root: JSONObject): List<ThreatIndicator> {
+        val items = root.optJSONArray("indicators")
+        if (items != null) return parseIndicatorJsonArray(items)
+        val indicatorContainer = root.optJSONObject("indicators")
+        val nestedItems = indicatorContainer?.optJSONArray("items")
+        if (nestedItems != null) return parseIndicatorJsonArray(nestedItems)
+        return emptyList()
+    }
+
+    private fun parseIndicatorJsonArray(array: JSONArray): List<ThreatIndicator> = buildList {
+        for (index in 0 until array.length()) {
+            val item = array.getJSONObject(index)
+            val value = item.optString("indicator", "").trim()
+            if (value.isBlank()) continue
+            add(
+                ThreatIndicator(
+                    id = item.optString("id", "indicator-$index"),
+                    indicator = value,
+                    indicatorType = runCatching { ThreatIndicatorType.valueOf(item.optString("indicatorType", ThreatIndicatorType.DOMAIN.name)) }.getOrDefault(ThreatIndicatorType.DOMAIN),
+                    category = runCatching { ThreatCategory.valueOf(item.optString("category", ThreatCategory.MALWARE.name)) }.getOrDefault(ThreatCategory.MALWARE),
+                    severity = runCatching { ThreatSeverity.valueOf(item.optString("severity", ThreatSeverity.HIGH.name)) }.getOrDefault(ThreatSeverity.HIGH),
+                    descriptionEs = item.optString("descriptionEs", "Señal del feed"),
+                    source = item.optString("source", "aurafeed"),
+                    updatedAt = item.optString("updatedAt", "1970-01-01T00:00:00Z")
+                )
+            )
+        }
     }
 
     private fun loadPersistedFeed(key: String): SignedThreatFeed? = prefs?.getString(key, null)?.let(::parsePersistedFeed)
@@ -248,6 +340,7 @@ class ThreatIntelligenceRepository(
             size = json.optLong("size", 0L),
             signature = json.optString("signature", ""),
             publicKeyId = json.optString("publicKeyId", "aura-ed25519-feed-v1"),
+            indicators = parseIndicatorJsonArray(json.optJSONArray("indicators") ?: JSONArray()),
             feedTimestamp = json.optLong("feedTimestamp", System.currentTimeMillis())
         )
     }.getOrNull()?.takeIf { it.ruleId.isNotBlank() }
@@ -275,9 +368,9 @@ class ThreatIntelligenceRepository(
             isUpdated = active != null && active.expiresAt > System.currentTimeMillis(),
             lastUpdateStatus = status,
             isBundled = active == null,
-            indicatorCount = 0,
-            indicators = emptyList(),
-            current = emptyList(),
+            indicatorCount = active?.indicators?.size ?: 0,
+            indicators = active?.indicators ?: emptyList(),
+            current = active?.indicators ?: emptyList(),
             feed = active
         )
     }
@@ -307,6 +400,21 @@ class ThreatIntelligenceRepository(
         put("signature", feed.signature)
         put("publicKeyId", feed.publicKeyId)
         put("feedTimestamp", feed.feedTimestamp)
+        put("indicatorCount", feed.indicators.size)
+        put("indicators", JSONArray().apply {
+            feed.indicators.forEach { indicator ->
+                put(JSONObject().apply {
+                    put("id", indicator.id)
+                    put("indicator", indicator.indicator)
+                    put("indicatorType", indicator.indicatorType.name)
+                    put("category", indicator.category.name)
+                    put("severity", indicator.severity.name)
+                    put("descriptionEs", indicator.descriptionEs)
+                    put("source", indicator.source)
+                    put("updatedAt", indicator.updatedAt)
+                })
+            }
+        })
     }.toString()
 
     private fun compareVersions(left: String, right: String): Int {
@@ -346,8 +454,8 @@ fun ThreatRepositorySnapshot.toThreatIntelligenceSnapshot(): ThreatIntelligenceS
             ThreatRepositoryState.ROLLED_BACK -> "Se rechazó el feed recibido"
         },
         isBundled = feed == null,
-        indicatorCount = 0,
-        indicators = emptyList(),
-        current = emptyList(),
+        indicatorCount = feed?.indicators?.size ?: 0,
+        indicators = feed?.indicators ?: emptyList(),
+        current = feed?.indicators ?: emptyList(),
         feed = feed
     )

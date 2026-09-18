@@ -214,31 +214,26 @@ object AppScannerRules {
             activeFeed.ruleId == normalizedRuleId &&
             activeFeed.source == normalizedSource &&
             activeFeed.version == normalizedVersion &&
-            activeFeed.evidence == normalizedEvidence &&
-            activeFeed.expiresAt > System.currentTimeMillis()
+            activeFeed.expiresAt > System.currentTimeMillis() &&
+            activeFeed.indicators.any { it.indicator == normalizedEvidence || it.id == normalizedRuleId }
 
         if (!activeMatches) {
             return suspiciousUnsignedMatch(normalizedEvidence)
         }
 
-        val key = validator?.let { it }
-        if (key == null) {
-            return AppRiskFinding(
-                id = "app.verified.match",
-                category = "THREAT_INTELLIGENCE",
-                severity = AppRiskSeverity.HIGH,
-                level = AppFindingLevel.CONFIRMED_MATCH,
-                confidence = AppFindingConfidence.HIGH,
-                evidence = "Coincidencia verificada con la regla '$normalizedRuleId' de la fuente '$normalizedSource' (v$normalizedVersion). Detalle: $normalizedEvidence. Feed activo válido identificado en el repositorio local.",
-                limits = "La verificación exige un feed activo, válido y vigente del repositorio local.",
-                possibleFalsePositive = "Si el repositorio pierde validez o expira, la coincidencia se desactiva automáticamente.",
-                recommendation = "Revisa la aplicación antes de tomar decisiones fuera de la app.",
-                reversibleAction = "Puedes descartar el hallazgo si el feed deja de ser vigente.",
-                reason = "Coincidencia confirmada con inteligencia activa y válida"
-            )
-        }
-
-        return suspiciousUnsignedMatch(normalizedEvidence)
+        return AppRiskFinding(
+            id = "app.verified.match",
+            category = "THREAT_INTELLIGENCE",
+            severity = AppRiskSeverity.HIGH,
+            level = AppFindingLevel.CONFIRMED_MATCH,
+            confidence = AppFindingConfidence.HIGH,
+            evidence = "Coincidencia confirmada con la regla '$normalizedRuleId' de la fuente '$normalizedSource' (v$normalizedVersion). Detalle: $normalizedEvidence. Feed activo válido identificado en el repositorio local.",
+            limits = "La verificación exige un feed activo, válido y vigente del repositorio local.",
+            possibleFalsePositive = "Si el repositorio pierde validez o expira, la coincidencia se desactiva automáticamente.",
+            recommendation = "Revisa la aplicación antes de tomar decisiones fuera de la app.",
+            reversibleAction = "Puedes descartar el hallazgo si el feed deja de ser vigente.",
+            reason = "Coincidencia confirmada con inteligencia activa y válida"
+        )
     }
 
     private fun suspiciousUnsignedMatch(evidence: String): AppRiskFinding = AppRiskFinding(

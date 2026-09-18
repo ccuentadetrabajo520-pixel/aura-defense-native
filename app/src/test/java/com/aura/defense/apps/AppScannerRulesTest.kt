@@ -43,19 +43,20 @@ class AppScannerRulesTest {
         val validator = SignedThreatFeedValidator(publicKeyBase64 = Base64.getEncoder().encodeToString(pair.public.encoded))
         val expiresAt = System.currentTimeMillis() + 60_000L
         val evidence = "rule-remote-01"
-        val size = evidence.toByteArray(Charsets.UTF_8).size.toLong()
         val ruleId = "com.example.rule.remote_01"
         val source = "external-threat-feed"
         val version = "2026.09.18"
-        val checksum = sha256Hex(validator.validateCanonicalPayload(
+        val canonical = validator.validateCanonicalPayload(
             ruleId = ruleId,
             source = source,
             version = version,
             evidence = evidence,
             expiresAt = expiresAt,
             checksum = "ignored",
-            size = size
-        ))
+            size = evidence.toByteArray(Charsets.UTF_8).size.toLong()
+        )
+        val size = evidence.toByteArray(Charsets.UTF_8).size.toLong()
+        val checksum = sha256Hex(canonical)
         val validFeed = signedFeed(
             ruleId = ruleId,
             source = source,
@@ -108,7 +109,7 @@ class AppScannerRulesTest {
         size: Long,
         privateKey: java.security.PrivateKey
     ): SignedThreatFeed {
-        val canonical = listOf(ruleId, source, version, evidence, expiresAt.toString(), size.toString()).joinToString("|")
+        val canonical = listOf(ruleId, source, version, evidence, expiresAt.toString()).joinToString("|")
         val signature = Signature.getInstance("Ed25519").apply {
             initSign(privateKey)
             update(canonical.toByteArray(Charsets.UTF_8))

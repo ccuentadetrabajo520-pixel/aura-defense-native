@@ -16,6 +16,8 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "AURA_THREAT_PUBLIC_KEY", "\"\"")
+        buildConfigField("String", "AURA_THREAT_MANIFEST_URL", "\"\"")
     }
 
     buildTypes {

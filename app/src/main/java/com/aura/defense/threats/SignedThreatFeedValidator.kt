@@ -20,8 +20,39 @@ data class SignedThreatFeed(
     val size: Long,
     val signature: String,
     val publicKeyId: String = "aura-ed25519-feed-v1",
+    val indicators: List<ThreatIndicator> = emptyList(),
     val feedTimestamp: Long = System.currentTimeMillis()
-)
+) {
+    val indicatorCount: Int
+        get() = indicators.size
+
+    fun canonicalPayloadString(): String {
+        val base = listOf(
+            ruleId,
+            source,
+            version,
+            evidence,
+            expiresAt.toString()
+        )
+        if (indicators.isEmpty()) {
+            return base.joinToString(CANONICAL_PAYLOAD_SEPARATOR)
+        }
+        val indicatorBlob = indicators.joinToString(";;") { indicator ->
+            listOf(
+                indicator.id,
+                indicator.indicator,
+                indicator.indicatorType.name,
+                indicator.category.name,
+                indicator.severity.name,
+                indicator.source,
+                indicator.updatedAt
+            ).joinToString(CANONICAL_PAYLOAD_SEPARATOR)
+        }
+        return (base + indicatorBlob).joinToString(CANONICAL_PAYLOAD_SEPARATOR)
+    }
+
+    fun canonicalPayloadBytes(): ByteArray = canonicalPayloadString().toByteArray(Charsets.UTF_8)
+}
 
 data class SignedThreatValidation(
     val valid: Boolean,
@@ -45,10 +76,7 @@ class SignedThreatFeedValidator(
         if (feed.size <= 0L) return SignedThreatValidation(false, "invalid_size")
         if (feed.checksum.isBlank()) return SignedThreatValidation(false, "missing_checksum")
 
-        val actualSize = feed.evidence.toByteArray(Charsets.UTF_8).size.toLong()
-        if (feed.size != actualSize) return SignedThreatValidation(false, "size_mismatch")
-
-        val payload = canonicalPayload(feed)
+        val payload = feed.canonicalPayloadString()
         if (feed.checksum != sha256Hex(payload)) return SignedThreatValidation(false, "checksum_mismatch")
 
         val key = buildPublicKey()
@@ -94,18 +122,10 @@ class SignedThreatFeedValidator(
         source,
         version,
         evidence,
-        expiresAt.toString(),
-        size.toString()
+        expiresAt.toString()
     ).joinToString(CANONICAL_PAYLOAD_SEPARATOR)
 
-    private fun canonicalPayload(feed: SignedThreatFeed): String = listOf(
-        feed.ruleId,
-        feed.source,
-        feed.version,
-        feed.evidence,
-        feed.expiresAt.toString(),
-        feed.size.toString()
-    ).joinToString(CANONICAL_PAYLOAD_SEPARATOR)
+    private fun canonicalPayload(feed: SignedThreatFeed): String = feed.canonicalPayloadString()
 
     private fun buildPublicKey() = runCatching {
         val decoded = Base64.getDecoder().decode(publicKeyBase64)
