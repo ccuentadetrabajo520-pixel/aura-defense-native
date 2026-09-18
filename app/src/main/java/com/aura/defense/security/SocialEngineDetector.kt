@@ -73,14 +73,7 @@ object SocialEngineDetector {
             reasons.add(finding.explanation)
         }
 
-        try {
-            val urlStr = text.split("\\s+".toRegex()).firstOrNull()
-            if (urlStr != null && ThreatFeedManager.isBlocked(urlStr)) {
-                score += 100
-                reasons.add("Domain confirmed in global Phishing/Malware blocklists")
-            }
-        } catch (_: Exception) {
-        }
+        // La protección activa requiere feeds firmados y verificados; no se acepta la antigua lista sin firma como evidencia.
 
         val level = when {
             score >= 80 -> "Critical"

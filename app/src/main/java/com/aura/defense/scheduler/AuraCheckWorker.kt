@@ -14,8 +14,8 @@ import com.aura.defense.threats.ThreatIntelligenceRepository
 
 class AuraCheckWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result = runCatching {
-        ThreatIntelligenceRepository(applicationContext).refresh()
-        com.aura.defense.vpn.ThreatFeedManager.refresh(applicationContext)
+        val repository = ThreatIntelligenceRepository(applicationContext)
+        repository.refresh()
         val selfDefenseThreats = com.aura.defense.monitor.SelfDefenseWatcher.selfCheck(
             applicationContext,
             com.aura.defense.MainActivity.auraVpnActiveStatic(applicationContext)

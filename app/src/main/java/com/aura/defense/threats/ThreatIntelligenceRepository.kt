@@ -342,7 +342,9 @@ class ThreatIntelligenceRepository(
         }
     }
 
-    private fun loadPersistedFeed(key: String): SignedThreatFeed? = prefs?.getString(key, null)?.let(::parsePersistedFeed)
+    private fun loadPersistedFeed(key: String): SignedThreatFeed? = prefs?.getString(key, null)?.let { raw ->
+        runCatching { parseAndValidate(raw) }.getOrNull()
+    }
 
     private fun parsePersistedFeed(raw: String): SignedThreatFeed? = runCatching {
         val json = JSONObject(raw)
@@ -359,7 +361,10 @@ class ThreatIntelligenceRepository(
             indicators = parseIndicatorJsonArray(json.optJSONArray("indicators") ?: JSONArray()),
             feedTimestamp = json.optLong("feedTimestamp", System.currentTimeMillis())
         )
-    }.getOrNull()?.takeIf { it.ruleId.isNotBlank() }
+    }.getOrNull()?.takeIf { feed ->
+        val validated = SignedThreatFeedValidator(config.publicKeyBase64).validate(feed)
+        validated.valid && feed.ruleId.isNotBlank() && feed.signature.isNotBlank()
+    }
 
     private fun snapshot(state: ThreatRepositoryState, feed: SignedThreatFeed?, reason: String): ThreatRepositorySnapshot =
         ThreatRepositorySnapshot(state = state, feed = feed, reason = reason, lastValidFeed = lastValidFeed ?: feed, version = feed?.version)

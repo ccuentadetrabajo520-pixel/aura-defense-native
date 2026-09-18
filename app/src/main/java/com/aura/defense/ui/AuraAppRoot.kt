@@ -184,7 +184,7 @@ fun AuraAppRoot(
         var checks = 0
         while (true) {
             isVpnRunning = MainActivity.auraVpnActiveStatic(context)
-            threatFeedEntries = com.aura.defense.vpn.ThreatFeedManager.size()
+            threatFeedEntries = com.aura.defense.threats.ThreatIntelligenceRepository(context).activeFeed()?.indicators?.size ?: 0
             if (boot.ready) {
                 val dnsStore = DnsFirewallStore(context)
                 boot = boot.copy(

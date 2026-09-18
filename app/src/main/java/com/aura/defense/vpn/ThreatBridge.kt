@@ -14,9 +14,6 @@ object ThreatBridge {
         threatEngine?.findMatches(domain)?.maxByOrNull { it.severity.ordinal }?.let { best ->
             return EnrichedResult(true, "LOCAL_INTEL", best.category.name, best.severity.name)
         }
-        ThreatFeedManager.categoryOf(domain)?.let { category ->
-            return EnrichedResult(true, "FEED", category, "HIGH")
-        }
         return EnrichedResult(false, null, null, null)
     }
 }

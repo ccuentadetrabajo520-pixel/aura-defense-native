@@ -4,6 +4,9 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val prodPublicKey = (project.findProperty("AURA_THREAT_PUBLIC_KEY") as? String ?: "").trim()
+val prodManifestUrl = (project.findProperty("AURA_THREAT_MANIFEST_URL") as? String ?: "").trim()
+
 android {
     namespace = "com.aura.defense"
     compileSdk = 34
@@ -30,12 +33,12 @@ android {
             buildConfigField(
                 "String",
                 "AURA_THREAT_PUBLIC_KEY",
-                "\"${project.findProperty("AURA_THREAT_PUBLIC_KEY") ?: ""}\""
+                "\"$prodPublicKey\""
             )
             buildConfigField(
                 "String",
                 "AURA_THREAT_MANIFEST_URL",
-                "\"${project.findProperty("AURA_THREAT_MANIFEST_URL") ?: ""}\""
+                "\"$prodManifestUrl\""
             )
         }
     }
@@ -78,6 +81,19 @@ android {
     lint {
         checkReleaseBuilds = false
         abortOnError = false
+    }
+
+    afterEvaluate {
+        tasks.matching { it.name == "generateProdReleaseBuildConfig" }.configureEach {
+            doFirst {
+                if (prodPublicKey.isBlank() || prodManifestUrl.isBlank()) {
+                    throw GradleException("Producción requiere AURA_THREAT_PUBLIC_KEY y AURA_THREAT_MANIFEST_URL publicamente configurados y no vacíos.")
+                }
+                if (!prodManifestUrl.startsWith("https://")) {
+                    throw GradleException("AURA_THREAT_MANIFEST_URL debe usar HTTPS en prodRelease.")
+                }
+            }
+        }
     }
 
     compileOptions {

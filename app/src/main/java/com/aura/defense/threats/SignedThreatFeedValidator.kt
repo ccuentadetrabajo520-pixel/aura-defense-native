@@ -27,28 +27,28 @@ data class SignedThreatFeed(
         get() = indicators.size
 
     fun canonicalPayloadString(): String {
-        val base = listOf(
-            ruleId,
-            source,
-            version,
-            evidence,
-            expiresAt.toString()
-        )
-        if (indicators.isEmpty()) {
-            return base.joinToString(CANONICAL_PAYLOAD_SEPARATOR)
+        val root = org.json.JSONObject().apply {
+            put("ruleId", ruleId)
+            put("source", source)
+            put("version", version)
+            put("evidence", evidence)
+            put("expiresAt", expiresAt)
+            put("indicators", org.json.JSONArray().apply {
+                indicators.forEach { indicator ->
+                    put(org.json.JSONObject().apply {
+                        put("id", indicator.id)
+                        put("indicator", indicator.indicator)
+                        put("indicatorType", indicator.indicatorType.name)
+                        put("category", indicator.category.name)
+                        put("severity", indicator.severity.name)
+                        put("descriptionEs", indicator.descriptionEs)
+                        put("source", indicator.source)
+                        put("updatedAt", indicator.updatedAt)
+                    })
+                }
+            })
         }
-        val indicatorBlob = indicators.joinToString(";;") { indicator ->
-            listOf(
-                indicator.id,
-                indicator.indicator,
-                indicator.indicatorType.name,
-                indicator.category.name,
-                indicator.severity.name,
-                indicator.source,
-                indicator.updatedAt
-            ).joinToString(CANONICAL_PAYLOAD_SEPARATOR)
-        }
-        return (base + indicatorBlob).joinToString(CANONICAL_PAYLOAD_SEPARATOR)
+        return root.toString()
     }
 
     fun canonicalPayloadBytes(): ByteArray = canonicalPayloadString().toByteArray(Charsets.UTF_8)
@@ -67,17 +67,36 @@ class SignedThreatFeedValidator(
 
     fun validate(feed: SignedThreatFeed): SignedThreatValidation {
         if (publicKeyBase64.isBlank()) return SignedThreatValidation(false, "missing_public_key")
-        if (feed.ruleId.isBlank()) return SignedThreatValidation(false, "missing_rule_id")
-        if (feed.source.isBlank()) return SignedThreatValidation(false, "missing_source")
-        if (feed.version.isBlank()) return SignedThreatValidation(false, "missing_version")
-        if (feed.evidence.isBlank()) return SignedThreatValidation(false, "missing_evidence")
+        if (feed.ruleId.isBlank() || feed.ruleId.contains("|") || feed.ruleId.contains(";;")) return SignedThreatValidation(false, "missing_rule_id")
+        if (feed.source.isBlank() || feed.source.contains("|") || feed.source.contains(";;")) return SignedThreatValidation(false, "missing_source")
+        if (feed.version.isBlank() || feed.version.contains("|") || feed.version.contains(";;")) return SignedThreatValidation(false, "missing_version")
+        if (feed.evidence.isBlank() || feed.evidence.contains("|") || feed.evidence.contains(";;")) return SignedThreatValidation(false, "missing_evidence")
         if (feed.signature.isBlank()) return SignedThreatValidation(false, "missing_signature")
         if (feed.expiresAt <= System.currentTimeMillis()) return SignedThreatValidation(false, "expired_feed")
         if (feed.size <= 0L) return SignedThreatValidation(false, "invalid_size")
         if (feed.checksum.isBlank()) return SignedThreatValidation(false, "missing_checksum")
+        if (feed.size != feed.canonicalPayloadBytes().size.toLong()) return SignedThreatValidation(false, "size_mismatch")
 
         val payload = feed.canonicalPayloadString()
         if (feed.checksum != sha256Hex(payload)) return SignedThreatValidation(false, "checksum_mismatch")
+
+        val indicatorIds = mutableSetOf<String>()
+        for (indicator in feed.indicators) {
+            if (indicator.id.isBlank() || indicator.id.contains("|") || indicator.id.contains(";;")) return SignedThreatValidation(false, "invalid_indicator_id")
+            if (indicator.indicator.isBlank()) return SignedThreatValidation(false, "invalid_indicator_value")
+            if (indicator.indicator.contains("|") || indicator.indicator.contains(";;")) return SignedThreatValidation(false, "invalid_indicator_delimiter")
+            if (!indicatorIds.add(indicator.id)) return SignedThreatValidation(false, "duplicate_indicator")
+            if (indicator.indicatorType == ThreatIndicatorType.DOMAIN && com.aura.defense.vpn.DnsDecisionEngine.normalize(indicator.indicator) == null) {
+                return SignedThreatValidation(false, "invalid_domain")
+            }
+            runCatching { ThreatCategory.valueOf(indicator.category.name) }
+                .getOrElse { return SignedThreatValidation(false, "invalid_category") }
+            runCatching { ThreatSeverity.valueOf(indicator.severity.name) }
+                .getOrElse { return SignedThreatValidation(false, "invalid_severity") }
+            if (indicator.updatedAt.isBlank() || runCatching { java.time.Instant.parse(indicator.updatedAt) }.isFailure) {
+                return SignedThreatValidation(false, "invalid_updated_at")
+            }
+        }
 
         val key = buildPublicKey()
         val signatureBytes = runCatching { Base64.getDecoder().decode(feed.signature) }.getOrElse {
@@ -117,15 +136,16 @@ class SignedThreatFeedValidator(
         expiresAt: Long,
         checksum: String,
         size: Long
-    ): String = listOf(
-        ruleId,
-        source,
-        version,
-        evidence,
-        expiresAt.toString()
-    ).joinToString(CANONICAL_PAYLOAD_SEPARATOR)
-
-    private fun canonicalPayload(feed: SignedThreatFeed): String = feed.canonicalPayloadString()
+    ): String {
+        val root = org.json.JSONObject().apply {
+            put("ruleId", ruleId)
+            put("source", source)
+            put("version", version)
+            put("evidence", evidence)
+            put("expiresAt", expiresAt)
+        }
+        return root.toString()
+    }
 
     private fun buildPublicKey() = runCatching {
         val decoded = Base64.getDecoder().decode(publicKeyBase64)

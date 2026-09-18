@@ -46,17 +46,16 @@ class AppScannerRulesTest {
         val ruleId = "com.example.rule.remote_01"
         val source = "external-threat-feed"
         val version = "2026.09.18"
-        val canonical = validator.validateCanonicalPayload(
-            ruleId = ruleId,
-            source = source,
-            version = version,
-            evidence = evidence,
-            expiresAt = expiresAt,
-            checksum = "ignored",
-            size = evidence.toByteArray(Charsets.UTF_8).size.toLong()
-        )
-        val size = evidence.toByteArray(Charsets.UTF_8).size.toLong()
-        val checksum = sha256Hex(canonical)
+        val canonicalPayload = org.json.JSONObject().apply {
+            put("ruleId", ruleId)
+            put("source", source)
+            put("version", version)
+            put("evidence", evidence)
+            put("expiresAt", expiresAt)
+            put("indicators", org.json.JSONArray())
+        }.toString()
+        val checksum = sha256Hex(canonicalPayload)
+        val size = canonicalPayload.toByteArray(Charsets.UTF_8).size.toLong()
         val validFeed = signedFeed(
             ruleId = ruleId,
             source = source,
@@ -109,7 +108,14 @@ class AppScannerRulesTest {
         size: Long,
         privateKey: java.security.PrivateKey
     ): SignedThreatFeed {
-        val canonical = listOf(ruleId, source, version, evidence, expiresAt.toString()).joinToString("|")
+        val canonical = org.json.JSONObject().apply {
+            put("ruleId", ruleId)
+            put("source", source)
+            put("version", version)
+            put("evidence", evidence)
+            put("expiresAt", expiresAt)
+            put("indicators", org.json.JSONArray())
+        }.toString()
         val signature = Signature.getInstance("Ed25519").apply {
             initSign(privateKey)
             update(canonical.toByteArray(Charsets.UTF_8))

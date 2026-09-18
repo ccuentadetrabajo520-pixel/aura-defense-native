@@ -76,11 +76,10 @@ class CopilotBrain(
         val domainRegex = Regex("""(?:(?:[a-z0-9-]+)\.)+(?:com|net|org|es|mx|io|xyz|top|online|site|info|co|app|link|ru|su|shop|cl|ar|pe|ve)""")
         domainRegex.find(q)?.let { match ->
             val domain = match.value
-            val category = ThreatFeedManager.categoryOf(domain)
+            val matches = threatEngine?.findMatches(domain).orEmpty()
             val verdict = when {
-                category != null -> "⚠ BLOQUEADO por AURA - categoría: $category. NO lo abras."
-                threatEngine?.findMatches(domain)?.isNotEmpty() == true -> "⚠ En inteligencia local. NO lo abras."
-                else -> "No aparece en mis bases actuales. Eso NO garantiza que sea seguro; verifica el remitente por canales oficiales."
+                matches.isNotEmpty() -> "⚠ En inteligencia firmada activa. NO lo abras."
+                else -> "Sin inteligencia activa: no hay evidencia verificada para este dominio. Verifica por canales oficiales."
             }
             val age = DomainAgeChecker.check(domain)
             val ageWarning = when {
@@ -150,7 +149,8 @@ class CopilotBrain(
 
     private fun networkAnswer(): String {
         val posture = postureProvider()
-        return "Red activa: ${posture.telemetry.networkActive}. VPN: ${if (posture.telemetry.vpnActive) "activa" else "inactiva"}. DNS privado: ${posture.telemetry.privateDnsStatus}. Feeds de inteligencia: ${ThreatFeedManager.size()} dominios cargados."
+        val activeCount = threatEngine?.indicators?.size ?: 0
+        return "Red activa: ${posture.telemetry.networkActive}. VPN: ${if (posture.telemetry.vpnActive) "activa" else "inactiva"}. DNS privado: ${posture.telemetry.privateDnsStatus}. Intelligencia activa: $activeCount indicadores verificados."
     }
 
     private fun dnsAnswer(): String {

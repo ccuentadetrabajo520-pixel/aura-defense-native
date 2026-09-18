@@ -39,12 +39,14 @@ class DnsDecisionEngine(
     private val rules: List<DnsRule>,
     private val temporaryExceptions: List<DnsTemporaryException> = emptyList(),
     private val now: () -> Long = { System.currentTimeMillis() },
-    private val dynamicRuleLookup: ((String) -> DnsRule?)? = null
+    private val dynamicRuleLookup: ((String) -> DnsRule?)? = null,
+    private val rulesSource: (() -> List<DnsRule>)? = null
 ) {
     fun decide(rawDomain: String): DnsDecisionResult {
         val domain = normalize(rawDomain)
             ?: return DnsDecisionResult(DnsDecision.ERROR, rawDomain.take(253), "invalid_domain")
-        if (rules.any { normalize(it.domain) == null }) {
+        val currentRules = rulesSource?.invoke() ?: rules
+        if (currentRules.any { normalize(it.domain) == null }) {
             return DnsDecisionResult(DnsDecision.ERROR, domain, "invalid_rule")
         }
         val activeExceptions = temporaryExceptions.filter { it.expiresAt > now() }
@@ -55,7 +57,7 @@ class DnsDecisionEngine(
         if (matches(allowlist, domain)) return DnsDecisionResult(DnsDecision.ALLOW, domain, "allowlist")
         if (matches(blocklist, domain)) return DnsDecisionResult(DnsDecision.BLOCK, domain, "manual_rule", source = "LOCAL")
 
-        val rule = rules.firstOrNull { matches(setOf(it.domain), domain) }
+        val rule = currentRules.firstOrNull { matches(setOf(it.domain), domain) }
             ?: dynamicRuleLookup?.invoke(domain)
             ?: return DnsDecisionResult(DnsDecision.UNKNOWN, domain, "no_matching_rule")
         if (rule.validUntil != null && rule.validUntil <= now()) {
@@ -76,4 +78,17 @@ class DnsDecisionEngine(
             .trimEnd('.')
             .takeIf { it.isNotBlank() && it.length <= 253 && it.all { char -> char.isLetterOrDigit() || char == '.' || char == '-' } }
     }
+}
+
+class VerifiedDnsRulesSource(private val repository: com.aura.defense.threats.ThreatIntelligenceRepository) {
+    fun currentRules(): List<DnsRule> = repository.activeFeed()?.indicators?.map { indicator ->
+        DnsRule(
+            domain = indicator.indicator,
+            category = indicator.category.name,
+            source = indicator.source,
+            feedVersion = repository.activeFeed()?.version ?: "unknown",
+            severity = indicator.severity.name,
+            validUntil = repository.activeFeed()?.expiresAt
+        )
+    } ?: emptyList()
 }
