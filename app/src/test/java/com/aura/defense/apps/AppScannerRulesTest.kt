@@ -2,18 +2,20 @@ package com.aura.defense.apps
 
 import com.aura.defense.threats.SignedThreatFeed
 import com.aura.defense.threats.SignedThreatFeedValidator
+import com.aura.defense.threats.ThreatRuleManifest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
+import java.security.KeyPair
+import java.security.KeyPairGenerator
+import java.security.MessageDigest
+import java.security.Signature
+import java.util.Base64
 
 class AppScannerRulesTest {
-
-    private val validator = SignedThreatFeedValidator("aura-test-key")
 
     @Test
     fun `name heuristics never generate critical malware verdict`() {
@@ -38,18 +40,47 @@ class AppScannerRulesTest {
 
     @Test
     fun `confirmed match requires signed active feed and valid rule metadata`() {
-        val validFeed = signedFeed(
-            ruleId = "rule-123",
-            source = "urlhaus",
+        val pair = newEd25519KeyPair()
+        val validator = SignedThreatFeedValidator(publicKeyBase64 = Base64.getEncoder().encodeToString(pair.public.encoded))
+        val expiresAt = System.currentTimeMillis() + 60_000L
+        val evidence = "sample-local-rule"
+        val size = evidence.toByteArray(Charsets.UTF_8).size.toLong()
+        val canonical = validator.validateCanonicalPayload(
+            ruleId = "aura.rule.local.sample",
+            source = "aura-local",
             version = "2026.09.18",
-            evidence = "match: com.evil.app",
-            expiresAt = System.currentTimeMillis() + 60_000L
+            evidence = evidence,
+            expiresAt = expiresAt,
+            checksum = "ignored",
+            size = size
+        )
+        val manifest = ThreatRuleManifest(
+            ruleId = "aura.rule.local.sample",
+            source = "aura-local",
+            version = "2026.09.18",
+            evidence = evidence,
+            checksum = sha256Hex(canonical),
+            size = size,
+            expiresAt = expiresAt
+        )
+        val validFeed = signedFeed(
+            ruleId = manifest.ruleId,
+            source = manifest.source,
+            version = manifest.version,
+            evidence = manifest.evidence,
+            expiresAt = manifest.expiresAt,
+            checksum = manifest.checksum,
+            size = manifest.size,
+            privateKey = pair.private,
+            publicKey = pair.public,
+            validator = validator,
+            expectedRule = manifest
         )
 
-        val valid = validator.validate(validFeed)
-        val missingRule = validator.validate(validFeed.copy(ruleId = ""))
-        val invalidSignature = validator.validate(validFeed.copy(signature = "bad-signature"))
-        val expired = validator.validate(validFeed.copy(expiresAt = System.currentTimeMillis() - 1_000L))
+        val valid = validator.validate(validFeed, manifest)
+        val missingRule = validator.validate(validFeed.copy(ruleId = ""), manifest)
+        val invalidSignature = validator.validate(validFeed.copy(signature = Base64.getEncoder().encodeToString(ByteArray(64) { 7 })), manifest)
+        val expired = validator.validate(validFeed.copy(expiresAt = System.currentTimeMillis() - 1_000L), manifest)
 
         assertTrue(valid.valid)
         assertFalse(missingRule.valid)
@@ -83,20 +114,34 @@ class AppScannerRulesTest {
         version: String,
         evidence: String,
         expiresAt: Long,
-        signature: String = signRule(ruleId, source, version, evidence, expiresAt)
-    ) = SignedThreatFeed(
-        ruleId = ruleId,
-        source = source,
-        version = version,
-        evidence = evidence,
-        expiresAt = expiresAt,
-        signature = signature
-    )
-
-    private fun signRule(ruleId: String, source: String, version: String, evidence: String, expiresAt: Long): String {
-        val payload = listOf(ruleId, source, version, evidence, expiresAt.toString()).joinToString("|")
-        val mac = Mac.getInstance("HmacSHA256")
-        mac.init(SecretKeySpec("aura-test-key".toByteArray(), "HmacSHA256"))
-        return mac.doFinal(payload.toByteArray()).joinToString("") { "%02x".format(it) }
+        checksum: String,
+        size: Long,
+        privateKey: java.security.PrivateKey,
+        publicKey: java.security.PublicKey,
+        validator: SignedThreatFeedValidator,
+        expectedRule: ThreatRuleManifest
+    ): SignedThreatFeed {
+        val canonical = validator.validateCanonicalPayload(ruleId, source, version, evidence, expiresAt, checksum, size)
+        val signature = Signature.getInstance("Ed25519").apply {
+            initSign(privateKey)
+            update(canonical.toByteArray(Charsets.UTF_8))
+        }.sign()
+        return SignedThreatFeed(
+            ruleId = ruleId,
+            source = source,
+            version = version,
+            evidence = evidence,
+            expiresAt = expiresAt,
+            checksum = checksum,
+            size = size,
+            signature = Base64.getEncoder().encodeToString(signature),
+            publicKeyId = "aura-ed25519-feed-v1"
+        )
     }
+
+    private fun newEd25519KeyPair(): KeyPair = KeyPairGenerator.getInstance("Ed25519").generateKeyPair()
+
+    private fun sha256Hex(value: String): String =
+        MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
 }

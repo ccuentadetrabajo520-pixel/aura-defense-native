@@ -51,3 +51,31 @@ El análisis separa severidad del riesgo impactante y confianza de la probabilid
 - `SUSPICIOUS_SIGNAL` es el máximo para heurísticas sin feed firmado.
 - La interfaz debe indicar claramente si la información es parcial.
 - Ninguna acción automática de desinstalación, bloqueo o modificación.
+
+## Permisos finales del manifiesto
+
+La app conserva solo los permisos necesarios para la funcionalidad real del análisis local y VPN del usuario:
+
+- `INTERNET` para accesos de red de la VPN y telemetry local.
+- `ACCESS_NETWORK_STATE` y `ACCESS_WIFI_STATE` para estado de conectividad y red local.
+- `FOREGROUND_SERVICE` para mantener la VPN/servicios de primer plano.
+- `POST_NOTIFICATIONS` para notificaciones de usuario relevantes del propio sistema.
+- `CAMERA`, `RECORD_AUDIO`, `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION` solo para análisis local explícito y no para vigilancia encubierta.
+- `BLUETOOTH_CONNECT` solo si se usa para descubrir dispositivos del entorno con consentimiento del usuario.
+
+No se conservan ni se justifican permisos como:
+
+- `QUERY_ALL_PACKAGES`
+- `READ_EXTERNAL_STORAGE` / `WRITE_EXTERNAL_STORAGE`
+- `READ_CONTACTS`, `READ_CALL_LOG`, `READ_SMS`, `RECEIVE_SMS`, `SYSTEM_ALERT_WINDOW`, `REQUEST_INSTALL_PACKAGES`
+- `NotificationListenerService` o `BIND_ACCESSIBILITY_SERVICE`
+
+## Verificación del feed y firma Ed25519
+
+La validación de feeds no usa HMAC ni claves compartidas.
+
+- El payload canónico se firma con Ed25519.
+- La verificación se hace con una clave pública distribuida externamente, no con una clave privada incrustada en la app.
+- El feed debe incluir regla, fuente, versión, evidencia, expiración y tamaño.
+- Se rechaza feed expirado, alterado, replay, downgrade o con certificado no vigente.
+- El valor de `CONFIRMED_MATCH` solo aparece si la validación oficial del feed es correcta y la regla sigue vigente.

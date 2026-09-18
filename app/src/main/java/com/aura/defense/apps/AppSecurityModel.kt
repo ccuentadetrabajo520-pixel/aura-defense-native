@@ -3,6 +3,7 @@ package com.aura.defense.apps
 import android.Manifest
 import com.aura.defense.threats.SignedThreatFeed
 import com.aura.defense.threats.SignedThreatFeedValidator
+import com.aura.defense.threats.ThreatRuleManifestRegistry
 
 enum class AppFindingLevel {
     INFORMATIVE,
@@ -194,18 +195,37 @@ object AppScannerRules {
         evidence: String,
         version: String? = null,
         expiresAt: Long? = null,
+        checksum: String? = null,
+        size: Long? = null,
         signature: String? = null,
         validator: SignedThreatFeedValidator = SignedThreatFeedValidator()
     ): AppRiskFinding {
+        val normalizedRuleId = ruleId?.trim().orEmpty()
+        val normalizedSource = source?.trim().orEmpty()
+        val normalizedVersion = version?.trim().orEmpty()
+        val normalizedEvidence = evidence.trim()
+        if (normalizedRuleId.isBlank() || normalizedSource.isBlank() || normalizedVersion.isBlank() || normalizedEvidence.isBlank()) {
+            return suspiciousUnsignedMatch(normalizedEvidence)
+        }
+
+        val expectedRule = ThreatRuleManifestRegistry.resolve(normalizedRuleId, normalizedSource, normalizedVersion)
+            ?: ThreatRuleManifestRegistry.resolveAny(normalizedRuleId, normalizedSource)
+        if (expectedRule == null) {
+            return suspiciousUnsignedMatch(normalizedEvidence)
+        }
+
         val feed = SignedThreatFeed(
-            ruleId = ruleId.orEmpty(),
-            source = source.orEmpty(),
-            version = version.orEmpty(),
-            evidence = evidence,
-            expiresAt = expiresAt ?: Long.MAX_VALUE,
+            ruleId = normalizedRuleId,
+            source = normalizedSource,
+            version = normalizedVersion,
+            evidence = normalizedEvidence,
+            expiresAt = expiresAt ?: expectedRule.expiresAt,
+            checksum = checksum ?: expectedRule.checksum,
+            size = size ?: expectedRule.size,
             signature = signature.orEmpty()
         )
-        val validation = validator.validate(feed)
+
+        val validation = validator.validate(feed, expectedRule)
         val isConfirmed = validation.valid
         return if (isConfirmed) {
             AppRiskFinding(
@@ -214,29 +234,31 @@ object AppScannerRules {
                 severity = AppRiskSeverity.HIGH,
                 level = AppFindingLevel.CONFIRMED_MATCH,
                 confidence = AppFindingConfidence.HIGH,
-                evidence = "Coincidencia verificada con la regla '$ruleId' de la fuente '$source'. Detalle: $evidence",
-                limits = "La verificación depende de que la regla siga vigente y del feed firmado que la aportó.",
-                possibleFalsePositive = "Un feed desactualizado o una regla con alcance amplio puede producir un falso positivo.",
-                recommendation = "Revisa la aplicación y el origen de la regla antes de tomar decisiones de seguridad fuera del dispositivo.",
-                reversibleAction = "Puedes descartar el hallazgo si la coincidencia se invalida o silenciarlo temporalmente.",
-                reason = "Coincidencia confirmada con inteligencia"
+                evidence = "Coincidencia verificada con la regla '$normalizedRuleId' de la fuente '$normalizedSource' (v$normalizedVersion). Detalle: $normalizedEvidence",
+                limits = "La verificación exige una regla de inteligencia publicada, firma Ed25519 válida y vigencia actual.",
+                possibleFalsePositive = "Un feed vencido, alterado o fuera de versión puede invalidar la coincidencia.",
+                recommendation = "Revisa la aplicación y la regla antes de tomar decisiones fuera del dispositivo.",
+                reversibleAction = "Puedes descartar el hallazgo si la regla se invalida o silenciarlo temporalmente.",
+                reason = "Coincidencia confirmada con inteligencia válida"
             )
         } else {
-            AppRiskFinding(
-                id = "app.heuristic.match",
-                category = "THREAT_INTELLIGENCE",
-                severity = AppRiskSeverity.LOW,
-                level = AppFindingLevel.SUSPICIOUS_SIGNAL,
-                confidence = AppFindingConfidence.LOW,
-                evidence = "No existe regla firmada y vigente para esta coincidencia. Detalle: $evidence",
-                limits = "Un dato sin fuente firmada no puede ser un malware confirmado.",
-                possibleFalsePositive = "Cualquier coincidencia parcial puede ser un falso positivo.",
-                recommendation = "No la conviertas en una conclusión de malware sin corroborar la fuente y la regla.",
-                reversibleAction = "Puedes borrar este hallazgo del análisis local o silenciarlo temporalmente.",
-                reason = "Coincidencia sospechosa sin regla firmada"
-            )
+            suspiciousUnsignedMatch(normalizedEvidence)
         }
     }
+
+    private fun suspiciousUnsignedMatch(evidence: String): AppRiskFinding = AppRiskFinding(
+        id = "app.heuristic.match",
+        category = "THREAT_INTELLIGENCE",
+        severity = AppRiskSeverity.LOW,
+        level = AppFindingLevel.SUSPICIOUS_SIGNAL,
+        confidence = AppFindingConfidence.LOW,
+        evidence = "No existe una regla de inteligencia verificada y vigente para esta coincidencia. Detalle: $evidence",
+        limits = "Un dato sin feed firmado y vigente no puede ser un malware confirmado.",
+        possibleFalsePositive = "Cualquier coincidencia parcial puede ser un falso positivo.",
+        recommendation = "No la conviertas en una conclusión de malware sin corroborar la fuente, la firma y la vigencia del feed.",
+        reversibleAction = "Puedes borrar este hallazgo del análisis local o silenciarlo temporalmente.",
+        reason = "Coincidencia sospechosa sin regla verificada"
+    )
 
     fun partialCoverageStatus(signalAvailable: Boolean, signalName: String): String =
         if (signalAvailable) {
