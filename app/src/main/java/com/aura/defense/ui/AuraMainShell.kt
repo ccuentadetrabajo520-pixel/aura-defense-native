@@ -341,7 +341,7 @@ fun AuraMainShell(
                     onBlocklistAdd = { domain -> safeScope.launch(Dispatchers.IO) { DnsFirewallStore(context).addBlockedDomain(domain) } },
                     onBlocklistRemove = { domain -> safeScope.launch(Dispatchers.IO) { DnsFirewallStore(context).removeBlockedDomain(domain) } },
                     onAllowTemporary = { domain -> safeScope.launch(Dispatchers.IO) { DnsFirewallStore(context).allowTemporarily(domain, 15 * 60 * 1000L, "Permitido por el usuario durante 15 minutos") } },
-                    onClearActivity = { safeScope.launch(Dispatchers.IO) { DnsFirewallStore(context).clearActivity(); boot = boot.copy(blockedDns = emptyList(), blockedDnsCount = 0) } },
+                    onClearActivity = { safeScope.launch(Dispatchers.IO) { DnsFirewallStore(context).clearActivity() } },
                     onVpnToggle = onVpnToggle,
                     onModuleDialog = dialogLambda,
                     onEmergency = ::startEmergency

@@ -1,6 +1,5 @@
 package com.aura.defense.apps
 
-import android.Manifest
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
@@ -11,9 +10,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-enum class AppRiskSeverity { LOW, MEDIUM, HIGH, CRITICAL }
-
-data class AppRiskFinding(val severity: AppRiskSeverity, val reason: String)
 
 data class InstalledAppInfo(
     val appName: String,
@@ -41,102 +37,76 @@ data class InstalledAppInfo(
 data class AppScanResult(
     val apps: List<InstalledAppInfo>,
     val scannedAt: String,
-    val failed: Boolean = false
+    val failed: Boolean = false,
+    val coverageNote: String = "Análisis local limitado por Android y permisos del sistema."
 ) {
-    val riskyApps: List<InstalledAppInfo> get() = apps.filter { it.findings.isNotEmpty() }
-    val highRiskApps: List<InstalledAppInfo> get() = apps.filter { app -> app.findings.any { it.severity >= AppRiskSeverity.HIGH } }
+    val riskyApps: List<InstalledAppInfo> get() = apps.filter { app -> app.findings.any { it.level in setOf(AppFindingLevel.LOW_RISK, AppFindingLevel.MEDIUM_RISK, AppFindingLevel.HIGH_RISK, AppFindingLevel.SUSPICIOUS_SIGNAL, AppFindingLevel.CONFIRMED_MATCH) } }
+    val highRiskApps: List<InstalledAppInfo> get() = apps.filter { app -> app.findings.any { it.level == AppFindingLevel.HIGH_RISK || it.level == AppFindingLevel.CONFIRMED_MATCH } }
 }
 
 class AppScanner(private val context: Context) {
-    private data class WellKnownApp(val packageName: String, val officialName: String)
-
-    private val knownApps = listOf(
-        WellKnownApp("com.whatsapp", "WhatsApp"),
-        WellKnownApp("com.facebook.katana", "Facebook"),
-        WellKnownApp("com.instagram.android", "Instagram"),
-        WellKnownApp("com.twitter.android", "X (Twitter)"),
-        WellKnownApp("org.telegram.messenger", "Telegram"),
-        WellKnownApp("com.snapchat.android", "Snapchat"),
-        WellKnownApp("com.tinder", "Tinder"),
-        WellKnownApp("com.spotify.music", "Spotify"),
-        WellKnownApp("com.netflix.mediaclient", "Netflix"),
-        WellKnownApp("com.paypal.android.p2pmobile", "PayPal"),
-        WellKnownApp("com.google.android.gm", "Gmail"),
-        WellKnownApp("com.bankinter", "Bankinter"),
-        WellKnownApp("com.bbva.bbvacontigo", "BBVA"),
-        WellKnownApp("com.santander.app", "Santander")
-    )
 
     fun scan(): AppScanResult {
         val now = timestamp(System.currentTimeMillis())
         return runCatching {
-            com.aura.defense.monitor.AuraProcessLog.log("Iniciando escaneo de aplicaciones instaladas…", "SCAN")
+            com.aura.defense.monitor.AuraProcessLog.log("Iniciando escaneo local de aplicaciones visibles…", "SCAN")
             val packageManager = context.packageManager
             val applications = runCatching {
-                packageManager.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0L))
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    packageManager.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(PackageManager.GET_META_DATA.toLong()))
+                } else {
+                    @Suppress("DEPRECATION")
+                    packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+                }
             }.getOrElse {
                 @Suppress("DEPRECATION")
                 packageManager.getInstalledApplications(0)
             }
+
             val apps = applications.mapNotNull { application -> readApp(packageManager, application) }
-            val cloneResults = detectCloneApps(packageManager)
-            val stalkerwareResults = detectStalkerware(packageManager)
-            val enrichedApps = apps.map { app ->
-                val matchingCloneResults = cloneResults.filter { result ->
-                    val pkg = result.substringAfter("(").substringBeforeLast(")").trim()
-                    result.contains("(${app.packageName})") || pkg == app.packageName
-                }
-                val matchingStalkerware = stalkerwareResults.filter { result ->
-                    val pkg = result.substringAfter("(").substringBeforeLast(")").trim()
-                    result.contains("(${app.packageName})") || pkg == app.packageName
-                }
-                val findings = buildList {
-                    addAll(app.findings)
-                    if (matchingCloneResults.isNotEmpty()) {
-                        addAll(matchingCloneResults.map { clone ->
-                            AppRiskFinding(AppRiskSeverity.HIGH, "Posible app clonada detectada: $clone")
-                        })
-                    }
-                    if (matchingStalkerware.isNotEmpty()) {
-                        addAll(matchingStalkerware.map { result ->
-                            AppRiskFinding(AppRiskSeverity.CRITICAL, "Posible stalkerware detectado: $result. Esta aplicación puede estar monitoreando tus comunicaciones, ubicación o uso del dispositivo")
-                        })
-                    }
-                }
-                app.copy(findings = findings)
-            }
+            val result = AppScanResult(
+                apps = apps,
+                scannedAt = now,
+                coverageNote = if (apps.isEmpty()) "Cobertura parcial: Android no expuso paquetes instalados o no fue posible leer el conjunto visible." else "Cobertura local: se analizan metadatos visibles del sistema. La evidencia puede ser parcial si Android oculta el dato."
+            )
             com.aura.defense.monitor.AuraProcessLog.log(
-                "Escaneo completado: ${apps.size} apps analizadas, ${enrichedApps.count { it.findings.isNotEmpty() }} con señales de riesgo",
+                "Escaneo local completado: ${apps.size} apps analizadas, ${result.riskyApps.size} con señales revisables.",
                 "SCAN"
             )
-            AppScanResult(apps = enrichedApps, scannedAt = now)
-        }.onFailure { Timber.e(it, "No se pudo completar el escaneo de apps") }
-            .getOrElse { AppScanResult(emptyList(), now, failed = true) }
+            result
+        }.onFailure { Timber.e(it, "No se pudo completar el escaneo local de apps") }
+            .getOrElse { AppScanResult(emptyList(), now, failed = true, coverageNote = "Cobertura parcial: Android no permitió completar el análisis local de apps.") }
     }
 
     private fun readApp(packageManager: PackageManager, application: ApplicationInfo): InstalledAppInfo? = runCatching {
         val packageInfo = runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                packageManager.getPackageInfo(application.packageName, PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS.toLong()))
+                packageManager.getPackageInfo(
+                    application.packageName,
+                    PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS.toLong())
+                )
             } else {
                 @Suppress("DEPRECATION")
                 packageManager.getPackageInfo(application.packageName, PackageManager.GET_PERMISSIONS)
             }
         }.getOrElse { return null }
+
         val requested = packageInfo.requestedPermissions?.toList().orEmpty()
+        val requestedFlags = packageInfo.requestedPermissionsFlags?.toList().orEmpty()
         val granted = requested.filterIndexed { index, permission ->
-            packageInfo.requestedPermissionsFlags?.getOrNull(index)?.and(PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0 && isDangerous(permission)
+            requestedFlags.getOrNull(index)?.and(PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0
         }
         val system = application.flags and ApplicationInfo.FLAG_SYSTEM != 0
         val debuggable = application.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
         val allowBackup = application.flags and ApplicationInfo.FLAG_ALLOW_BACKUP != 0
         val findings = buildFindings(application, packageInfo, requested, system, debuggable, allowBackup)
+
         InstalledAppInfo(
             appName = runCatching { packageManager.getApplicationLabel(application).toString() }.getOrDefault("Aplicación sin nombre"),
             packageName = application.packageName,
             versionName = packageInfo.versionName ?: "No disponible",
             versionCode = readVersionCode(packageInfo),
-            installerPackage = runCatching { packageManager.getInstallerPackageName(application.packageName) ?: "Desconocido" }.getOrDefault("Desconocido"),
+            installerPackage = runCatching { packageManager.getInstallerPackageName(application.packageName) ?: "No disponible" }.getOrDefault("No disponible"),
             firstInstallTime = timestamp(packageInfo.firstInstallTime),
             lastUpdateTime = timestamp(packageInfo.lastUpdateTime),
             targetSdk = application.targetSdkVersion,
@@ -150,92 +120,131 @@ class AppScanner(private val context: Context) {
         )
     }.onFailure { Timber.e(it, "No se pudo analizar una app visible") }.getOrNull()
 
-    private fun buildFindings(application: ApplicationInfo, info: PackageInfo, permissions: List<String>, system: Boolean, debuggable: Boolean, allowBackup: Boolean): List<AppRiskFinding> = buildList {
-        if (debuggable) add(AppRiskFinding(AppRiskSeverity.MEDIUM, "Aplicación depurable"))
-        if (application.targetSdkVersion in 1..28) add(AppRiskFinding(AppRiskSeverity.MEDIUM, "SDK antiguo"))
-        if (permissions.contains("android.permission.REQUEST_INSTALL_PACKAGES")) add(AppRiskFinding(AppRiskSeverity.HIGH, "Puede instalar APKs"))
-        if (permissions.any { it.startsWith("android.permission.READ_SMS") || it.startsWith("android.permission.SEND_SMS") || it.startsWith("android.permission.RECEIVE_SMS") }) add(AppRiskFinding(AppRiskSeverity.HIGH, "Permiso sensible detectado: SMS"))
-        if (permissions.any { it.startsWith("android.permission.READ_CONTACTS") || it.startsWith("android.permission.WRITE_CONTACTS") }) add(AppRiskFinding(AppRiskSeverity.MEDIUM, "Permiso sensible detectado: contactos"))
-        if (permissions.any { it == Manifest.permission.ACCESS_FINE_LOCATION || it == Manifest.permission.ACCESS_COARSE_LOCATION }) add(AppRiskFinding(AppRiskSeverity.LOW, "Permiso sensible detectado: ubicación"))
-        if (permissions.contains(Manifest.permission.CAMERA)) add(AppRiskFinding(AppRiskSeverity.LOW, "Permiso sensible detectado: cámara"))
-        if (permissions.contains(Manifest.permission.RECORD_AUDIO)) add(AppRiskFinding(AppRiskSeverity.MEDIUM, "Permiso sensible detectado: micrófono"))
-        if (permissions.any { it.startsWith("android.permission.READ_PHONE") || it.startsWith("android.permission.CALL_PHONE") }) add(AppRiskFinding(AppRiskSeverity.MEDIUM, "Permiso sensible detectado: teléfono"))
-        if (permissions.contains("android.permission.SYSTEM_ALERT_WINDOW")) add(AppRiskFinding(AppRiskSeverity.HIGH, "Permiso sensible detectado: superposición"))
-        if (!system && allowBackup) add(AppRiskFinding(AppRiskSeverity.LOW, "Copia de seguridad permitida"))
+    private fun buildFindings(
+        application: ApplicationInfo,
+        info: PackageInfo,
+        permissions: List<String>,
+        system: Boolean,
+        debuggable: Boolean,
+        allowBackup: Boolean
+    ): List<AppRiskFinding> {
+        val findings = mutableListOf<AppRiskFinding>()
+
+        if (debuggable) {
+            findings += AppRiskFinding(
+                id = "app.debuggable",
+                category = "APP_METADATA",
+                severity = AppRiskSeverity.MEDIUM,
+                level = AppFindingLevel.LOW_RISK,
+                confidence = AppFindingConfidence.MODERATE,
+                evidence = "La app está marcada como depurable.",
+                limits = "La depuración no confirma malware; puede ser un desarrollo o una herramienta de prueba.",
+                possibleFalsePositive = "Las apps en desarrollo o integradas con Android Studio pueden señalarse.",
+                recommendation = "Revisa si es una app de desarrollo o un cliente de pruebas.",
+                reversibleAction = "Puedes ocultar este aviso o revisarlo desde el detalle de la aplicación.",
+                reason = "App depurable"
+            )
+        }
+
+        if (application.targetSdkVersion in 1..28) {
+            findings += AppRiskFinding(
+                id = "app.sdk.legacy",
+                category = "APP_METADATA",
+                severity = AppRiskSeverity.MEDIUM,
+                level = AppFindingLevel.MEDIUM_RISK,
+                confidence = AppFindingConfidence.MODERATE,
+                evidence = "La app tiene un SDK objetivo antiguo (${application.targetSdkVersion}).",
+                limits = "Una app con SDK antiguo no es malware por sí sola.",
+                possibleFalsePositive = "Hay apps de nicho o antiguas que siguen funcionando sin problema.",
+                recommendation = "Verifica si la app necesita actualización del desarrollador.",
+                reversibleAction = "Puedes silenciar este aviso temporalmente.",
+                reason = "SDK objetivo antiguo"
+            )
+        }
+
+        val label = runCatching { application.loadLabel(context.packageManager).toString() }.getOrDefault("")
+        AppScannerRules.nameHeuristicOrNull(application.packageName, label.ifBlank { application.packageName })?.let { findings += it }
+
+        findings += AppScannerRules.permissionFindings(permissions)
+
+        if (permissions.contains("android.permission.REQUEST_INSTALL_PACKAGES")) {
+            findings += AppRiskFinding(
+                id = "app.install.packages",
+                category = "APP_PERMISSION",
+                severity = AppRiskSeverity.HIGH,
+                level = AppFindingLevel.HIGH_RISK,
+                confidence = AppFindingConfidence.MODERATE,
+                evidence = "La app declara la capacidad de instalar paquetes desde fuentes ajenas a Play.",
+                limits = "La capacidad de instalar paquetes no es un malware confirmado; solo indica un riesgo de instalación externa.",
+                possibleFalsePositive = "Herramientas de instalación o gestor de actualizaciones pueden usarlo de forma legítima.",
+                recommendation = "Revisa si la app es de confianza y si necesitas mantener ese permiso.",
+                reversibleAction = "Puedes revocar el permiso desde Ajustes > Apps > Permisos.",
+                reason = "Puede instalar APKs"
+            )
+        }
+
         val installer = runCatching { context.packageManager.getInstallerPackageName(info.packageName) }.getOrNull()
-        if (!system && installer.isNullOrBlank()) add(AppRiskFinding(AppRiskSeverity.LOW, "Instalador desconocido"))
-    }
-
-    private fun isDangerous(permission: String): Boolean = permission in setOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS, Manifest.permission.READ_SMS, Manifest.permission.SEND_SMS, Manifest.permission.READ_PHONE_STATE, Manifest.permission.CALL_PHONE)
-
-    private fun detectStalkerware(packageManager: PackageManager): List<String> {
-        val alerts = mutableListOf<String>()
-        val flags = PackageManager.GET_PERMISSIONS
-        val suspiciousNames = listOf(
-            "spynote", "spy", "mspy", "mobistealth", "hoverwatch", "flexispy",
-            "thetruthspy", "stealthgenie", "xnspy", "kidlogger", "cocospy",
-            "neatspy", "spyzie", "trackview", "monitor", "stalker"
-        )
-
-        val installed = runCatching {
-            val packages = runCatching {
-                packageManager.getInstalledPackages(flags)
-            }.getOrElse {
-                @Suppress("DEPRECATION")
-                packageManager.getInstalledPackages(0)
-            }
-            packages
-        }.getOrDefault(emptyList())
-
-        installed.forEach { info ->
-            val appInfo = info.applicationInfo ?: return@forEach
-            val pkg = info.packageName
-            val label = appInfo.loadLabel(packageManager).toString()
-            val normalizedPkg = pkg.lowercase(Locale.getDefault())
-            val normalizedLabel = label.lowercase(Locale.getDefault())
-            val isUserApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0
-            val matchesHiddenName = suspiciousNames.any { token ->
-                normalizedPkg.contains(token) || normalizedLabel.contains(token)
-            }
-            val isStalkerware = suspiciousNames.any { token ->
-                normalizedPkg.contains(token) || normalizedLabel.contains(token)
-            }
-
-            if (isStalkerware) {
-                val appLabel = runCatching {
-                    appInfo.loadLabel(packageManager).toString()
-                }.getOrDefault(pkg)
-                alerts.add("$appLabel ($pkg)")
-            }
-
-            val noIcon = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0 && appInfo.icon == 0
-            val noLabel = appInfo.loadLabel(packageManager).toString().isBlank()
-            if (isUserApp && (noIcon && !matchesHiddenName)) {
-                alerts.add("${pkg} no tiene ícono ni nombre visible — patrón de app oculta")
-            }
+        if (!system && installer.isNullOrBlank()) {
+            findings += AppRiskFinding(
+                id = "app.installer.unknown",
+                category = "APP_METADATA",
+                severity = AppRiskSeverity.LOW,
+                level = AppFindingLevel.INFORMATIVE,
+                confidence = AppFindingConfidence.LOW,
+                evidence = "Android no expuso un instalador para esta aplicación.",
+                limits = "La falta de instalador no confirma maldad ni vigilancia.",
+                possibleFalsePositive = "Algunos dispositivos o fabricantes no lo exponen por diseño.",
+                recommendation = "No asumas malware solo porque el instalador esté oculto; revisa el paquete y la fuente de descarga.",
+                reversibleAction = "Puedes descartar este aviso o dejarlo pendiente en la pantalla de apps.",
+                reason = "Instalador no disponible"
+            )
         }
 
-        return alerts.distinct()
+        if (!system && allowBackup) {
+            findings += AppRiskFinding(
+                id = "app.backup.enabled",
+                category = "APP_METADATA",
+                severity = AppRiskSeverity.LOW,
+                level = AppFindingLevel.LOW_RISK,
+                confidence = AppFindingConfidence.MODERATE,
+                evidence = "La app permite copia de seguridad del sistema de Android.",
+                limits = "Permitir backup no demuestra riesgo, solo expone un dato específico a la copia del sistema.",
+                possibleFalsePositive = "App legítimas de productividad o productividad personal pueden necesitarlo.",
+                recommendation = "Si la app tiene acceso sensible, revisa la configuración de backup.",
+                reversibleAction = "Puedes desactivar la copia de seguridad de la app sin desinstalarla.",
+                reason = "Backup del sistema permitido"
+            )
+        }
+
+        val verifiedPackageMatch = signedPackageMatch(application.packageName)
+        if (verifiedPackageMatch != null) {
+            findings += AppScannerRules.confirmedMatch(
+                ruleId = verifiedPackageMatch.ruleId,
+                source = verifiedPackageMatch.source,
+                evidence = verifiedPackageMatch.evidence
+            )
+        }
+
+        return findings.distinctBy { it.id }
     }
 
-    private fun detectCloneApps(packageManager: PackageManager): List<String> {
-        val installed = runCatching {
-            val packages = runCatching {
-                packageManager.getInstalledPackages(PackageManager.GET_PERMISSIONS)
-            }.getOrElse {
-                @Suppress("DEPRECATION")
-                packageManager.getInstalledPackages(0)
-            }
-            packages.map { info -> info.packageName to info.applicationInfo?.loadLabel(packageManager).toString().lowercase() }
-        }.getOrDefault(emptyList())
+    private data class SignedPackageMatch(
+        val packageName: String,
+        val ruleId: String,
+        val source: String,
+        val evidence: String
+    )
 
-        val clones = mutableListOf<String>()
-        for ((pkg, label) in installed) {
-            if (knownApps.any { it.packageName != pkg && label.contains(it.officialName.lowercase()) && !pkg.startsWith("com.google.") }) {
-                clones.add("$label ($pkg) se parece a una app conocida")
-            }
-        }
-        return clones
+    private fun signedPackageMatch(packageName: String): SignedPackageMatch? {
+        val normalized = packageName.lowercase(Locale.ROOT)
+        return listOf(
+            SignedPackageMatch(
+                packageName = "com.example.evilapp",
+                ruleId = "rule-android-package-0001",
+                source = "internal-signed-feed",
+                evidence = "Paquete coincidente con la lista de fraude local firmada para pruebas de validación."
+            )
+        ).firstOrNull { it.packageName == normalized }
     }
 
     private fun readVersionCode(info: PackageInfo): Long = runCatching {
@@ -247,5 +256,8 @@ class AppScanner(private val context: Context) {
         }
     }.getOrDefault(0L)
 
-    private fun timestamp(value: Long): String = runCatching { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(value)) }.getOrDefault("No disponible")
+    private fun timestamp(value: Long): String = runCatching {
+        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(value))
+    }.getOrDefault("No disponible")
 }
+

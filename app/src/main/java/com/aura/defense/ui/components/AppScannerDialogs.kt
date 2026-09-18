@@ -31,6 +31,11 @@ fun AppRisksDialog(
         title = { Text("Riesgos de apps") },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "La cobertura puede ser parcial porque Android no siempre expone todos los metadatos o permisos de cada aplicación.",
+                    color = AuraMuted,
+                    fontSize = 11.sp
+                )
                 if (apps.isEmpty()) {
                     Text("Aún no veo señales de riesgo en tus aplicaciones. Sigo vigilando.", color = AuraMuted)
                 } else {
@@ -42,7 +47,6 @@ fun AppRisksDialog(
                             Text(app.findings.joinToString(" · ") { it.reason }, color = AuraMuted, fontSize = 12.sp)
                             TextButton(onClick = { onDetails(app) }) { Text("Abrir detalles") }
                             TextButton(onClick = { onPermissions(app) }) { Text("Abrir permisos") }
-                            TextButton(onClick = { onUninstall(app) }) { Text("Solicitar desinstalación") }
                         }
                     }
                 }
