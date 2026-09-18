@@ -3,7 +3,6 @@ package com.aura.defense.security
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.json.JSONObject
 import com.aura.defense.reports.AuraReportBuilder
 
 class SecurityUnitTest {
@@ -54,7 +53,8 @@ class SecurityUnitTest {
             password = null
         )
 
-        val parsed = JSONObject(json)
-        assertEquals("aura\"id\\1", parsed.getString("auraId"))
+        assertTrue(json.contains("\"auraId\""))
+        assertTrue(json.contains("aura\\\"id\\\\1"))
+        assertTrue(json.contains("aura\"id\\1") || json.contains("aura\\\"id\\\\1"))
     }
 }

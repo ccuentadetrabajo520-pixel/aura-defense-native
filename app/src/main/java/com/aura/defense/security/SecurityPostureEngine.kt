@@ -73,14 +73,15 @@ class SecurityPostureEngine {
             }
         }
         val score = (100 - findings.sumOf { severityPenalty(it.severity) }).coerceIn(0, 100)
-        return PostureResult(score, statusFor(score), findings, telemetry, java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(java.util.Date()))
+        val status = statusFor(telemetry, score)
+        return PostureResult(score, status, findings, telemetry, java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(java.util.Date()))
     }
 
     fun addFindings(result: PostureResult, additional: List<SecurityFinding>): PostureResult {
         if (result.score < 0) return result
         val findings = result.findings + additional
         val score = (100 - findings.sumOf { severityPenalty(it.severity) }).coerceIn(0, 100)
-        return result.copy(score = score, status = statusFor(score), findings = findings)
+        return result.copy(score = score, status = statusFor(result.telemetry, score), findings = findings)
     }
 
     private fun severityPenalty(severity: FindingSeverity) = when (severity) {
@@ -90,10 +91,13 @@ class SecurityPostureEngine {
         FindingSeverity.CRITICAL -> 28
     }
 
-    private fun statusFor(score: Int) = when {
-        score >= 85 -> "Protegido"
-        score >= 60 -> "Parcial"
-        else -> "Riesgo alto"
+    private fun statusFor(telemetry: DeviceTelemetrySnapshot, score: Int): String = when {
+        !telemetry.vpnActive -> "PROTECCION_DETENIDA"
+        telemetry.privateDnsStatus == "No disponible" || telemetry.privateDnsStatus == "Inactivo" -> "COBERTURA_PARCIAL"
+        telemetry.networkActive == "No disponible" -> "EVIDENCIA_INSUFICIENTE"
+        score >= 85 -> "COBERTURA_ACTIVA"
+        score >= 60 -> "COBERTURA_PARCIAL"
+        else -> "ERROR"
     }
 
     private fun patchAgeInDays(value: String): Long? = runCatching {

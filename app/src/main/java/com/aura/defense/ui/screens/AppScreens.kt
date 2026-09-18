@@ -165,8 +165,9 @@ fun HomeScreen(
                 Text(if (result.score >= 0) "${result.score}" else "--", color = scoreColor, fontSize = 52.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                 Text("/100", color = AuraMuted, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
                 Spacer(Modifier.height(2.dp))
+                Text("Cobertura actual", color = AuraMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
                 Text(
-                    if (result.status == "Protegido" && !protectionReady) "Protección incompleta" else result.status,
+                    if (result.status == "COBERTURA_ACTIVA" && !protectionReady) "COBERTURA_PARCIAL" else result.status,
                     color = scoreColor.copy(alpha = 0.8f),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,

@@ -1,6 +1,8 @@
 package com.aura.defense.apps
 
 import android.Manifest
+import com.aura.defense.threats.SignedThreatFeed
+import com.aura.defense.threats.SignedThreatFeedValidator
 
 enum class AppFindingLevel {
     INFORMATIVE,
@@ -186,8 +188,25 @@ object AppScannerRules {
         }
     }
 
-    fun confirmedMatch(ruleId: String?, source: String?, evidence: String): AppRiskFinding {
-        val isConfirmed = !ruleId.isNullOrBlank() && !source.isNullOrBlank() && evidence.isNotBlank()
+    fun confirmedMatch(
+        ruleId: String?,
+        source: String?,
+        evidence: String,
+        version: String? = null,
+        expiresAt: Long? = null,
+        signature: String? = null,
+        validator: SignedThreatFeedValidator = SignedThreatFeedValidator()
+    ): AppRiskFinding {
+        val feed = SignedThreatFeed(
+            ruleId = ruleId.orEmpty(),
+            source = source.orEmpty(),
+            version = version.orEmpty(),
+            evidence = evidence,
+            expiresAt = expiresAt ?: Long.MAX_VALUE,
+            signature = signature.orEmpty()
+        )
+        val validation = validator.validate(feed)
+        val isConfirmed = validation.valid
         return if (isConfirmed) {
             AppRiskFinding(
                 id = "app.verified.match",

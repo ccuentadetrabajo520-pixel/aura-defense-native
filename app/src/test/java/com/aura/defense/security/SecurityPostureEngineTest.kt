@@ -2,6 +2,7 @@ package com.aura.defense.security
 
 import com.aura.defense.data.DeviceTelemetrySnapshot
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 class SecurityPostureEngineTest {
@@ -13,23 +14,36 @@ class SecurityPostureEngineTest {
     }
 
     @Test
-    fun `snapshot completo sin hallazgos puntua cien`() {
-        assertEquals(100, engine.evaluate(snapshot()).score)
+    fun `snapshot completo sin hallazgos tiene cobertura activa`() {
+        val result = engine.evaluate(snapshot())
+        assertEquals(100, result.score)
+        assertEquals("COBERTURA_ACTIVA", result.status)
     }
 
     @Test
-    fun `un hallazgo medio resta nueve`() {
-        assertEquals(91, engine.evaluate(snapshot(apiLevel = 28)).score)
+    fun `sin vpn activo no se muestra cobertura activa`() {
+        val result = engine.evaluate(snapshot(vpnActive = false))
+        assertEquals("PROTECCION_DETENIDA", result.status)
+        assertNotEquals("Protegido", result.status)
     }
 
     @Test
-    fun `un hallazgo alto resta dieciocho`() {
-        assertEquals(82, engine.evaluate(snapshot(screenLockSecure = false)).score)
+    fun `si hay cobertura parcial o evidencia insuficiente no se anuncia protegido`() {
+        val partial = engine.evaluate(snapshot(privateDnsStatus = "No disponible"))
+        val insufficient = engine.evaluate(snapshot(networkActive = "No disponible"))
+
+        assertEquals("COBERTURA_PARCIAL", partial.status)
+        assertEquals("EVIDENCIA_INSUFICIENTE", insufficient.status)
+        assertNotEquals("Protegido", partial.status)
+        assertNotEquals("Protegido", insufficient.status)
     }
 
     private fun snapshot(
         apiLevel: Int = 34,
-        screenLockSecure: Boolean = true
+        screenLockSecure: Boolean = true,
+        vpnActive: Boolean = true,
+        privateDnsStatus: String = "Activo",
+        networkActive: String = "Wi-Fi"
     ) = DeviceTelemetrySnapshot(
         manufacturer = "Google",
         model = "Pixel",
@@ -41,9 +55,9 @@ class SecurityPostureEngineTest {
         ramTotalBytes = 2L,
         storageAvailableBytes = 1L,
         storageTotalBytes = 2L,
-        networkActive = "Wi-Fi",
-        vpnActive = true,
-        privateDnsStatus = "Activo",
+        networkActive = networkActive,
+        vpnActive = vpnActive,
+        privateDnsStatus = privateDnsStatus,
         screenLockSecure = screenLockSecure,
         adbEnabled = false,
         accessibilityServices = emptyList()

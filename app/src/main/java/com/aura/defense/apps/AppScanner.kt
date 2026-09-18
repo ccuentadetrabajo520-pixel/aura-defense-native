@@ -216,35 +216,7 @@ class AppScanner(private val context: Context) {
             )
         }
 
-        val verifiedPackageMatch = signedPackageMatch(application.packageName)
-        if (verifiedPackageMatch != null) {
-            findings += AppScannerRules.confirmedMatch(
-                ruleId = verifiedPackageMatch.ruleId,
-                source = verifiedPackageMatch.source,
-                evidence = verifiedPackageMatch.evidence
-            )
-        }
-
         return findings.distinctBy { it.id }
-    }
-
-    private data class SignedPackageMatch(
-        val packageName: String,
-        val ruleId: String,
-        val source: String,
-        val evidence: String
-    )
-
-    private fun signedPackageMatch(packageName: String): SignedPackageMatch? {
-        val normalized = packageName.lowercase(Locale.ROOT)
-        return listOf(
-            SignedPackageMatch(
-                packageName = "com.example.evilapp",
-                ruleId = "rule-android-package-0001",
-                source = "internal-signed-feed",
-                evidence = "Paquete coincidente con la lista de fraude local firmada para pruebas de validación."
-            )
-        ).firstOrNull { it.packageName == normalized }
     }
 
     private fun readVersionCode(info: PackageInfo): Long = runCatching {

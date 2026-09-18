@@ -14,7 +14,6 @@ import com.aura.defense.guardian.GuardianLevel
 import com.aura.defense.files.AuraFileAnalysis
 import com.aura.defense.lan.AuraLanPeer
 import com.aura.defense.history.AuraHistoryEntry
-import org.json.JSONObject
 import java.util.Locale
 
 class AuraReportBuilder {
@@ -58,44 +57,92 @@ class AuraReportBuilder {
     }
 
     fun json(auraId: String, posture: PostureResult, apps: AppScanResult?, links: List<LinkAnalysis>, password: PasswordAudit?, notifications: List<NotificationAlert> = emptyList(), indicators: List<ThreatIndicator> = emptyList(), guardian: AuraGuardianAssessment? = null, file: AuraFileAnalysis? = null, vaultAvailable: Boolean = false, lanPeers: List<AuraLanPeer> = emptyList(), lastLanScan: String? = null, history: List<AuraHistoryEntry> = emptyList(), baselineTimestamp: String = "No disponible", threatSnapshot: ThreatIntelligenceSnapshot? = null): String {
-        return JSONObject().apply {
-            put("fecha", posture.timestamp)
-            put("auraId", auraId)
-            put("puntuacion", posture.score)
-            put("estado", posture.status)
-            put("appsVisibles", apps?.apps?.size ?: 0)
-            put("appsConRiesgos", apps?.riskyApps?.size ?: 0)
-            put("riesgoAlto", apps?.highRiskApps?.size ?: 0)
-            put("enlacesAnalizados", links.size)
-            put("enlacesNotificacionesAnalizados", notifications.size)
-            put("enlacesNotificacionesSospechosos", notifications.count { it.analysis.risk.name == "SOSPECHOSO" })
-            put("enlacesNotificacionesPeligrosos", notifications.count { it.analysis.risk.name == "PELIGROSO" })
-            put("indicadoresInteligenciaLocal", indicators.size)
-            put("versionInteligenciaAmenazas", threatSnapshot?.version ?: "local-compatible")
-            put("fuenteInteligenciaAmenazas", threatSnapshot?.source ?: "Inteligencia local incluida")
-            put("baseInteligenciaActualizada", threatSnapshot?.isUpdated ?: false)
-            put("estadoActualizacionInteligencia", threatSnapshot?.lastUpdateStatus ?: "No disponible")
-            put("actualizacionInteligenciaLocal", indicators.maxOfOrNull { it.updatedAt } ?: "No disponible")
-            put("coincidenciasInteligenciaLocal", countThreatMatches(links, notifications))
-            put("guardianNivel", guardian?.level?.toSpanish() ?: "No disponible")
-            put("guardianConfianza", guardian?.confidence?.toSpanish() ?: "No disponible")
-            put("guardianRazones", guardian?.reasons?.joinToString("; ") ?: "No disponible")
-            put("guardianRecomendaciones", guardian?.recommendations?.joinToString("; ") ?: "No disponible")
-            put("guardianFecha", guardian?.timestamp ?: "No disponible")
-            put("archivoAnalizado", file?.name ?: "No disponible")
-            put("archivoRiesgo", file?.risk ?: "No disponible")
-            put("bovedaDisponible", vaultAvailable)
-            put("ultimaComprobacionLan", lastLanScan ?: "No disponible")
-            put("aurasLanEncontradas", lanPeers.size)
-            put("historialEventos", history.size)
-            put("historialBajos", history.count { it.severity == "LOW" })
-            put("historialMedios", history.count { it.severity == "MEDIUM" })
-            put("historialAltos", history.count { it.severity == "HIGH" })
-            put("historialCriticos", history.count { it.severity == "CRITICAL" })
-            put("lineaBaseFecha", baselineTimestamp)
-            put("auditoriaContrasena", password?.strength?.name)
-            put("limitesAndroid", "Las señales dependen de la versión, permisos y fabricante; no confirma malware")
-        }.toString()
+        val payload = linkedMapOf(
+            "fecha" to posture.timestamp,
+            "auraId" to auraId,
+            "puntuacion" to posture.score,
+            "estado" to posture.status,
+            "appsVisibles" to (apps?.apps?.size ?: 0),
+            "appsConRiesgos" to (apps?.riskyApps?.size ?: 0),
+            "riesgoAlto" to (apps?.highRiskApps?.size ?: 0),
+            "enlacesAnalizados" to links.size,
+            "enlacesNotificacionesAnalizados" to notifications.size,
+            "enlacesNotificacionesSospechosos" to notifications.count { it.analysis.risk.name == "SOSPECHOSO" },
+            "enlacesNotificacionesPeligrosos" to notifications.count { it.analysis.risk.name == "PELIGROSO" },
+            "indicadoresInteligenciaLocal" to indicators.size,
+            "versionInteligenciaAmenazas" to (threatSnapshot?.version ?: "local-compatible"),
+            "fuenteInteligenciaAmenazas" to (threatSnapshot?.source ?: "Inteligencia local incluida"),
+            "baseInteligenciaActualizada" to (threatSnapshot?.isUpdated ?: false),
+            "estadoActualizacionInteligencia" to (threatSnapshot?.lastUpdateStatus ?: "No disponible"),
+            "actualizacionInteligenciaLocal" to (indicators.maxOfOrNull { it.updatedAt } ?: "No disponible"),
+            "coincidenciasInteligenciaLocal" to countThreatMatches(links, notifications),
+            "guardianNivel" to (guardian?.level?.toSpanish() ?: "No disponible"),
+            "guardianConfianza" to (guardian?.confidence?.toSpanish() ?: "No disponible"),
+            "guardianRazones" to (guardian?.reasons?.joinToString("; ") ?: "No disponible"),
+            "guardianRecomendaciones" to (guardian?.recommendations?.joinToString("; ") ?: "No disponible"),
+            "guardianFecha" to (guardian?.timestamp ?: "No disponible"),
+            "archivoAnalizado" to (file?.name ?: "No disponible"),
+            "archivoRiesgo" to (file?.risk ?: "No disponible"),
+            "bovedaDisponible" to vaultAvailable,
+            "ultimaComprobacionLan" to (lastLanScan ?: "No disponible"),
+            "aurasLanEncontradas" to lanPeers.size,
+            "historialEventos" to history.size,
+            "historialBajos" to history.count { it.severity == "LOW" },
+            "historialMedios" to history.count { it.severity == "MEDIUM" },
+            "historialAltos" to history.count { it.severity == "HIGH" },
+            "historialCriticos" to history.count { it.severity == "CRITICAL" },
+            "lineaBaseFecha" to baselineTimestamp,
+            "auditoriaContrasena" to password?.strength?.name,
+            "limitesAndroid" to "Las señales dependen de la versión, permisos y fabricante; no confirma malware"
+        )
+        return buildJsonObject(payload)
+    }
+
+    private fun buildJsonObject(source: Map<String, Any?>): String = buildString {
+        append("{")
+        source.entries.forEachIndexed { index, (key, value) ->
+            if (index > 0) append(',')
+            append('"').append(escapeJson(key)).append('"').append(':').append(jsonValue(value))
+        }
+        append("}")
+    }
+
+    private fun jsonValue(value: Any?): String = when (value) {
+        null -> "null"
+        is String -> "\"${escapeJson(value)}\""
+        is Number, is Boolean -> value.toString()
+        is Iterable<*> -> buildJsonArray(value)
+        is Array<*> -> buildJsonArray(value.asList())
+        is Map<*, *> -> buildJsonObject(value.entries.associate { (k, v) -> k.toString() to v })
+        else -> "\"${escapeJson(value.toString())}\""
+    }
+
+    private fun buildJsonArray(values: Iterable<*>): String = buildString {
+        append('[')
+        values.forEachIndexed { index, item ->
+            if (index > 0) append(',')
+            append(jsonValue(item))
+        }
+        append(']')
+    }
+
+    private fun escapeJson(value: String): String = buildString {
+        value.forEach { char ->
+            when (char) {
+                '\\' -> append("\\\\")
+                '"' -> append("\\\"")
+                '\n' -> append("\\n")
+                '\r' -> append("\\r")
+                '\t' -> append("\\t")
+                '\b' -> append("\\b")
+                '\u000C' -> append("\\f")
+                else -> {
+                    val code = char.code
+                    if (code < 0x20) append("\\u").append(code.toString(16).padStart(4, '0'))
+                    else append(char)
+                }
+            }
+        }
     }
 
     private fun StringBuilder.appendNotificationSummary(alerts: List<NotificationAlert>) {
