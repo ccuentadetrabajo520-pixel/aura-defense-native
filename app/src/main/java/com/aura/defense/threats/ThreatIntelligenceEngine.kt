@@ -40,7 +40,7 @@ class ThreatIntelligenceEngine(context: Context) {
     val categories: List<ThreatCategory> get() = indicators.map { it.category }.distinct()
 
     fun refresh(): ThreatIntelligenceSnapshot {
-        snapshot = repository.refresh()
+        snapshot = repository.refresh().toThreatIntelligenceSnapshot()
         return snapshot
     }
 

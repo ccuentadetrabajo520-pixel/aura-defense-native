@@ -2,7 +2,6 @@ package com.aura.defense.apps
 
 import com.aura.defense.threats.SignedThreatFeed
 import com.aura.defense.threats.SignedThreatFeedValidator
-import com.aura.defense.threats.ThreatRuleManifest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -43,44 +42,35 @@ class AppScannerRulesTest {
         val pair = newEd25519KeyPair()
         val validator = SignedThreatFeedValidator(publicKeyBase64 = Base64.getEncoder().encodeToString(pair.public.encoded))
         val expiresAt = System.currentTimeMillis() + 60_000L
-        val evidence = "sample-local-rule"
+        val evidence = "rule-remote-01"
         val size = evidence.toByteArray(Charsets.UTF_8).size.toLong()
-        val canonical = validator.validateCanonicalPayload(
-            ruleId = "aura.rule.local.sample",
-            source = "aura-local",
-            version = "2026.09.18",
+        val ruleId = "com.example.rule.remote_01"
+        val source = "external-threat-feed"
+        val version = "2026.09.18"
+        val checksum = sha256Hex(validator.validateCanonicalPayload(
+            ruleId = ruleId,
+            source = source,
+            version = version,
             evidence = evidence,
             expiresAt = expiresAt,
             checksum = "ignored",
             size = size
-        )
-        val manifest = ThreatRuleManifest(
-            ruleId = "aura.rule.local.sample",
-            source = "aura-local",
-            version = "2026.09.18",
-            evidence = evidence,
-            checksum = sha256Hex(canonical),
-            size = size,
-            expiresAt = expiresAt
-        )
+        ))
         val validFeed = signedFeed(
-            ruleId = manifest.ruleId,
-            source = manifest.source,
-            version = manifest.version,
-            evidence = manifest.evidence,
-            expiresAt = manifest.expiresAt,
-            checksum = manifest.checksum,
-            size = manifest.size,
-            privateKey = pair.private,
-            publicKey = pair.public,
-            validator = validator,
-            expectedRule = manifest
+            ruleId = ruleId,
+            source = source,
+            version = version,
+            evidence = evidence,
+            expiresAt = expiresAt,
+            checksum = checksum,
+            size = size,
+            privateKey = pair.private
         )
 
-        val valid = validator.validate(validFeed, manifest)
-        val missingRule = validator.validate(validFeed.copy(ruleId = ""), manifest)
-        val invalidSignature = validator.validate(validFeed.copy(signature = Base64.getEncoder().encodeToString(ByteArray(64) { 7 })), manifest)
-        val expired = validator.validate(validFeed.copy(expiresAt = System.currentTimeMillis() - 1_000L), manifest)
+        val valid = validator.validate(validFeed)
+        val missingRule = validator.validate(validFeed.copy(ruleId = ""))
+        val invalidSignature = validator.validate(validFeed.copy(signature = Base64.getEncoder().encodeToString(ByteArray(64) { 7 })))
+        val expired = validator.validate(validFeed.copy(expiresAt = System.currentTimeMillis() - 1_000L))
 
         assertTrue(valid.valid)
         assertFalse(missingRule.valid)
@@ -116,12 +106,9 @@ class AppScannerRulesTest {
         expiresAt: Long,
         checksum: String,
         size: Long,
-        privateKey: java.security.PrivateKey,
-        publicKey: java.security.PublicKey,
-        validator: SignedThreatFeedValidator,
-        expectedRule: ThreatRuleManifest
+        privateKey: java.security.PrivateKey
     ): SignedThreatFeed {
-        val canonical = validator.validateCanonicalPayload(ruleId, source, version, evidence, expiresAt, checksum, size)
+        val canonical = listOf(ruleId, source, version, evidence, expiresAt.toString(), size.toString()).joinToString("|")
         val signature = Signature.getInstance("Ed25519").apply {
             initSign(privateKey)
             update(canonical.toByteArray(Charsets.UTF_8))

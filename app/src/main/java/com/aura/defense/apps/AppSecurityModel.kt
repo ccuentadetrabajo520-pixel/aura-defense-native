@@ -3,7 +3,7 @@ package com.aura.defense.apps
 import android.Manifest
 import com.aura.defense.threats.SignedThreatFeed
 import com.aura.defense.threats.SignedThreatFeedValidator
-import com.aura.defense.threats.ThreatRuleManifestRegistry
+import com.aura.defense.threats.ThreatIntelligenceRepository
 
 enum class AppFindingLevel {
     INFORMATIVE,
@@ -198,7 +198,8 @@ object AppScannerRules {
         checksum: String? = null,
         size: Long? = null,
         signature: String? = null,
-        validator: SignedThreatFeedValidator = SignedThreatFeedValidator()
+        validator: SignedThreatFeedValidator? = null,
+        repository: ThreatIntelligenceRepository? = null
     ): AppRiskFinding {
         val normalizedRuleId = ruleId?.trim().orEmpty()
         val normalizedSource = source?.trim().orEmpty()
@@ -208,42 +209,36 @@ object AppScannerRules {
             return suspiciousUnsignedMatch(normalizedEvidence)
         }
 
-        val expectedRule = ThreatRuleManifestRegistry.resolve(normalizedRuleId, normalizedSource, normalizedVersion)
-            ?: ThreatRuleManifestRegistry.resolveAny(normalizedRuleId, normalizedSource)
-        if (expectedRule == null) {
+        val activeFeed = repository?.activeFeed()
+        val activeMatches = activeFeed != null &&
+            activeFeed.ruleId == normalizedRuleId &&
+            activeFeed.source == normalizedSource &&
+            activeFeed.version == normalizedVersion &&
+            activeFeed.evidence == normalizedEvidence &&
+            activeFeed.expiresAt > System.currentTimeMillis()
+
+        if (!activeMatches) {
             return suspiciousUnsignedMatch(normalizedEvidence)
         }
 
-        val feed = SignedThreatFeed(
-            ruleId = normalizedRuleId,
-            source = normalizedSource,
-            version = normalizedVersion,
-            evidence = normalizedEvidence,
-            expiresAt = expiresAt ?: expectedRule.expiresAt,
-            checksum = checksum ?: expectedRule.checksum,
-            size = size ?: expectedRule.size,
-            signature = signature.orEmpty()
-        )
-
-        val validation = validator.validate(feed, expectedRule)
-        val isConfirmed = validation.valid
-        return if (isConfirmed) {
-            AppRiskFinding(
+        val key = validator?.let { it }
+        if (key == null) {
+            return AppRiskFinding(
                 id = "app.verified.match",
                 category = "THREAT_INTELLIGENCE",
                 severity = AppRiskSeverity.HIGH,
                 level = AppFindingLevel.CONFIRMED_MATCH,
                 confidence = AppFindingConfidence.HIGH,
-                evidence = "Coincidencia verificada con la regla '$normalizedRuleId' de la fuente '$normalizedSource' (v$normalizedVersion). Detalle: $normalizedEvidence",
-                limits = "La verificación exige una regla de inteligencia publicada, firma Ed25519 válida y vigencia actual.",
-                possibleFalsePositive = "Un feed vencido, alterado o fuera de versión puede invalidar la coincidencia.",
-                recommendation = "Revisa la aplicación y la regla antes de tomar decisiones fuera del dispositivo.",
-                reversibleAction = "Puedes descartar el hallazgo si la regla se invalida o silenciarlo temporalmente.",
-                reason = "Coincidencia confirmada con inteligencia válida"
+                evidence = "Coincidencia verificada con la regla '$normalizedRuleId' de la fuente '$normalizedSource' (v$normalizedVersion). Detalle: $normalizedEvidence. Feed activo válido identificado en el repositorio local.",
+                limits = "La verificación exige un feed activo, válido y vigente del repositorio local.",
+                possibleFalsePositive = "Si el repositorio pierde validez o expira, la coincidencia se desactiva automáticamente.",
+                recommendation = "Revisa la aplicación antes de tomar decisiones fuera de la app.",
+                reversibleAction = "Puedes descartar el hallazgo si el feed deja de ser vigente.",
+                reason = "Coincidencia confirmada con inteligencia activa y válida"
             )
-        } else {
-            suspiciousUnsignedMatch(normalizedEvidence)
         }
+
+        return suspiciousUnsignedMatch(normalizedEvidence)
     }
 
     private fun suspiciousUnsignedMatch(evidence: String): AppRiskFinding = AppRiskFinding(
