@@ -48,6 +48,7 @@ import com.aura.defense.assistant.AssistantProposedAction
 import com.aura.defense.assistant.AssistantResponse
 import com.aura.defense.assistant.AssistantResponseType
 import com.aura.defense.assistant.AssistantActionExecutor
+import com.aura.defense.assistant.AssistantToolRegistry
 import com.aura.defense.assistant.AssistantTimelineStore
 import com.aura.defense.assistant.AssistantHistoryRepository
 import com.aura.defense.security.PostureResult
@@ -100,7 +101,10 @@ fun AssistantCenterScreen(
                             { if (action.id == "start_dns") onStartDns() else onStopDns() }
                         ).execute(action)
                     }
-                    else -> AssistantActionExecutor(context) { posture }.execute(action)
+                    else -> AssistantActionExecutor(
+                        context = context,
+                        registry = AssistantToolRegistry()
+                    ).execute(action)
                 }
             }
         )

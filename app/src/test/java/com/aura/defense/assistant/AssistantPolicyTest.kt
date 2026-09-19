@@ -62,6 +62,20 @@ class AssistantPolicyTest {
     }
 
     @Test
+    fun `la construccion del executor usa el registry real`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val executor = AssistantActionExecutor(
+            context = context,
+            registry = AssistantToolRegistry()
+        )
+        val result = executor.execute(
+            AssistantProposedAction("herramienta_inexistente", "No ejecutar", "", "", "", false)
+        )
+        assertFalse(result.success)
+        assertTrue(result.message.contains("no está registrada"))
+    }
+
+    @Test
     fun `timeline vacia y borrado de historial son estados reales`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val timeline = AssistantTimelineStore(context)
