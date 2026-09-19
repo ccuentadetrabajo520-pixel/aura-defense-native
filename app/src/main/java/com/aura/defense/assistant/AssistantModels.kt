@@ -32,9 +32,16 @@ data class AssistantActionResult(
     val actionId: String,
     val success: Boolean,
     val message: String,
+    val status: AssistantActionStatus = if (success) AssistantActionStatus.COMPLETED else AssistantActionStatus.FAILED,
     val completedAt: Long = System.currentTimeMillis(),
     val undo: AssistantProposedAction? = null
 )
+
+enum class AssistantActionStatus {
+    PENDING_REQUEST,
+    COMPLETED,
+    FAILED
+}
 
 data class AssistantResponse(
     val type: AssistantResponseType,

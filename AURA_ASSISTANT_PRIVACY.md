@@ -2,7 +2,7 @@
 
 ## Por defecto
 
-El procesamiento conversacional y el diagnóstico ocurren en el dispositivo. No se añaden analítica, publicidad, trackers, SDKs de telemetría ni llamadas de red por esta fase. El modelo no recibe acceso directo a Android, VPN, red, almacenamiento ni datos privados: recibe solo objetos estructurados que el proveedor de evidencia decide exponer.
+El procesamiento conversacional basado en reglas y el diagnóstico ocurren en el dispositivo. No se añade un LLM ni se afirma IA avanzada: el runtime on-device futuro está desactivado. No se añaden analítica, publicidad, trackers, SDKs de telemetría ni llamadas de red por esta fase. El proveedor de respuesta no recibe acceso directo a Android, VPN, red, almacenamiento ni datos privados: recibe solo objetos estructurados que el proveedor de evidencia decide exponer.
 
 ## Evidencia
 

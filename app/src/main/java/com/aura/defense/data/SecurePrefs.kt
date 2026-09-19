@@ -8,10 +8,29 @@ import androidx.security.crypto.MasterKey
 object SecurePrefs {
     @Volatile
     private var instance: SharedPreferences? = null
+    @Volatile
+    private var encryptedInstance: SharedPreferences? = null
 
     fun get(context: Context): SharedPreferences =
         instance ?: synchronized(this) {
             instance ?: create(context.applicationContext).also { instance = it }
+        }
+
+    fun encryptedOrNull(context: Context): SharedPreferences? =
+        encryptedInstance ?: synchronized(this) {
+            encryptedInstance ?: runCatching {
+                val appContext = context.applicationContext
+                val masterKey = MasterKey.Builder(appContext)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build()
+                EncryptedSharedPreferences.create(
+                    appContext,
+                    "aura_secure_assistant",
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                )
+            }.getOrNull()?.also { encryptedInstance = it }
         }
 
     private fun create(context: Context): SharedPreferences {

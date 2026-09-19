@@ -14,7 +14,7 @@ interface AssistantModelProvider {
     suspend fun respond(input: String, level: AssistantExplanationLevel): AssistantResponse
 }
 
-class LocalAssistantModelProvider : AssistantModelProvider {
+class RuleBasedLocalAssistantProvider : AssistantModelProvider {
     override suspend fun respond(input: String, level: AssistantExplanationLevel): AssistantResponse {
         val normalized = input.trim().lowercase(Locale.ROOT)
         if (normalized.isBlank()) return AssistantResponse(AssistantResponseType.GENERAL_RESPONSE, "Escribe una pregunta y te responderé.")
@@ -41,6 +41,12 @@ class CloudAssistantModelProvider : AssistantModelProvider {
         AssistantResponse(AssistantResponseType.GENERAL_RESPONSE, "El proveedor en la nube está desactivado por defecto y no realiza llamadas.")
 }
 
+/** Contract reserved for a verified on-device runtime; no runtime is bundled yet. */
+class OnDeviceAssistantModelProvider : AssistantModelProvider {
+    override suspend fun respond(input: String, level: AssistantExplanationLevel): AssistantResponse =
+        AssistantResponse(AssistantResponseType.GENERAL_RESPONSE, "El modelo local on-device no está disponible; AURA usa respuestas locales basadas en reglas.")
+}
+
 class AssistantEvidenceProvider(
     private val context: Context,
     private val repository: ThreatIntelligenceRepository = ThreatIntelligenceRepositoryProvider.get(context),
@@ -49,6 +55,12 @@ class AssistantEvidenceProvider(
     fun read(): AssistantEvidenceContext {
         val state = DnsProtectionStateStore.current()
         val feed = repository.activeFeed()
+        val repositoryState = repository.state()
+        val feedState = if (feed == null && repositoryState == com.aura.defense.threats.ThreatRepositoryState.CURRENT) {
+            com.aura.defense.threats.ThreatRepositoryState.EXPIRED
+        } else {
+            repositoryState
+        }
         val now = System.currentTimeMillis()
         val dnsEvents = DnsFirewallStore(context).blockedEvents().takeLast(20).map {
             AssistantDnsEvent(it.category, it.source, it.feedVersion, it.ruleId, it.timestamp)
@@ -63,7 +75,7 @@ class AssistantEvidenceProvider(
         return AssistantEvidenceContext(
             coverage = AssistantCoverage(
                 dnsStatus = state.status.name,
-                feedStatus = repository.state().name,
+                feedStatus = feedState.name,
                 feedSource = feed?.source ?: "No disponible",
                 feedVersion = feed?.version ?: "No disponible",
                 feedUpdatedAt = feed?.feedTimestamp?.let { format(it) } ?: "No disponible",

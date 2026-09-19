@@ -42,11 +42,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aura.defense.ThreatIntelligenceRepositoryProvider
 import com.aura.defense.assistant.AssistantConversationService
+import com.aura.defense.assistant.AssistantDnsActionCoordinator
 import com.aura.defense.assistant.AssistantExplanationLevel
 import com.aura.defense.assistant.AssistantProposedAction
 import com.aura.defense.assistant.AssistantResponse
 import com.aura.defense.assistant.AssistantResponseType
 import com.aura.defense.assistant.AssistantTimelineStore
+import com.aura.defense.assistant.AssistantHistoryRepository
 import com.aura.defense.security.PostureResult
 import com.aura.defense.ui.AuraAmber
 import com.aura.defense.ui.AuraCyan
@@ -57,6 +59,7 @@ import com.aura.defense.ui.AuraText
 import com.aura.defense.vpn.DnsProtectionState
 import com.aura.defense.vpn.DnsProtectionStatus
 import kotlinx.coroutines.launch
+import com.aura.defense.vpn.DnsProtectionStateStore
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -90,9 +93,13 @@ fun AssistantCenterScreen(
             { posture },
             actionExecutor = { action ->
                 when (action.id) {
-                    "start_dns" -> { onStartDns(); com.aura.defense.assistant.AssistantActionResult(action.id, true, "Solicitud de inicio enviada; el estado real aparecerá cuando Android confirme el servicio.") }
-                    "stop_dns" -> { onStopDns(); com.aura.defense.assistant.AssistantActionResult(action.id, true, "Solicitud de detención enviada; el estado real se actualizará desde el servicio.") }
-                    else -> com.aura.defense.assistant.AssistantActionExecutor(context) { posture }.execute(action)
+                    "start_dns", "stop_dns" -> {
+                        AssistantDnsActionCoordinator(
+                            DnsProtectionStateStore.state,
+                            { if (action.id == "start_dns") onStartDns() else onStopDns() }
+                        ).execute(action)
+                    }
+                    else -> AssistantActionExecutor(context) { posture }.execute(action)
                 }
             }
         )
@@ -135,6 +142,12 @@ fun AssistantCenterScreen(
             posture = posture.status,
             postureTimestamp = posture.timestamp
         )
+        val encryptedHistory = AssistantHistoryRepository(context).isEncryptedAvailable()
+        Text(
+            if (encryptedHistory) "Historial local cifrado con Android Keystore" else "Historial no persistido: Android Keystore no está disponible",
+            color = if (encryptedHistory) AuraGreen else AuraAmber,
+            fontSize = 11.sp
+        )
         val timeline = AssistantTimelineStore(context).entries().takeLast(8).reversed()
         if (timeline.isNotEmpty()) {
             Card(colors = CardDefaults.cardColors(containerColor = AuraSurface), shape = RoundedCornerShape(14.dp)) {
@@ -155,7 +168,7 @@ fun AssistantCenterScreen(
         }
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (messages.isEmpty()) item { Text("Hola. Puedo conversar o revisar evidencia local cuando lo solicites.", color = AuraText) }
-            items(messages) { message -> AssistantMessageCard(message, onConfirm = { action -> messages = messages + AssistantMessage(false, service.confirm(action)) }) }
+            items(messages) { message -> AssistantMessageCard(message, onConfirm = { action -> scope.launch { messages = messages + AssistantMessage(false, service.confirm(action)) } }) }
             if (processing) item { Text("Procesando localmente...", color = AuraMuted) }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -226,6 +239,9 @@ private fun AssistantMessageCard(message: AssistantMessage, onConfirm: (Assistan
             message.response.limitations.forEach { Text("Límite: $it", color = AuraMuted, fontSize = 11.sp) }
             message.response.proposedAction?.let { action ->
                 androidx.compose.material3.Button(onClick = { onConfirm(action) }) { Text("Confirmar acción") }
+            }
+            message.response.actionResult?.let { result ->
+                Text("Estado: ${result.status} · ${formatTime(result.completedAt)}", color = if (result.success) AuraGreen else AuraAmber, fontSize = 11.sp)
             }
         }
     }

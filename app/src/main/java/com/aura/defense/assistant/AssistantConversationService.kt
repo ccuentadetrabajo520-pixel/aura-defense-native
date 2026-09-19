@@ -7,11 +7,11 @@ import java.util.Date
 import java.util.Locale
 
 class AssistantConversationService(
-    context: Context,
+    private val context: Context,
     postureProvider: () -> PostureResult,
-    private val model: AssistantModelProvider = LocalAssistantModelProvider(),
+    private val model: AssistantModelProvider = RuleBasedLocalAssistantProvider(),
     private val history: AssistantHistoryRepository = AssistantHistoryRepository(context),
-    private val actionExecutor: (AssistantProposedAction) -> AssistantActionResult = AssistantActionExecutor(context, postureProvider)::execute,
+    private val actionExecutor: suspend (AssistantProposedAction) -> AssistantActionResult = { AssistantActionExecutor(context, postureProvider).execute(it) },
     private val toolRegistry: AssistantToolRegistry = AssistantToolRegistry()
 ) {
     private val contextBuilder = AssistantContextBuilder(AssistantEvidenceProvider(context, postureProvider = postureProvider))
@@ -45,7 +45,7 @@ class AssistantConversationService(
         return response
     }
 
-    fun confirm(action: AssistantProposedAction): AssistantResponse {
+    suspend fun confirm(action: AssistantProposedAction): AssistantResponse {
         if (!policy.confirm(action)) return AssistantResponse(AssistantResponseType.EVIDENCE_BASED_RECOMMENDATION, "La confirmación no es válida.")
         if (!policy.consume(action)) return AssistantResponse(AssistantResponseType.EVIDENCE_BASED_RECOMMENDATION, "Acción limitada temporalmente; no se ejecutó.")
         val result = actionExecutor(action)

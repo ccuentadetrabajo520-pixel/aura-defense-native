@@ -6,9 +6,11 @@ AURA es un asistente local de ciberdefensa para Android sin root. Conversa sobre
 
 ## Arquitectura
 
-`AssistantConversationService` recibe texto y un nivel de explicación. Para conversación general usa `LocalAssistantModelProvider` y no crea contexto del teléfono. Para diagnóstico solicita explícitamente un `AssistantContextBuilder`, que compone únicamente estado DNS/VPN, snapshot del feed firmado, eventos DNS, hallazgos, postura, permisos propios y límites Android.
+`AssistantConversationService` recibe texto y un nivel de explicación. Para conversación general usa `RuleBasedLocalAssistantProvider` y no crea contexto del teléfono. Para diagnóstico solicita explícitamente un `AssistantContextBuilder`, que compone únicamente estado DNS/VPN, snapshot del feed firmado, eventos DNS, hallazgos, postura, permisos propios y límites Android.
 
 `AssistantEvidenceProvider` lee esas fuentes locales. `AssistantToolRegistry` expone herramientas declaradas como solo lectura o acciones confirmables. `AssistantActionPolicy` valida intención, parámetros, confirmación y frecuencia antes de delegar en una función real. `AssistantHistoryRepository` conserva historial local redactado y borrable.
+
+Las acciones DNS pasan por `AssistantDnsActionCoordinator`: la solicitud inicial tiene estado `PENDING_REQUEST` y solo se completa al observar `ACTIVE_DNS_ONLY`, `OFF`, `DEGRADED` o `ERROR` en `DnsProtectionStateStore`. Un timeout no se presenta como éxito.
 
 Los modelos `AssistantResponse`, `AssistantCitation`, `AssistantProposedAction` y `AssistantActionResult` transportan clasificación, evidencia, confianza, limitaciones y resultado sin permitir que el modelo llame Android directamente.
 
@@ -34,7 +36,7 @@ La pantalla principal es un centro de mando sereno: encabezado de cobertura, con
 
 ## Offline y nube futura
 
-El modo local funciona sin red con la base de conocimiento y evidencia previamente disponible. `CloudAssistantModelProvider` es una interfaz futura, desactivada por defecto: requerirá consentimiento granular, mostrará los campos a enviar, redactará y minimizará el contexto, nunca enviará dominios completos, nombres de apps, conversaciones, IDs o hallazgos sensibles por defecto, y permitirá borrar historial y volver al modo local.
+El modo local funciona sin red con contenido local versionado y reglas explícitas. `RuleBasedLocalAssistantProvider` no es un LLM ni se presenta como IA avanzada. `OnDeviceAssistantModelProvider` define el contrato para un runtime local futuro, pero permanece desactivado hasta que exista un runtime on-device comprobable. `CloudAssistantModelProvider` es una interfaz futura, desactivada por defecto: requerirá consentimiento granular, mostrará los campos a enviar, redactará y minimizará el contexto, nunca enviará dominios completos, nombres de apps, conversaciones, IDs o hallazgos sensibles por defecto, y permitirá borrar historial y volver al modo local.
 
 ## Limitaciones actuales
 
