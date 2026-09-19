@@ -34,8 +34,8 @@ fun ReportDialog(
         text = { Text("Comparte un informe con la telemetría y los resultados disponibles. La contraseña nunca se incluye.") },
         confirmButton = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                TextButton(onClick = { onExport(false) }) { Text("Compartir informe TXT") }
-                TextButton(onClick = { onExport(true) }) { Text("Compartir informe JSON") }
+                TextButton(onClick = { onExport(false) }) { Text("Solicitar compartir informe TXT") }
+                TextButton(onClick = { onExport(true) }) { Text("Solicitar compartir informe JSON") }
                 TextButton(onClick = {
                     val htmlReport = AuraReportBuilder().html(
                         auraId = auraId,

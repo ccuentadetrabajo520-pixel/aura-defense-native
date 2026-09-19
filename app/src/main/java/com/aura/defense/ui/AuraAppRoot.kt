@@ -181,11 +181,20 @@ fun AuraAppRoot(
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(dnsState.status) {
         var checks = 0
+        var lastCoverageNotification: String? = null
         while (true) {
             isVpnRunning = MainActivity.auraVpnActiveStatic(context)
-            threatFeedEntries = com.aura.defense.ThreatIntelligenceRepositoryProvider.get(context).current().indicatorCount
+            val repository = com.aura.defense.ThreatIntelligenceRepositoryProvider.get(context)
+            threatFeedEntries = repository.current().indicatorCount
+            val notificationKey = "${dnsState.status}:${repository.state()}"
+            if (notificationKey != lastCoverageNotification) {
+                withContext(Dispatchers.IO) {
+                    com.aura.defense.assistant.AssistantNotificationService(context).notifyCoverage(dnsState, repository.state())
+                }
+                lastCoverageNotification = notificationKey
+            }
             if (boot.ready) {
                 val dnsStore = DnsFirewallStore(context)
                 boot = boot.copy(

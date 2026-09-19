@@ -1,8 +1,7 @@
 # AURA DEFENS
 
-> El primer asistente virtual de ciberdefensa 100% local, con rostro y voz,
-> que ejecuta acciones reales y muestra evidencia verificable — para
-> Android sin root. Hecho en Venezuela. 🇻🇪
+> Asistente local de ciberdefensa, con voz opcional y evidencia verificable,
+> para Android sin root. Hecho en Venezuela.
 
 ## Qué es AURA
 
@@ -36,11 +35,12 @@ Todas las capacidades están limitadas por las APIs de Android y por los permiso
 - Monitor de tráfico por aplicación con `NetworkStats`, incluyendo bytes transferidos en las últimas 24 horas.
 - Análisis local de enlaces, archivos compartidos y códigos QR, además de herramientas de red, Bluetooth y LAN.
 
-### Asistente (Aura Copilot)
+### Asistente local
 
 - Conversación local en español, con una base de conocimiento curada de 49 llamadas `entry(` verificadas en código y conceptos adicionales compactos; incluye señales, explicaciones y recomendaciones.
 - Consulta real de dominios contra la inteligencia disponible: el asistente puede responder si un dominio aparece en los feeds y consultar su edad por RDAP.
-- Ejecución de acciones con confirmación desde la interfaz: escaneo de aplicaciones, control de la VPN DNS, perfiles, bloqueo o permiso de dominios y herramientas de red disponibles.
+- Conversación general separada de evaluaciones locales basadas en evidencia estructurada.
+- Acciones sensibles con confirmación explícita; AURA no instala ni desinstala aplicaciones, modifica ajustes ocultos ni bloquea por decisión del modelo.
 - Voz bidireccional: reconocimiento de voz mediante el servicio de Android y respuesta hablada mediante TTS cuando el dispositivo lo permite.
 - Informes exportables y herramientas de diagnóstico; no existe en el código actual una capacidad independiente identificable como "modo pánico".
 
@@ -55,7 +55,7 @@ Todas las capacidades están limitadas por las APIs de Android y por los permiso
 ### Transparencia radical
 
 - Consola con registros reales de procesos y bloqueos observables en tiempo de ejecución.
-- Score determinista: los hallazgos y sus severidades alimentan el cálculo de postura; el valor no equivale a una certificación de seguridad.
+- La interfaz prioriza Cobertura actual, evidencia y límites; cualquier puntuación interna no equivale a una certificación de seguridad.
 - Confianza declarada: cuando falta un dato, AURA lo expresa y no inventa una respuesta.
 
 ## Qué AURA NO hace (límites reales de Android sin root)
@@ -81,6 +81,24 @@ El procesamiento principal y la base de conocimiento funcionan localmente. No ha
 - Verificación opcional de contraseñas mediante el endpoint de rangos de Have I Been Pwned, sin enviar la contraseña completa.
 
 No existe integración con MalwareBazaar en el código actual. Las notificaciones, aplicaciones instaladas, cámara, ubicación, Bluetooth y red solo se consultan para las funciones que el usuario activa y autoriza. Los eventos DNS locales no se escriben en logs de diagnóstico con dominios, URLs, IPs o payloads; la actividad conservada tiene retención limitada y borrado manual. Nada más sale del dispositivo según las conexiones identificadas en el código.
+
+## Asistente Fase 4
+
+El asistente separa conversación general de diagnóstico local. El modo predeterminado es local y no envía contexto fuera del dispositivo. Las evaluaciones usan únicamente cobertura DNS/VPN, estado del feed firmado, eventos DNS reales, hallazgos, postura y límites de Android; no convierten nombres de apps, dominios o contenido externo en instrucciones.
+
+La interfaz muestra siempre **Cobertura actual**, evidencia y límites. El mapa declara qué observa cada capa y qué queda fuera de alcance. Las acciones sensibles requieren confirmación explícita y las acciones no soportadas no se ejecutan.
+
+Ejemplos de respuestas honestas:
+
+- **Saludo:** “Hola. Puedo explicar ciberseguridad o revisar evidencia local cuando me lo pidas.”
+- **Pregunta técnica:** explica el concepto y aclara que una explicación general no evalúa el teléfono.
+- **“¿Mi teléfono está seguro?”:** “No tengo evidencia suficiente para confirmar ese riesgo”.
+- **DNS detenido:** muestra “Cobertura actual: DNS detenida” y propone iniciar protección con confirmación.
+- **Señal sospechosa:** muestra el hecho observado, la incertidumbre y la recomendación; no declara malware.
+- **Coincidencia confirmada:** solo usa esa clasificación con `CONFIRMED_MATCH` respaldado por feed firmado, vigente y activo.
+- **Evidencia insuficiente:** usa exactamente “No tengo evidencia suficiente para confirmar ese riesgo”.
+
+Detalles: [AURA_ASSISTANT_DESIGN.md](AURA_ASSISTANT_DESIGN.md), [AURA_ASSISTANT_PRIVACY.md](AURA_ASSISTANT_PRIVACY.md), [AURA_ASSISTANT_TOOL_POLICY.md](AURA_ASSISTANT_TOOL_POLICY.md) y [AURA_ASSISTANT_TEST_MATRIX.md](AURA_ASSISTANT_TEST_MATRIX.md).
 
 ## Documentación de la Fase 1
 

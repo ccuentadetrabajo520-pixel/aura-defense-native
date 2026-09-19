@@ -11,11 +11,18 @@ import com.aura.defense.history.AuraHistoryStore
 import com.aura.defense.history.SuspiciousChangeDetector
 import com.aura.defense.notifications.NotificationAlertStore
 import com.aura.defense.ThreatIntelligenceRepositoryProvider
+import com.aura.defense.assistant.AssistantTimelineStore
 
 class AuraCheckWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result = runCatching {
         val repository = ThreatIntelligenceRepositoryProvider.get(applicationContext)
-        repository.refresh()
+        val feedResult = repository.refresh()
+        AssistantTimelineStore(applicationContext).record(
+            kind = "FEED_UPDATE",
+            source = "ThreatIntelligenceRepository",
+            evidence = "estado=${feedResult.state}; versión=${feedResult.version ?: "No disponible"}",
+            result = feedResult.reason
+        )
         val selfDefenseThreats = com.aura.defense.monitor.SelfDefenseWatcher.selfCheck(
             applicationContext,
             com.aura.defense.MainActivity.auraVpnActiveStatic(applicationContext)

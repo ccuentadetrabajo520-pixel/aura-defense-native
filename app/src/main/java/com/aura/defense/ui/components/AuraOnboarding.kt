@@ -50,7 +50,7 @@ private val pages = listOf(
     OnboardingPage(
         "AURA DEFENSE",
         "Defensa móvil privada",
-        "La primera app de ciberdefensa para Android sin root. Diagnóstico en tiempo real, firewall DNS, detección de amenazas y protección contra ingeniería social.",
+        "Un asistente local de ciberdefensa para Android sin root. Diagnóstico en tiempo real, firewall DNS y señales explicables.",
         "🛡"
     ),
     OnboardingPage(

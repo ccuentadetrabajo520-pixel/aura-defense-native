@@ -59,7 +59,7 @@ import com.aura.defense.ui.components.AuraFileAnalyzerDialog
 import com.aura.defense.monitor.AuraCorrelationEngine
 import com.aura.defense.monitor.CorrelationAlert
 import com.aura.defense.monitor.AuraProcessLog
-import com.aura.defense.ui.screens.AuraConsoleScreen
+import com.aura.defense.ui.screens.AssistantCenterScreen
 import com.aura.defense.ui.screens.AppsScreen
 import com.aura.defense.ui.screens.AurasScreen
 import com.aura.defense.ui.screens.DefenseScreen
@@ -248,12 +248,6 @@ fun AuraMainShell(
         }.onFailure { Timber.e(it, "No se pudieron abrir los ajustes de $packageName") }
     }
 
-    fun requestUninstall(packageName: String) {
-        runCatching {
-            context.startActivity(Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName")))
-        }.onFailure { Timber.e(it, "No se pudo solicitar la desinstalación de $packageName") }
-    }
-
     Scaffold(
         topBar = {
             Row(
@@ -300,16 +294,12 @@ fun AuraMainShell(
     ) { padding ->
         Column(Modifier.padding(padding)) {
             when (tabIndex) {
-                0 -> AuraConsoleScreen(
+                0 -> AssistantCenterScreen(
                     posture = boot.posture,
-                    guardianSerious = guardianAssessment.level.name in setOf("RIESGO_ALTO", "CRITICO") || appScanResult?.highRiskApps?.isNotEmpty() == true,
-                    scanning = scanningApps,
-                    vpnRunning = isVpnRunning,
-                    inBackground = inBackground,
-                    onScan = onScan,
-                    onVpnToggle = onVpnToggle,
-                    onProfileChange = onProfileChange,
-                    onModuleDialog = dialogLambda
+                    dnsState = dnsState,
+                    onStartDns = { onVpnToggle() },
+                    onStopDns = { onVpnToggle() },
+                    onScan = onScan
                 )
                 1 -> HomeScreen(
                     result = emergencyPosture,
@@ -442,7 +432,6 @@ fun AuraMainShell(
             apps = appScanResult?.riskyApps.orEmpty(),
             onDetails = { app -> moduleDialog = app.appName to app.findings.joinToString("\n") { it.reason } },
             onPermissions = { app -> openAppSettings(app.packageName) },
-            onUninstall = { app -> requestUninstall(app.packageName) },
             onDismiss = { showRisks = false }
         )
     }
@@ -487,7 +476,6 @@ fun AuraMainShell(
             result = emergencyResult,
             onAppDetails = { app -> openAppSettings(app.packageName) },
             onAppPermissions = { app -> openAppSettings(app.packageName) },
-            onUninstall = { app -> requestUninstall(app.packageName) },
             onDismiss = { if (!emergencyRunning) showEmergency = false }
         )
     }

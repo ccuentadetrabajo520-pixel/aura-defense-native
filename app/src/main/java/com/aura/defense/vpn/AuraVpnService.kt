@@ -183,6 +183,9 @@ class AuraVpnService : VpnService() {
                 store.recordBlocked(
                     DnsBlockedEvent(domain, category, severity, System.currentTimeMillis(), verdict.reason, verdict.source ?: "UNKNOWN", verdict.feedVersion ?: "UNKNOWN", verdict.ruleId ?: "UNKNOWN")
                 )
+                if (verdict.reason == "threat_rule" && !verdict.ruleId.isNullOrBlank() && verdict.source != "UNKNOWN") {
+                    com.aura.defense.assistant.AssistantNotificationService(this).notifyConfirmedMatch()
+                }
                 com.aura.defense.monitor.AuraProcessLog.log("Dominio DNS bloqueado [$category]", "RED")
                 return true
             }

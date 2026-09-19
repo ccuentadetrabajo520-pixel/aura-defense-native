@@ -23,7 +23,6 @@ fun AppRisksDialog(
     apps: List<InstalledAppInfo>,
     onDetails: (InstalledAppInfo) -> Unit,
     onPermissions: (InstalledAppInfo) -> Unit,
-    onUninstall: (InstalledAppInfo) -> Unit,
     onDismiss: () -> Unit
 ) {
     AuraHudDialog(

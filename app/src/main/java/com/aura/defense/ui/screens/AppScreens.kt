@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -421,6 +422,15 @@ fun DefenseScreen(
     val vpnOffFlash = remember { androidx.compose.animation.core.Animatable(0f) }
     var previousVpnRunning by remember { mutableStateOf<Boolean?>(null) }
     var previousBlockPulse by remember { mutableStateOf(blockPulse) }
+    var confirmationTitle by remember { mutableStateOf<String?>(null) }
+    var confirmationMessage by remember { mutableStateOf("") }
+    var confirmedAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    fun requestConfirmation(title: String, message: String, action: () -> Unit) {
+        confirmationTitle = title
+        confirmationMessage = message
+        confirmedAction = action
+    }
 
     LaunchedEffect(vpnRunning, lifecycleState) {
         val wasRunning = previousVpnRunning
@@ -499,7 +509,13 @@ fun DefenseScreen(
         }
 
         Surface(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onVpnToggle),
+            modifier = Modifier.fillMaxWidth().clickable {
+                requestConfirmation(
+                    if (vpnRunning) "Detener protección DNS" else "Iniciar protección DNS",
+                    if (vpnRunning) "Detendrá el servicio DNS local. La acción es reversible iniciándolo de nuevo." else "Solicitará el permiso VPN y observará las consultas DNS que atraviesen AURA.",
+                    onVpnToggle
+                )
+            },
             shape = RoundedCornerShape(10.dp),
             color = if (vpnRunning) AuraGreen.copy(alpha = 0.12f) else AuraSurface,
             border = BorderStroke(0.5.dp, if (vpnRunning) AuraGreen.copy(alpha = 0.35f) else AuraCyan.copy(alpha = 0.12f))
@@ -576,12 +592,20 @@ fun DefenseScreen(
                     }
                 }
                 blockedDomains.lastOrNull()?.let { event ->
-                    TextButton(onClick = { onAllowTemporary(event.domain) }) {
+                    TextButton(onClick = {
+                        requestConfirmation(
+                            "Permitir dominio temporalmente",
+                            "Permitirá este dominio durante 15 minutos. El dominio se conserva solo en la actividad local y la excepción puede vencer o retirarse.",
+                            { onAllowTemporary(event.domain) }
+                        )
+                    }) {
                         Text("Permitir ${minimizeDomain(event.domain)} durante 15 min")
                     }
                 }
             }
-            TextButton(onClick = onClearActivity) { Text("Borrar actividad local") }
+            TextButton(onClick = {
+                requestConfirmation("Borrar actividad local", "Eliminará los eventos DNS locales conservados. Esta acción no se puede deshacer.", onClearActivity)
+            }) { Text("Borrar actividad local") }
         }
 
         Surface(
@@ -594,6 +618,24 @@ fun DefenseScreen(
                 Text("MODO EMERGENCIA", color = AuraRed, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 2.sp)
             }
         }
+    }
+
+    confirmationTitle?.let { title ->
+        AlertDialog(
+            onDismissRequest = { confirmationTitle = null; confirmedAction = null },
+            title = { Text(title) },
+            text = { Text(confirmationMessage) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmedAction?.invoke()
+                    confirmationTitle = null
+                    confirmedAction = null
+                }) { Text("Confirmar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmationTitle = null; confirmedAction = null }) { Text("Cancelar") }
+            }
+        )
     }
 }
 
@@ -644,6 +686,7 @@ fun AppsScreen(
     onExport: () -> Unit,
     onModuleDialog: (String, String) -> Unit
 ) {
+    var showExportConfirmation by remember { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("ESCÁNER DE APLICACIONES", color = AuraCyan, fontSize = 11.sp, fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp)
@@ -692,6 +735,19 @@ fun AppsScreen(
                 }
             }
         }
+
+        TextButton(onClick = { showExportConfirmation = true }) { Text("Generar y compartir informe local") }
+    }
+    if (showExportConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showExportConfirmation = false },
+            title = { Text("Compartir informe local") },
+            text = { Text("Generará el informe en almacenamiento privado y abrirá el selector de Android. No se compartirá nada automáticamente.") },
+            confirmButton = {
+                TextButton(onClick = { showExportConfirmation = false; onExport() }) { Text("Confirmar") }
+            },
+            dismissButton = { TextButton(onClick = { showExportConfirmation = false }) { Text("Cancelar") } }
+        )
     }
 }
 

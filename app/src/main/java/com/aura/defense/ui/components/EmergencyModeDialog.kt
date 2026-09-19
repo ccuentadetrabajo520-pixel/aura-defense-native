@@ -44,7 +44,6 @@ fun EmergencyModeDialog(
     result: EmergencyModeResult?,
     onAppDetails: (InstalledAppInfo) -> Unit,
     onAppPermissions: (InstalledAppInfo) -> Unit,
-    onUninstall: (InstalledAppInfo) -> Unit,
     onDismiss: () -> Unit
 ) {
     var showingReport by remember { mutableStateOf(false) }
@@ -88,7 +87,6 @@ fun EmergencyModeDialog(
                                 Text(app.findings.joinToString(" · ") { it.reason }, color = AuraMuted, fontSize = 12.sp)
                                 TextButton(onClick = { onAppDetails(app) }) { Text("Abrir detalles") }
                                 TextButton(onClick = { onAppPermissions(app) }) { Text("Abrir permisos") }
-                                TextButton(onClick = { onUninstall(app) }) { Text("Solicitar desinstalación") }
                             }
                         }
                     }

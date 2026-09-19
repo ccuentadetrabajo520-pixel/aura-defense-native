@@ -2,6 +2,7 @@ package com.aura.defense.vpn
 
 import android.content.Context
 import com.aura.defense.data.SecurePrefs
+import com.aura.defense.assistant.AssistantTimelineStore
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Locale
@@ -28,6 +29,7 @@ data class DnsBlockedEvent(
 )
 
 class DnsFirewallStore(context: Context) {
+    private val appContext = context.applicationContext
     private val preferences = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
     private val securePreferences = SecurePrefs.get(context)
 
@@ -120,6 +122,13 @@ class DnsFirewallStore(context: Context) {
             .putString(EVENTS_KEY, json.toString())
             .putInt(BLOCKED_COUNT_KEY, storedEvents.size)
             .apply()
+        AssistantTimelineStore(appContext).record(
+            kind = "DNS_BLOCK",
+            source = event.source,
+            evidence = "categoría=${event.category}; regla=${event.ruleId}; feed=${event.feedVersion}",
+            result = event.reason,
+            timestamp = event.timestamp
+        )
     }
 
     fun retentionHours(): Long = preferences.getLong(RETENTION_HOURS_KEY, DEFAULT_RETENTION_HOURS)
@@ -128,8 +137,10 @@ class DnsFirewallStore(context: Context) {
         preferences.edit().putLong(RETENTION_HOURS_KEY, hours.coerceIn(1L, MAX_RETENTION_HOURS)).apply()
     }
 
-    fun clearActivity() {
-        securePreferences.edit().remove(EVENTS_KEY).remove(BLOCKED_COUNT_KEY).apply()
+    fun clearActivity(): Boolean {
+        val cleared = securePreferences.edit().remove(EVENTS_KEY).remove(BLOCKED_COUNT_KEY).commit()
+        AssistantTimelineStore(appContext).clearKind("DNS_BLOCK")
+        return cleared
     }
 
     fun allowTemporarily(domain: String, durationMillis: Long, explanation: String): Boolean {
@@ -138,6 +149,12 @@ class DnsFirewallStore(context: Context) {
         val updated = active + DnsTemporaryException(normalized, System.currentTimeMillis() + durationMillis.coerceAtLeast(1L), explanation.take(120))
         securePreferences.edit().putString(TEMPORARY_EXCEPTIONS_KEY, temporaryExceptionsJson(updated)).apply()
         return true
+    }
+
+    fun removeTemporaryException(domain: String): Boolean {
+        val normalized = normalizeDomain(domain) ?: return false
+        val updated = temporaryExceptions().filterNot { it.domain == normalized }
+        return securePreferences.edit().putString(TEMPORARY_EXCEPTIONS_KEY, temporaryExceptionsJson(updated)).commit()
     }
 
     fun temporaryExceptions(): List<DnsTemporaryException> = runCatching {

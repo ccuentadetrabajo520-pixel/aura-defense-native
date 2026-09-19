@@ -62,7 +62,7 @@ fun AuraOnboardingV2(onComplete: () -> Unit) {
     val pages = listOf(
         OnboardingPageV2(
             title = "AURA DEFENSE",
-            subtitle = "Primera app de ciberdefensa sin root del mundo",
+            subtitle = "Asistente local de ciberdefensa sin root",
             description = "Diagnóstico local, filtrado DNS, detección de señales de amenaza y herramientas contra ingeniería social. La cobertura depende de los permisos y de Android.",
             icon = "[shield]",
             accentColor = AuraCyan
