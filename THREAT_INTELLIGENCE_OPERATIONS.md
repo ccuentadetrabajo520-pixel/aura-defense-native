@@ -30,6 +30,18 @@ AURA DEFENSE no debe confirmar malware solo con heurísticas de nombre, icono o 
 7. La app valida la firma, la expiración, el tamaño, el checksum, el `publicKeyId`, el replay y la regla esperada antes de activar el feed.
 8. El feed solo se activa si la validación completa pasa; en caso contrario, el repositorio mantiene el último feed válido y la protección DNS permanece degradada.
 
+## Formato canónico e interoperabilidad
+
+El payload firmado es UTF-8, sin BOM, sin espacios y con separadores JSON `,` y `:`. Sus claves aparecen en este orden: `ruleId`, `source`, `version`, `evidence`, `expiresAt` e `indicators`. Los indicadores se ordenan por `id` y cada indicador usa, en este orden, `id`, `indicator`, `indicatorType`, `category`, `severity`, `descriptionEs`, `source` y `updatedAt`. Las cadenas usan escapes JSON estándar y no ASCII-escapean Unicode. `size` es el número de bytes UTF-8 del payload y `checksum` es su SHA-256 hexadecimal; la firma Ed25519 se codifica en Base64.
+
+El vector versionado en `test-fixtures/crypto/` contiene el feed, la clave pública y la firma esperada. Android lo valida en `ThreatIntelligenceRepositoryTest`; la comprobación independiente se ejecuta con `python3 tools/test_sign_threat_feed.py`. La clave privada utilizada para generar el vector no se versiona.
+
+## Desarrollo y producción
+
+La variante `dev` es explícitamente no productiva. No tiene una URL de inteligencia activa por defecto: las pruebas locales inyectan el JSON firmado mediante `updateFromSignedManifest`, y una URL HTTPS de pruebas controlada solo puede habilitarse con `AURA_THREAT_MANIFEST_URL_DEBUG`. Su clave pública de pruebas se proporciona con `AURA_THREAT_PUBLIC_KEY_DEBUG` cuando se necesita una descarga local. No se debe usar ningún dominio ficticio como fuente activa.
+
+`prodRelease` permanece bloqueado durante la generación de BuildConfig si faltan `AURA_THREAT_PUBLIC_KEY` o `AURA_THREAT_MANIFEST_URL`, y también rechaza una URL que no use HTTPS.
+
 ## Publicación y rotación externa
 
 - La clave privada debe vivir fuera de GitHub, del APK y de cualquier log o artefacto compilado.

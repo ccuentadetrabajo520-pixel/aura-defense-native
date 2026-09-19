@@ -31,8 +31,10 @@ data class ThreatIndicator(
     }
 }
 
-class ThreatIntelligenceEngine(context: Context) {
-    private val repository = ThreatIntelligenceRepository(context)
+class ThreatIntelligenceEngine(
+    context: Context,
+    private val repository: ThreatIntelligenceRepository = com.aura.defense.ThreatIntelligenceRepositoryProvider.get(context)
+) {
     var snapshot: ThreatIntelligenceSnapshot = repository.current()
         private set
     val indicators: List<ThreatIndicator> get() = snapshot.indicators

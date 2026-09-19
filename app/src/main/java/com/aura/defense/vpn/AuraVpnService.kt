@@ -18,6 +18,7 @@ import java.net.InetAddress
 import java.net.SocketTimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import com.aura.defense.threats.ThreatIntelligenceEngine
+import com.aura.defense.ThreatIntelligenceRepositoryProvider
 import com.aura.defense.data.SecurePrefs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -180,7 +181,7 @@ class AuraVpnService : VpnService() {
                 DnsPacketCodec.blockedResponsePacket(packet, length, query)?.let(vpnOutput::write)
                 vpnOutput.flush()
                 store.recordBlocked(
-                    DnsBlockedEvent(domain, category, severity, System.currentTimeMillis(), verdict.reason, verdict.source ?: "UNKNOWN", verdict.feedVersion ?: "UNKNOWN")
+                    DnsBlockedEvent(domain, category, severity, System.currentTimeMillis(), verdict.reason, verdict.source ?: "UNKNOWN", verdict.feedVersion ?: "UNKNOWN", verdict.ruleId ?: "UNKNOWN")
                 )
                 com.aura.defense.monitor.AuraProcessLog.log("Dominio DNS bloqueado [$category]", "RED")
                 return true
@@ -287,7 +288,7 @@ class AuraVpnService : VpnService() {
     }
 
     private fun buildDecisionEngine(): DnsDecisionEngine {
-        val repository = com.aura.defense.threats.ThreatIntelligenceRepository(this)
+        val repository = ThreatIntelligenceRepositoryProvider.get(this)
         val rulesSource = VerifiedDnsRulesSource(repository)
         val store = dnsStore ?: DnsFirewallStore(this)
         return DnsDecisionEngine(

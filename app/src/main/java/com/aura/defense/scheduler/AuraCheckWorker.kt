@@ -10,11 +10,11 @@ import com.aura.defense.vault.AuraVault
 import com.aura.defense.history.AuraHistoryStore
 import com.aura.defense.history.SuspiciousChangeDetector
 import com.aura.defense.notifications.NotificationAlertStore
-import com.aura.defense.threats.ThreatIntelligenceRepository
+import com.aura.defense.ThreatIntelligenceRepositoryProvider
 
 class AuraCheckWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result = runCatching {
-        val repository = ThreatIntelligenceRepository(applicationContext)
+        val repository = ThreatIntelligenceRepositoryProvider.get(applicationContext)
         repository.refresh()
         val selfDefenseThreats = com.aura.defense.monitor.SelfDefenseWatcher.selfCheck(
             applicationContext,

@@ -4,6 +4,7 @@ import com.aura.defense.apps.AppFindingLevel
 import com.aura.defense.apps.AppScannerRules
 import com.aura.defense.vpn.DnsDecision
 import com.aura.defense.vpn.DnsDecisionEngine
+import com.aura.defense.vpn.DnsBlockedEvent
 import com.aura.defense.vpn.DnsFirewallProfile
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -264,5 +265,109 @@ class ThreatIntelligenceRepositoryTest {
         val rejected = repo.updateFromSignedManifest(broken)
         assertTrue(rejected.state == ThreatRepositoryState.STALE || rejected.state == ThreatRepositoryState.FAILED)
     }
+
+    @Test
+    fun `shared verified snapshot updates existing dns engine without vpn restart`() {
+        val repository = freshRepo()
+        val feedA = signedIndicatorFeed("A", "a.example", "rule-a", "2026.09.19T10:00:00Z")
+        val feedB = signedIndicatorFeed("B", "b.example", "rule-b", "2026.09.19T11:00:00Z")
+        assertEquals(ThreatRepositoryState.CURRENT, repository.updateFromSignedManifest(signedManifestJson(feedA, fixtureKeyPair)).state)
+
+        val engine = DnsDecisionEngine(
+            DnsFirewallProfile.ESTRICTO,
+            emptySet(),
+            emptySet(),
+            emptyList(),
+            rulesSource = VerifiedDnsRulesSource(repository)::currentRules
+        )
+        val first = engine.decide("a.example")
+        assertEquals(DnsDecision.BLOCK, first.decision)
+        assertEquals("rule-a", first.ruleId)
+        assertEquals("aurafeed-A", first.source)
+        assertEquals("A", first.feedVersion)
+
+        assertEquals(ThreatRepositoryState.CURRENT, repository.updateFromSignedManifest(signedManifestJson(feedB, fixtureKeyPair)).state)
+        assertEquals(DnsDecision.UNKNOWN, engine.decide("a.example").decision)
+        val second = engine.decide("b.example")
+        assertEquals(DnsDecision.BLOCK, second.decision)
+        assertEquals("rule-b", second.ruleId)
+        assertEquals("aurafeed-B", second.source)
+        assertEquals("B", second.feedVersion)
+        assertTrue(second.category == ThreatCategory.MALWARE.name)
+        assertTrue(second.severity == ThreatSeverity.HIGH.name)
+        val event = DnsBlockedEvent(
+            domain = second.domain,
+            category = second.category!!,
+            severity = second.severity!!,
+            timestamp = System.currentTimeMillis(),
+            reason = second.reason,
+            source = second.source!!,
+            feedVersion = second.feedVersion!!,
+            ruleId = second.ruleId!!
+        )
+        assertEquals("rule-b", event.ruleId)
+        assertTrue(event.timestamp > 0L)
+
+        val invalid = repository.updateFromSignedManifest(
+            signedManifestJson(feedB, fixtureKeyPair).replace("\"signature\":\"", "\"signature\":\"invalid")
+        )
+        assertTrue(invalid.state == ThreatRepositoryState.STALE || invalid.state == ThreatRepositoryState.FAILED)
+        assertEquals("B", repository.current().version)
+        assertEquals(DnsDecision.BLOCK, engine.decide("b.example").decision)
+
+        val expired = repository.updateFromSignedManifest(
+            signedManifestJson(feedB.copy(expiresAt = 1L), fixtureKeyPair)
+        )
+        assertTrue(expired.state == ThreatRepositoryState.STALE || expired.state == ThreatRepositoryState.FAILED)
+        assertEquals("B", repository.current().version)
+
+        val atomicFailure = repository.copyForTesting(atomicReplaceFails = true)
+        val feedC = signedIndicatorFeed("C", "c.example", "rule-c", "2026.09.19T12:00:00Z")
+        atomicFailure.updateFromSignedManifest(signedManifestJson(feedC, fixtureKeyPair))
+        assertEquals("B", atomicFailure.current().version)
+        assertEquals("B", atomicFailure.currentVerifiedRules().single().feedVersion)
+    }
+
+    @Test
+    fun `android validates the shared interoperability vector`() {
+        val vector = File("test-fixtures/crypto/threat-feed-vector.json").readText()
+        val publicKey = File("test-fixtures/crypto/threat-feed-public-key.base64").readText().trim()
+        val repository = ThreatIntelligenceRepository(
+            context = null,
+            publicKeyBase64 = publicKey,
+            manifestUrl = "https://vector.test/feed.json",
+            networkClient = object : ThreatNetworkClient {
+                override fun fetch(url: String, etag: String?, lastModified: String?): NetworkFetchResult? = null
+            }
+        )
+
+        val result = repository.updateFromSignedManifest(vector)
+        assertEquals(ThreatRepositoryState.CURRENT, result.state)
+        assertEquals("vector-rule-1", repository.currentVerifiedRules().single().ruleId)
+    }
+
+    private fun signedIndicatorFeed(version: String, domain: String, ruleId: String, updatedAt: String): SignedThreatFeed =
+        SignedThreatFeed(
+            ruleId = ruleId,
+            source = "aurafeed-$version",
+            version = version,
+            evidence = "Prueba de actualización en vivo",
+            expiresAt = System.currentTimeMillis() + 30_000L,
+            checksum = "",
+            size = 0L,
+            signature = "",
+            indicators = listOf(
+                ThreatIndicator(
+                    id = ruleId,
+                    indicator = domain,
+                    indicatorType = ThreatIndicatorType.DOMAIN,
+                    category = ThreatCategory.MALWARE,
+                    severity = ThreatSeverity.HIGH,
+                    descriptionEs = "Regla de prueba",
+                    source = "aurafeed-$version",
+                    updatedAt = updatedAt
+                )
+            )
+        )
 }
 

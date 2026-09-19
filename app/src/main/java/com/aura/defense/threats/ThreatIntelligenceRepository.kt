@@ -6,6 +6,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicReference
 
 enum class ThreatRepositoryState {
     CURRENT,
@@ -93,9 +94,16 @@ class ThreatIntelligenceRepository(
     private var lastPersistedEtag: String? = prefs?.getString("last_etag", null)
     private var lastPersistedLastModified: String? = prefs?.getString("last_last_modified", null)
     private var atomicReplaceFails: Boolean = false
+    private val verifiedRules = AtomicReference<List<com.aura.defense.vpn.DnsRule>>(emptyList())
+
+    init {
+        publishRules(activeFeed ?: lastValidFeed)
+    }
 
     fun activeFeed(): SignedThreatFeed? = activeFeed?.takeIf { it.expiresAt > System.currentTimeMillis() }
         ?: lastValidFeed?.takeIf { it.expiresAt > System.currentTimeMillis() }
+
+    fun currentVerifiedRules(): List<com.aura.defense.vpn.DnsRule> = verifiedRules.get()
 
     fun current(): ThreatIntelligenceSnapshot = snapshotForState(activeFeed(), currentState)
 
@@ -119,10 +127,12 @@ class ThreatIntelligenceRepository(
             this.lastValidFeed = this@ThreatIntelligenceRepository.lastValidFeed
             this.lastPersistedEtag = this@ThreatIntelligenceRepository.lastPersistedEtag
             this.lastPersistedLastModified = this@ThreatIntelligenceRepository.lastPersistedLastModified
+            this.verifiedRules.set(this@ThreatIntelligenceRepository.currentVerifiedRules())
             this.atomicReplaceFails = atomicReplaceFails
         }
     }
 
+    @Synchronized
     fun refresh(): ThreatRepositorySnapshot {
         currentState = ThreatRepositoryState.UPDATING
         persistState(currentState)
@@ -135,11 +145,15 @@ class ThreatIntelligenceRepository(
 
         val previous = activeFeed() ?: lastValidFeed
         val result = networkClient.fetch(manifestUrl, lastPersistedEtag, lastPersistedLastModified)
-            ?: return snapshot(
-                if (previous != null) ThreatRepositoryState.STALE else ThreatRepositoryState.FAILED,
-                previous,
-                if (previous != null) "No se pudo refrescar; se conserva el último feed válido." else "Descarga fallida y no hay último feed válido."
-            )
+            ?: run {
+                currentState = if (previous != null) ThreatRepositoryState.STALE else ThreatRepositoryState.FAILED
+                persistState(currentState)
+                return snapshot(
+                    currentState,
+                    previous,
+                    if (previous != null) "No se pudo refrescar; se conserva el último feed válido." else "Descarga fallida y no hay último feed válido."
+                )
+            }
 
         if (result.responseCode == 304) {
             currentState = if (previous != null && previous.expiresAt > System.currentTimeMillis()) ThreatRepositoryState.STALE else ThreatRepositoryState.EXPIRED
@@ -177,6 +191,7 @@ class ThreatIntelligenceRepository(
         return snapshot(currentState, committed, if (currentState == ThreatRepositoryState.CURRENT) "Feed actualizado y activado." else "Feed actualizado pero expirado.")
     }
 
+    @Synchronized
     fun updateFromSignedManifest(rawJson: String): ThreatRepositorySnapshot {
         val validated = parseAndValidate(rawJson)
             ?: return snapshot(
@@ -207,6 +222,7 @@ class ThreatIntelligenceRepository(
         return snapshot(currentState, committed, if (currentState == ThreatRepositoryState.CURRENT) "Feed almacenado y activado." else "Feed expirado tras almacenamiento.")
     }
 
+    @Synchronized
     fun restoreLastValid(): ThreatRepositorySnapshot {
         val fallback = lastValidFeed ?: activeFeed()
         if (fallback == null) {
@@ -247,6 +263,7 @@ class ThreatIntelligenceRepository(
 
         activeFeed = feed
         lastValidFeed = feed
+        publishRules(feed)
         lastPersistedEtag = etag ?: lastPersistedEtag
         lastPersistedLastModified = lastModified ?: lastPersistedLastModified
         prefs?.edit()
@@ -259,6 +276,22 @@ class ThreatIntelligenceRepository(
             ?.putString("last_last_modified", lastPersistedLastModified ?: "")
             ?.apply()
         return feed
+    }
+
+    private fun publishRules(feed: SignedThreatFeed?) {
+        verifiedRules.set(
+            feed?.indicators?.map { indicator ->
+                com.aura.defense.vpn.DnsRule(
+                    domain = indicator.indicator,
+                    category = indicator.category.name,
+                    source = indicator.source,
+                    feedVersion = feed.version,
+                    severity = indicator.severity.name,
+                    validUntil = feed.expiresAt,
+                    ruleId = feed.ruleId
+                )
+            }?.toList().orEmpty()
+        )
     }
 
     private fun parseAndValidate(rawJson: String): SignedThreatFeed? {

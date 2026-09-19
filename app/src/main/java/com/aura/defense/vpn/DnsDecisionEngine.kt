@@ -13,7 +13,8 @@ data class DnsRule(
     val source: String,
     val feedVersion: String,
     val severity: String = "UNKNOWN",
-    val validUntil: Long? = null
+    val validUntil: Long? = null,
+    val ruleId: String = ""
 )
 
 data class DnsDecisionResult(
@@ -23,7 +24,8 @@ data class DnsDecisionResult(
     val category: String? = null,
     val source: String? = null,
     val feedVersion: String? = null,
-    val severity: String? = null
+    val severity: String? = null,
+    val ruleId: String? = null
 )
 
 data class DnsTemporaryException(
@@ -61,12 +63,12 @@ class DnsDecisionEngine(
             ?: dynamicRuleLookup?.invoke(domain)
             ?: return DnsDecisionResult(DnsDecision.UNKNOWN, domain, "no_matching_rule")
         if (rule.validUntil != null && rule.validUntil <= now()) {
-            return DnsDecisionResult(DnsDecision.ERROR, domain, "expired_feed", rule.category, rule.source, rule.feedVersion, rule.severity)
+            return DnsDecisionResult(DnsDecision.ERROR, domain, "expired_feed", rule.category, rule.source, rule.feedVersion, rule.severity, rule.ruleId)
         }
         if (rule.category !in profile.categories) {
-            return DnsDecisionResult(DnsDecision.ALLOW, domain, "category_not_in_profile", rule.category, rule.source, rule.feedVersion, rule.severity)
+            return DnsDecisionResult(DnsDecision.ALLOW, domain, "category_not_in_profile", rule.category, rule.source, rule.feedVersion, rule.severity, rule.ruleId)
         }
-        return DnsDecisionResult(DnsDecision.BLOCK, domain, "threat_rule", rule.category, rule.source, rule.feedVersion, rule.severity)
+        return DnsDecisionResult(DnsDecision.BLOCK, domain, "threat_rule", rule.category, rule.source, rule.feedVersion, rule.severity, rule.ruleId)
     }
 
     private fun matches(candidates: Collection<String>, domain: String): Boolean = candidates.any { candidate ->
@@ -81,18 +83,5 @@ class DnsDecisionEngine(
 }
 
 class VerifiedDnsRulesSource(private val repository: com.aura.defense.threats.ThreatIntelligenceRepository) {
-    fun currentRules(): List<DnsRule> {
-        val feed = repository.activeFeed() ?: repository.lastValidFeed()
-            ?: return emptyList()
-        return feed.indicators.map { indicator ->
-            DnsRule(
-                domain = indicator.indicator,
-                category = indicator.category.name,
-                source = indicator.source,
-                feedVersion = feed.version,
-                severity = indicator.severity.name,
-                validUntil = feed.expiresAt
-            )
-        }
-    }
+    fun currentRules(): List<DnsRule> = repository.currentVerifiedRules()
 }

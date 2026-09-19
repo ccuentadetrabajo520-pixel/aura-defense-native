@@ -131,7 +131,8 @@ fun AuraAppRoot(
             val dnsStore = DnsFirewallStore(context)
             val alertStore = NotificationAlertStore(context)
             val historyStore = AuraHistoryStore(context)
-            val engine = ThreatIntelligenceEngine(context)
+            val repository = com.aura.defense.ThreatIntelligenceRepositoryProvider.get(context)
+            val engine = ThreatIntelligenceEngine(context, repository)
             val telemetry = DeviceTelemetryProvider(context).read()
             val posture = SecurityPostureEngine().evaluate(telemetry)
             val integrityFindings = com.aura.defense.security.DeviceIntegrityChecker(context).check().checks
@@ -184,7 +185,7 @@ fun AuraAppRoot(
         var checks = 0
         while (true) {
             isVpnRunning = MainActivity.auraVpnActiveStatic(context)
-            threatFeedEntries = com.aura.defense.threats.ThreatIntelligenceRepository(context).activeFeed()?.indicators?.size ?: 0
+            threatFeedEntries = com.aura.defense.ThreatIntelligenceRepositoryProvider.get(context).current().indicatorCount
             if (boot.ready) {
                 val dnsStore = DnsFirewallStore(context)
                 boot = boot.copy(

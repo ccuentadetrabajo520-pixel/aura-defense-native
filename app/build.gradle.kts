@@ -25,7 +25,7 @@ android {
             buildConfigField(
                 "String",
                 "AURA_THREAT_MANIFEST_URL",
-                "\"https://example.invalid/aura-debug-manifest.json\""
+                "\"${project.findProperty("AURA_THREAT_MANIFEST_URL_DEBUG") ?: ""}\""
             )
         }
         create("prod") {

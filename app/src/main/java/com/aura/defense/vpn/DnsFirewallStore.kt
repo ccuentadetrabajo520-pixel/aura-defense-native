@@ -23,7 +23,8 @@ data class DnsBlockedEvent(
     val timestamp: Long,
     val reason: String = "threat_rule",
     val source: String = "UNKNOWN",
-    val feedVersion: String = "UNKNOWN"
+    val feedVersion: String = "UNKNOWN",
+    val ruleId: String = "UNKNOWN"
 )
 
 class DnsFirewallStore(context: Context) {
@@ -87,7 +88,8 @@ class DnsFirewallStore(context: Context) {
                     timestamp = it.optLong("timestamp"),
                     reason = it.optString("reason", "threat_rule"),
                     source = it.optString("source", "UNKNOWN"),
-                    feedVersion = it.optString("feedVersion", "UNKNOWN")
+                    feedVersion = it.optString("feedVersion", "UNKNOWN"),
+                    ruleId = it.optString("ruleId", "UNKNOWN")
                 )
             }
         }.takeLast(MAX_EVENTS)
@@ -110,6 +112,7 @@ class DnsFirewallStore(context: Context) {
                     put("reason", it.reason)
                     put("source", it.source)
                     put("feedVersion", it.feedVersion)
+                    put("ruleId", it.ruleId)
                 })
             }
         }
