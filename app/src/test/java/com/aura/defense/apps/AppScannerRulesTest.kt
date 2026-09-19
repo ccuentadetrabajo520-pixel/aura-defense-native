@@ -2,6 +2,7 @@ package com.aura.defense.apps
 
 import com.aura.defense.threats.SignedThreatFeed
 import com.aura.defense.threats.SignedThreatFeedValidator
+import com.aura.defense.threats.ThreatFeedCanonicalizer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -46,14 +47,20 @@ class AppScannerRulesTest {
         val ruleId = "com.example.rule.remote_01"
         val source = "external-threat-feed"
         val version = "2026.09.18"
-        val canonicalPayload = org.json.JSONObject().apply {
-            put("ruleId", ruleId)
-            put("source", source)
-            put("version", version)
-            put("evidence", evidence)
-            put("expiresAt", expiresAt)
-            put("indicators", org.json.JSONArray())
-        }.toString()
+        val canonicalPayload = ThreatFeedCanonicalizer.canonicalize(
+            SignedThreatFeed(
+                ruleId = ruleId,
+                source = source,
+                version = version,
+                evidence = evidence,
+                expiresAt = expiresAt,
+                checksum = "",
+                size = 0L,
+                signature = "",
+                publicKeyId = "aura-ed25519-feed-v1",
+                indicators = emptyList()
+            )
+        )
         val checksum = sha256Hex(canonicalPayload)
         val size = canonicalPayload.toByteArray(Charsets.UTF_8).size.toLong()
         val validFeed = signedFeed(
@@ -108,14 +115,20 @@ class AppScannerRulesTest {
         size: Long,
         privateKey: java.security.PrivateKey
     ): SignedThreatFeed {
-        val canonical = org.json.JSONObject().apply {
-            put("ruleId", ruleId)
-            put("source", source)
-            put("version", version)
-            put("evidence", evidence)
-            put("expiresAt", expiresAt)
-            put("indicators", org.json.JSONArray())
-        }.toString()
+        val canonical = ThreatFeedCanonicalizer.canonicalize(
+            SignedThreatFeed(
+                ruleId = ruleId,
+                source = source,
+                version = version,
+                evidence = evidence,
+                expiresAt = expiresAt,
+                checksum = checksum,
+                size = size,
+                signature = "",
+                publicKeyId = "aura-ed25519-feed-v1",
+                indicators = emptyList()
+            )
+        )
         val signature = Signature.getInstance("Ed25519").apply {
             initSign(privateKey)
             update(canonical.toByteArray(Charsets.UTF_8))

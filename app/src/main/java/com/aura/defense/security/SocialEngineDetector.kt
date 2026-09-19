@@ -1,6 +1,5 @@
 package com.aura.defense.security
 
-import com.aura.defense.vpn.ThreatFeedManager
 import com.aura.defense.vpn.VpnDebugger
 import java.net.URL
 import java.net.URLDecoder

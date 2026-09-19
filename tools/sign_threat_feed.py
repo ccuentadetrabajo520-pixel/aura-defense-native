@@ -19,36 +19,43 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
+def _escape_json(value: str) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))[1:-1]
+
+
 def _canonical_indicator(indicator: dict[str, Any]) -> str:
     fields = [
-        str(indicator.get("id", "")),
-        str(indicator.get("indicator", "")),
-        str(indicator.get("indicatorType", "DOMAIN")),
-        str(indicator.get("category", "MALWARE")),
-        str(indicator.get("severity", "HIGH")),
-        str(indicator.get("source", "aurafeed")),
-        str(indicator.get("updatedAt", "1970-01-01T00:00:00Z")),
+        f'"id":"{_escape_json(str(indicator.get("id", "")))}"',
+        f'"indicator":"{_escape_json(str(indicator.get("indicator", "")))}"',
+        f'"indicatorType":"{_escape_json(str(indicator.get("indicatorType", "DOMAIN")))}"',
+        f'"category":"{_escape_json(str(indicator.get("category", "MALWARE")))}"',
+        f'"severity":"{_escape_json(str(indicator.get("severity", "HIGH")))}"',
+        f'"descriptionEs":"{_escape_json(str(indicator.get("descriptionEs", "")))}"',
+        f'"source":"{_escape_json(str(indicator.get("source", "aurafeed")))}"',
+        f'"updatedAt":"{_escape_json(str(indicator.get("updatedAt", "1970-01-01T00:00:00Z")))}"',
     ]
-    return "|".join(fields)
+    return "{" + ",".join(fields) + "}"
 
 
 def _canonical_payload(feed: dict[str, Any]) -> str:
-    base = [
-        str(feed.get("ruleId", "")),
-        str(feed.get("source", "")),
-        str(feed.get("version", "")),
-        str(feed.get("evidence", "")),
-        str(feed.get("expiresAt", "0")),
-    ]
     indicators = feed.get("indicators", [])
     if isinstance(indicators, dict):
         items = indicators.get("items", [])
     else:
         items = indicators
-    if isinstance(items, list) and items:
-        blob = ";;".join(_canonical_indicator(item) for item in items)
-        return "|".join(base + [blob])
-    return "|".join(base)
+    normalized_items = [
+        _canonical_indicator(item)
+        for item in sorted(items, key=lambda item: str(item.get("id", "")))
+    ]
+    parts = [
+        f'"ruleId":"{_escape_json(str(feed.get("ruleId", "")))}"',
+        f'"source":"{_escape_json(str(feed.get("source", "")))}"',
+        f'"version":"{_escape_json(str(feed.get("version", "")))}"',
+        f'"evidence":"{_escape_json(str(feed.get("evidence", "")))}"',
+        f'"expiresAt":{int(feed.get("expiresAt", 0))}',
+        '"indicators":[' + ",".join(normalized_items) + "]",
+    ]
+    return "{" + ",".join(parts) + "}"
 
 
 def _sha256_hex(data: bytes) -> str:

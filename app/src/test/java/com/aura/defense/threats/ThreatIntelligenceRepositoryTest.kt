@@ -179,22 +179,19 @@ class ThreatIntelligenceRepositoryTest {
                 put("size", signedFeed.size)
                 put("signature", signedFeed.signature)
                 put("publicKeyId", signedFeed.publicKeyId)
-                put("indicators", JSONObject().apply {
-                    put("count", signedFeed.indicators.size)
-                    put("items", org.json.JSONArray().apply {
-                        signedFeed.indicators.forEach { indicator ->
-                            put(JSONObject().apply {
-                                put("id", indicator.id)
-                                put("indicator", indicator.indicator)
-                                put("indicatorType", indicator.indicatorType.name)
-                                put("category", indicator.category.name)
-                                put("severity", indicator.severity.name)
-                                put("descriptionEs", indicator.descriptionEs)
-                                put("source", indicator.source)
-                                put("updatedAt", indicator.updatedAt)
-                            })
-                        }
-                    })
+                put("indicators", org.json.JSONArray().apply {
+                    signedFeed.indicators.forEach { indicator ->
+                        put(JSONObject().apply {
+                            put("id", indicator.id)
+                            put("indicator", indicator.indicator)
+                            put("indicatorType", indicator.indicatorType.name)
+                            put("category", indicator.category.name)
+                            put("severity", indicator.severity.name)
+                            put("descriptionEs", indicator.descriptionEs)
+                            put("source", indicator.source)
+                            put("updatedAt", indicator.updatedAt)
+                        })
+                    }
                 })
             })
         }

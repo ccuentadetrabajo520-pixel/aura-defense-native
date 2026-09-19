@@ -164,7 +164,6 @@ class AuraVpnService : VpnService() {
 
             if (store.isAllowed(domain)) return false
 
-            decisionEngine = buildDecisionEngine()
             val verdict = decisionEngine?.decide(domain)
                 ?: DnsDecisionResult(DnsDecision.ERROR, domain, "decision_engine_unavailable")
             if (verdict.decision == DnsDecision.ERROR) {
@@ -289,25 +288,16 @@ class AuraVpnService : VpnService() {
 
     private fun buildDecisionEngine(): DnsDecisionEngine {
         val repository = com.aura.defense.threats.ThreatIntelligenceRepository(this)
-        val active = repository.activeFeed()
-        val rules = active?.indicators?.map { indicator ->
-            DnsRule(
-                domain = indicator.indicator,
-                category = indicator.category.name,
-                source = indicator.source,
-                feedVersion = active.version,
-                severity = indicator.severity.name,
-                validUntil = active.expiresAt
-            )
-        } ?: emptyList()
+        val rulesSource = VerifiedDnsRulesSource(repository)
         val store = dnsStore ?: DnsFirewallStore(this)
         return DnsDecisionEngine(
             profile = store.profile(),
             allowlist = store.allowlist().toSet(),
             blocklist = store.blocklist().toSet(),
-            rules = rules,
+            rules = emptyList(),
             temporaryExceptions = store.temporaryExceptions(),
-            dynamicRuleLookup = null
+            dynamicRuleLookup = null,
+            rulesSource = { rulesSource.currentRules() }
         )
     }
 

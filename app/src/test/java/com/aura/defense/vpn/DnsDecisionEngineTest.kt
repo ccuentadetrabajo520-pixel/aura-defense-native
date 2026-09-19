@@ -86,4 +86,36 @@ class DnsDecisionEngineTest {
         assertEquals(DnsDecision.ERROR, invalid.decide("safe.example").decision)
         assertEquals("invalid_rule", invalid.decide("safe.example").reason)
     }
+
+    @Test
+    fun `rules source can update without vpn restart and keeps last valid rules`() {
+        val repositoryRules = mutableListOf(
+            DnsRule("a.example", "MALWARE", "feed-a", "A", validUntil = Long.MAX_VALUE),
+            DnsRule("b.example", "MALWARE", "feed-a", "A", validUntil = Long.MAX_VALUE)
+        )
+        val engine = DnsDecisionEngine(
+            DnsFirewallProfile.ESTRICTO,
+            emptySet(),
+            emptySet(),
+            emptyList(),
+            rulesSource = { repositoryRules }
+        )
+
+        assertEquals(DnsDecision.BLOCK, engine.decide("a.example").decision)
+        repositoryRules.clear()
+        repositoryRules.add(DnsRule("b.example", "MALWARE", "feed-b", "B", validUntil = Long.MAX_VALUE))
+        assertEquals(DnsDecision.UNKNOWN, engine.decide("a.example").decision)
+        assertEquals(DnsDecision.BLOCK, engine.decide("b.example").decision)
+
+        repositoryRules.clear()
+        repositoryRules.add(DnsRule("bad domain", "MALWARE", "feed-b", "B", validUntil = Long.MAX_VALUE))
+        val invalidEngine = DnsDecisionEngine(
+            DnsFirewallProfile.ESTRICTO,
+            emptySet(),
+            emptySet(),
+            emptyList(),
+            rulesSource = { repositoryRules }
+        )
+        assertEquals(DnsDecision.ERROR, invalidEngine.decide("safe.example").decision)
+    }
 }

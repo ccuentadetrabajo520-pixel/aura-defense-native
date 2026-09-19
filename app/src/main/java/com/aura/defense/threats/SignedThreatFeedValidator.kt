@@ -26,32 +26,58 @@ data class SignedThreatFeed(
     val indicatorCount: Int
         get() = indicators.size
 
-    fun canonicalPayloadString(): String {
-        val root = org.json.JSONObject().apply {
-            put("ruleId", ruleId)
-            put("source", source)
-            put("version", version)
-            put("evidence", evidence)
-            put("expiresAt", expiresAt)
-            put("indicators", org.json.JSONArray().apply {
-                indicators.forEach { indicator ->
-                    put(org.json.JSONObject().apply {
-                        put("id", indicator.id)
-                        put("indicator", indicator.indicator)
-                        put("indicatorType", indicator.indicatorType.name)
-                        put("category", indicator.category.name)
-                        put("severity", indicator.severity.name)
-                        put("descriptionEs", indicator.descriptionEs)
-                        put("source", indicator.source)
-                        put("updatedAt", indicator.updatedAt)
-                    })
-                }
-            })
-        }
-        return root.toString()
-    }
+    fun canonicalPayloadString(): String = ThreatFeedCanonicalizer.canonicalize(this)
 
     fun canonicalPayloadBytes(): ByteArray = canonicalPayloadString().toByteArray(Charsets.UTF_8)
+}
+
+object ThreatFeedCanonicalizer {
+    fun canonicalize(feed: SignedThreatFeed): String {
+        val indicatorJson = feed.indicators.sortedBy { it.id }.joinToString(",") { indicator ->
+            buildString {
+                append("{")
+                append("\"id\":\"").append(escapeJson(indicator.id)).append("\",")
+                append("\"indicator\":\"").append(escapeJson(indicator.indicator)).append("\",")
+                append("\"indicatorType\":\"").append(escapeJson(indicator.indicatorType.name)).append("\",")
+                append("\"category\":\"").append(escapeJson(indicator.category.name)).append("\",")
+                append("\"severity\":\"").append(escapeJson(indicator.severity.name)).append("\",")
+                append("\"descriptionEs\":\"").append(escapeJson(indicator.descriptionEs)).append("\",")
+                append("\"source\":\"").append(escapeJson(indicator.source)).append("\",")
+                append("\"updatedAt\":\"").append(escapeJson(indicator.updatedAt)).append("\"")
+                append("}")
+            }
+        }
+
+        return buildString {
+            append("{")
+            append("\"ruleId\":\"").append(escapeJson(feed.ruleId)).append("\",")
+            append("\"source\":\"").append(escapeJson(feed.source)).append("\",")
+            append("\"version\":\"").append(escapeJson(feed.version)).append("\",")
+            append("\"evidence\":\"").append(escapeJson(feed.evidence)).append("\",")
+            append("\"expiresAt\":").append(feed.expiresAt).append(",")
+            append("\"indicators\":[").append(indicatorJson).append("]")
+            append("}")
+        }
+    }
+
+    private fun escapeJson(value: String): String = buildString {
+        value.forEach { ch ->
+            when (ch) {
+                '\\' -> append("\\\\")
+                '"' -> append("\\\"")
+                '\b' -> append("\\b")
+                '\u000C' -> append("\\f")
+                '\n' -> append("\\n")
+                '\r' -> append("\\r")
+                '\t' -> append("\\t")
+                else -> {
+                    if (ch.code < 0x20) append("\\u")
+                        .append(ch.code.toString().padStart(4, '0'))
+                    else append(ch)
+                }
+            }
+        }
+    }
 }
 
 data class SignedThreatValidation(
@@ -137,14 +163,28 @@ class SignedThreatFeedValidator(
         checksum: String,
         size: Long
     ): String {
-        val root = org.json.JSONObject().apply {
-            put("ruleId", ruleId)
-            put("source", source)
-            put("version", version)
-            put("evidence", evidence)
-            put("expiresAt", expiresAt)
-        }
-        return root.toString()
+        val root = linkedMapOf(
+            "ruleId" to ruleId,
+            "source" to source,
+            "version" to version,
+            "evidence" to evidence,
+            "expiresAt" to expiresAt,
+            "indicators" to emptyList<Any>()
+        )
+        return ThreatFeedCanonicalizer.canonicalize(
+            SignedThreatFeed(
+                ruleId = ruleId,
+                source = source,
+                version = version,
+                evidence = evidence,
+                expiresAt = expiresAt,
+                checksum = checksum,
+                size = size,
+                signature = "",
+                publicKeyId = "aura-ed25519-feed-v1",
+                indicators = emptyList()
+            )
+        )
     }
 
     private fun buildPublicKey() = runCatching {

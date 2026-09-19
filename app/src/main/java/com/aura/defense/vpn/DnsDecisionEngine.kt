@@ -81,14 +81,18 @@ class DnsDecisionEngine(
 }
 
 class VerifiedDnsRulesSource(private val repository: com.aura.defense.threats.ThreatIntelligenceRepository) {
-    fun currentRules(): List<DnsRule> = repository.activeFeed()?.indicators?.map { indicator ->
-        DnsRule(
-            domain = indicator.indicator,
-            category = indicator.category.name,
-            source = indicator.source,
-            feedVersion = repository.activeFeed()?.version ?: "unknown",
-            severity = indicator.severity.name,
-            validUntil = repository.activeFeed()?.expiresAt
-        )
-    } ?: emptyList()
+    fun currentRules(): List<DnsRule> {
+        val feed = repository.activeFeed() ?: repository.lastValidFeed()
+            ?: return emptyList()
+        return feed.indicators.map { indicator ->
+            DnsRule(
+                domain = indicator.indicator,
+                category = indicator.category.name,
+                source = indicator.source,
+                feedVersion = feed.version,
+                severity = indicator.severity.name,
+                validUntil = feed.expiresAt
+            )
+        }
+    }
 }
