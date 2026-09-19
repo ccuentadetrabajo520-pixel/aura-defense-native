@@ -47,6 +47,7 @@ import com.aura.defense.assistant.AssistantExplanationLevel
 import com.aura.defense.assistant.AssistantProposedAction
 import com.aura.defense.assistant.AssistantResponse
 import com.aura.defense.assistant.AssistantResponseType
+import com.aura.defense.assistant.AssistantActionExecutor
 import com.aura.defense.assistant.AssistantTimelineStore
 import com.aura.defense.assistant.AssistantHistoryRepository
 import com.aura.defense.security.PostureResult
