@@ -11,7 +11,13 @@ class AssistantConversationService(
     postureProvider: () -> PostureResult,
     private val model: AssistantModelProvider = RuleBasedLocalAssistantProvider(),
     private val history: AssistantHistoryRepository = AssistantHistoryRepository(context),
-    private val actionExecutor: suspend (AssistantProposedAction) -> AssistantActionResult = { AssistantActionExecutor(context, postureProvider).execute(it) },
+    private val actionExecutor: suspend (AssistantProposedAction) -> AssistantActionResult = {
+        AssistantActionExecutor(
+            context = context,
+            postureProvider = postureProvider,
+            registry = AssistantToolRegistry()
+        ).execute(it)
+    },
     private val toolRegistry: AssistantToolRegistry = AssistantToolRegistry()
 ) {
     private val contextBuilder = AssistantContextBuilder(AssistantEvidenceProvider(context, postureProvider = postureProvider))

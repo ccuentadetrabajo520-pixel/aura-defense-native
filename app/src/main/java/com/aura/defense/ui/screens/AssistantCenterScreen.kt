@@ -103,6 +103,7 @@ fun AssistantCenterScreen(
                     }
                     else -> AssistantActionExecutor(
                         context = context,
+                        postureProvider = { posture },
                         registry = AssistantToolRegistry()
                     ).execute(action)
                 }
